@@ -145,6 +145,21 @@ jobs:
           fi
           echo "Tier-1 sources are cheat-free (independent scan)."
 
+      # Proof-carrying claims: CLAIMS.md must not lie about the artifact.
+      # Every `Script.sml : theorem` the ledger cites must exist in the
+      # signature Tier-1 just built; the three labeled seams must still be
+      # defined + named; no cheat/oracle/axiom token; the untrusted ->
+      # unmodelable reframe must have held. Non-strict: Tier-2/3 theories
+      # not built on this runner are skipped (not failed) by design.
+      - name: Verify CLAIMS ledger (scripts/verify-claims.sh)
+        run: |
+          set -euo pipefail
+          bash scripts/verify-claims.sh 2>&1 | tee /tmp/verify-claims.log
+          grep -q 'CLAIMS LEDGER VERIFIED' /tmp/verify-claims.log || {
+            echo "::error title=LEDGER DISCREPANCY::CLAIMS.md overclaims or build is stale"
+            exit 1
+          }
+
       - name: Job summary
         if: always()
         run: |

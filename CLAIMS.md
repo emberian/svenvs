@@ -397,6 +397,22 @@ These are in-flight or planned and are **not** asserted as done anywhere:
 All four are marked in-progress in `README.md` / `ARCHITECTURE.md`. They are
 listed here so a skeptic knows precisely where the frontier is.
 
+## This ledger is itself mechanically checked
+
+A ledger you have to trust is just a nicer `cheat`. `scripts/verify-claims.sh`
+makes this document **proof-carrying about itself**: every
+`path/<X>Script.sml : theorem` citation above (and in the per-directory
+`CLAIMS.md`s) is checked to name a theorem that genuinely exists as
+`val <t> : thm` in the *built* signature; the three labeled seams are
+verified still defined and named; the cheat/oracle/axiom scan is re-run; and
+the `untrusted → unmodelable` reframe is verified to have held. It runs at
+the end of `scripts/tower.sh` and as a required step in the CI
+(`.github/workflows/verify.yml`) — so a row that overclaims, or a stale
+build, fails the gate, unmissably. (Tier-2/3 theories not built in a given
+run are *skipped*, not failed; `--strict` turns skips into failures for a
+full-tier check.) Proof-carrying claims about a proof-carrying system: the
+recursion is the point.
+
 ## Cheat audit (read this)
 
 - **Source scan:** zero `cheat` tactics in any `*.sml`/`*.ml`. Enforced on
