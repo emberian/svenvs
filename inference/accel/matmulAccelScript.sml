@@ -125,7 +125,16 @@ Theorem tiled_matmul_eq:
   ∀b W inp. tiled_matmul b W inp = matmul W inp
 Proof
   rw[tiled_matmul_def, matmul_def] >>
-  rw[GSYM MAP_APPEND, TAKE_DROP]
+  metis_tac[MAP_APPEND, TAKE_DROP]
+QED
+
+(* Reusable, deterministic TAKE/DROP recombination — replaces the
+   `GSYM MAP_APPEND` rewrite that loops against the default simpset's
+   MAP_APPEND on the pinned toolchain. *)
+Theorem map_take_drop:
+  ∀f b l. MAP f (TAKE b l) ++ MAP f (DROP b l) = MAP f l
+Proof
+  metis_tac[MAP_APPEND, TAKE_DROP]
 QED
 
 (* the FULLY accelerated layer: row tiling + chunked (SIMD) dot per row,
@@ -143,8 +152,8 @@ Theorem fast_layer_eq:
     EVERY (λrow. LENGTH row = LENGTH inp) W ⇒
     fast_layer b k W inp = layer W inp
 Proof
-  rw[fast_layer_def, layer_is_relu_matmul, matmul_def,
-     GSYM MAP_APPEND, TAKE_DROP] >>
+  rw[fast_layer_def, layer_is_relu_matmul, matmul_def] >>
+  rw[map_take_drop] >>
   rw[MAP_MAP_o, combinTheory.o_DEF] >>
   irule MAP_CONG >> rw[] >>
   ‘LENGTH x = LENGTH inp’ by fs[EVERY_MEM] >>
