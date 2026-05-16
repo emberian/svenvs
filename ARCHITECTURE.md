@@ -43,7 +43,11 @@ itself — with a machine-checked guarantee that safety is never lost.
 ```
 
 Every mutable layer self-improves, each gated by the layer below, all
-ultimately gated by the one frozen root. The asymmetry that makes prover
+ultimately gated by the current root. The root is *not* eternally frozen:
+it is the current term of a **forward-certified genealogy of judges** —
+soundness propagates from a sound genesis along any certified succession
+(`genealogy/genealogyScript.sml : genealogy_sound`), so "frozen forever"
+is replaced by "sound once at genesis, certified forward". The asymmetry that makes prover
 self-improvement sound: the frozen root vouches for a *different, mutable*
 artifact (its soundness is a HOL4 theorem about that artifact) — that is
 **not** a system vouching for itself, so it needs **no** reflection
