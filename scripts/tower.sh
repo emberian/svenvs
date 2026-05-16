@@ -48,4 +48,12 @@ if grep -rnE '(^|[[:space:]>(])cheat([[:space:]]|$|\))|new_axiom|mk_thm|mk_oracl
 else
   echo "  cheat/oracle scan: clean"
 fi
-[ "$ok" = 1 ] && { echo; echo "TOWER COMPOSED & VERIFIED."; } || { echo; echo "TOWER INCOMPLETE."; exit 1; }
+[ "$ok" = 1 ] || { echo; echo "TOWER INCOMPLETE."; exit 1; }
+
+# Proof-carrying claims: the ledger must not lie about what was just built.
+say "PROOF-CARRYING CLAIMS (verify-claims.sh)"
+if bash "$here/scripts/verify-claims.sh"; then
+  echo; echo "TOWER COMPOSED & VERIFIED."
+else
+  echo; echo "TOWER BUILT, but CLAIMS LEDGER FAILED — fix CLAIMS.md."; exit 1
+fi
