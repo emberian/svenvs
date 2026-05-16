@@ -8,7 +8,7 @@ established, using one of four honesty labels:
 | **PROVED** | A HOL4 (or live Candle) machine-checked theorem. No `cheat`, no `sorry`, no admitted goal. Cited as `file : theorem`. Re-checked by `scripts/reproduce.sh` / `./demo.sh`. |
 | **TRUSTED-GLUE** | Small, auditable non-proof code you must read to believe the demo wires the proof to reality (e.g. the ~50-line Python policy mirror). Explicitly bounded. |
 | **UNTRUSTED** | Deliberately not relied upon (the LLM). The theorems are `∀`-quantified over it; nothing about it is assumed. |
-| **ASSUMED** | An explicit, *labeled*, literature-standard hypothesis appearing verbatim in the source as a `Definition`/antecedent — **not** a `cheat`. Stated, never hidden. Exactly two of these exist; both have a known discharge path. |
+| **ASSUMED** | An explicit, *labeled*, literature-standard hypothesis appearing verbatim in the source as a `Definition`/antecedent — **not** a `cheat`. Stated, never hidden. Three of these exist in general (`loeb_reflection`, `encodes_obligation`, `frozen_checker_sound`); each has a known discharge path, and `encodes_obligation` is **already discharged for the shipped finite watchdog instance** (§7). |
 
 There are **zero `cheat` tactics** anywhere in the repository. This was
 verified by an automated scan (`scripts/tier1-core.sh`) and by hand; see the
@@ -127,11 +127,15 @@ obligation is discharged by Candle's **verified inference system** (`|-` =
 | The base kernel (Candle's `\|-`) is sound — **unconditionally**, this *is* `proves_sound`. | **PROVED** | `kernel/kernelUpgradeScript.sml : candle_kernel_sound` |
 | A self-upgraded kernel `K'` admitting a policy weakening still preserves safety for every controller. | **PROVED**, modulo the `loeb_reflection` seam | `kernel/kernelUpgradeScript.sml : upgraded_kernel_preserves_safety, kernel_self_upgrade_sound, self_improving_kernel_is_safe` |
 
-### The two — and only two — ASSUMED hypotheses
+### The two ASSUMED hypotheses of §4
 
-Both appear verbatim in source as explicit `Definition`s and as named
-antecedents of the conditional theorems. Neither is a `cheat`. This is
-exactly the Fallenstein–Kumar framing: the principle is *stated*.
+These two are the §4 (Candle-kernel-checked) seams; a third labeled
+assumption, `frozen_checker_sound`, is introduced and justified separately in
+§8 (the capstone). All appear verbatim in source as explicit `Definition`s
+and as named antecedents of the conditional theorems. None is a `cheat`.
+This is exactly the Fallenstein–Kumar framing: the principle is *stated*.
+(Of the two below, `encodes_obligation` is **discharged** for the shipped
+finite watchdog instance — see §7.)
 
 1. **`encodes_obligation`** — `embedded/embeddedGateScript.sml`
    ```
