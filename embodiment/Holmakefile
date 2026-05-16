@@ -1,0 +1,6 @@
+# The embodiment slice — the testimony channel ("a prover with hands").
+# Pure light HOL4: depends only on the generic core (..) — system,
+# envelope, safety, sv_weakening, upgrade. No CakeML / candle / hol-
+# reflection. The keystone-composed crowns live in integration/.
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE
