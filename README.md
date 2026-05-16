@@ -16,6 +16,13 @@ own **verified prover (Candle)** gates every self-modification — up to and
 including upgrading the proof-checker itself — with a machine-checked
 guarantee that safety is never lost. Zero `cheat` tactics.
 
+**What "verified" means here — load-bearing, not preface.** Exactly the
+cited theorems and their labeled seams. **Not** verified selfhood,
+continuity, alignment, welfare, or a safe *inhabitant*. Only the
+*envelope* is proved sound, modulo the named assumptions. If "svenvs runs
+verified" starts carrying more than that, the extra meaning is the
+reader's, not the artifact's.
+
 This is an *engineering artifact*, not a position paper: clone it and check
 the proofs yourself.
 

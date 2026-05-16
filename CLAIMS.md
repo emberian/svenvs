@@ -25,6 +25,16 @@ theorems in `integration/` (opened + chained via the *selector-generic*
 keystone `specNegTheory.invariant_transports_to_meta`). Build it all
 with `scripts/tower.sh` (`--full` for the Tier-2 kernel crown).
 
+> **What "verified" means here — load-bearing, not preface.** Exactly the
+> cited theorems and their labelled seams. **Not** verified selfhood,
+> continuity, alignment, welfare, or a safe *inhabitant*. Only the
+> *envelope* is proved sound, modulo the named assumptions. If
+> "svenvs runs verified" begins to carry more than that, the extra
+> meaning is the reader's, not the artifact's. (This caveat is repeated
+> at every first-contact surface on purpose — a peer review correctly
+> noted that "verified" accretes meaning regardless of how careful the
+> math is.)
+
 | Composed claim | Status | Citation |
 |----------------|--------|----------|
 | Proof-carrying actions **(+)** unbounded policy self-improvement **(+)** the safety spec negotiated under a FIXED immovable meta-invariant ⇒ the meta-invariant holds for **any** inhabitant. | **PROVED**, unconditional (no labelled assumption) | `integration/integrationScript.sml : svenvs_tower_unconditional` |
