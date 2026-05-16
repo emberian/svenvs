@@ -33,6 +33,7 @@ with `scripts/tower.sh` (`--full` for the Tier-2 kernel crown).
 | **Even the meta is amendable** — gated against an *eternal bedrock* by the identical specNeg gate one level up; an arbitrary admitted amendment stream **(+)** spec negotiation under the amended meta still keeps the bedrock for **any** inhabitant. The fixed-meta trunk is a *corollary* of this. | **PROVED**, unconditional (no labelled assumption, no Löb) | `integration/integrationScript.sml : svenvs_tower_with_meta_amendment`; substrate in `amendment/amendmentScript.sml` |
 | + prover self-improvement crown. | **PROVED**, modulo the labelled `frozen_checker_sound` (carried verbatim in the statement) | `integration/integrationScript.sml : svenvs_tower_with_prover_upgrade` |
 | + kernel self-upgrade crown (Tier-2; pulls candle semantics). | **PROVED**, modulo the labelled `loeb_reflection`/`encodes_obligation` (carried verbatim) | `integration/integrationKernelScript.sml : svenvs_tower_with_kernel_upgrade` |
+| **The gate applied to the root itself** — soundness propagates along *any* forward-certified succession of judges from a sound genesis; "frozen forever" becomes "sound once, certified forward". The general principle the crowns above instantiate. | **PROVED**, unconditional (carried seam is the existing `frozen_checker_sound` family, *discharged* for the non-strengthening case); honest negative on strengthening | `genealogy/genealogyScript.sml : genealogy_sound, identity_vouch_unconditional, genealogy_irrelevant_to_vouch_sound` |
 
 **Honest boundary — what is NOT composed into this theorem (and is not claimed to be):** the verified-inference research track (the `inference/` subtree) is a *separate axis*; the `embedded`, `realembedded`, `pureverified`, `cartpole*`, `agent` theories are inhabitant- or checker-**instances** of these layers, not further links in this chain. They share the generic spine; they do not compose into `svenvs_tower_*`. Sections 1–8 below detail each slice.
 
@@ -404,6 +405,38 @@ specneg only).
 > false soundness statement") is a values choice, stated as such — the
 > theorem fixes the *discipline*, not the floor's content. Built
 > cheat-free by light Holmake; zero `cheat`/axiom/oracle tags.
+
+---
+
+## 11. The gate applied to the root itself — PROVED, unconditional
+
+policy → spec → meta were each made negotiable-under-a-checked-proof. The
+root judge (HOL4's LCF kernel) was the one thing called "frozen forever".
+That framing is corrected here, as a theorem: the root need not be a rock —
+it must be a **well-founded, forward-certified genealogy of judges**. It is
+fixed only *during its own tenure* (a proof is meaningful only relative to
+some fixed calculus); a successor is adopted only if the predecessor
+certified it. This is the **identical gate, one level deeper** — it
+introduces *no* new assumption, reusing the existing seam taxonomy verbatim.
+`genealogy/` is pure light HOL4 (no deps beyond the base): it is the
+general principle the keystone-composed crowns (§0) are instances of.
+
+| Claim | Status | Citation |
+|-------|--------|----------|
+| The forward-step seam `vouch_sound` (a sound judge that vouches for J' implies J' sound) — *identical in shape to* `selfProverTheory.frozen_checker_sound`, one level up; carried verbatim, never hidden. | definition (the labelled seam) | `genealogy/genealogyScript.sml : vouch_sound_def` |
+| **Headline:** a sound *genesis* judge + a forward-certified (unbounded) succession ⇒ **every** judge in the line is sound. Pure modus-ponens folded over the succession: no Löb, no assumption beyond the carried seam. "Frozen forever" → "sound once at genesis, certified forward"; only genesis soundness is irreducibly assumed (= today's built `proves_sound` at n=0). | **PROVED** | `genealogy/genealogyScript.sml : genealogy_sound, any_reached_judge_is_sound` |
+| The sound **non-strengthening** case is **UNCONDITIONAL**: a re-engineered successor proving the *same* standard discharges the seam outright (analogue of the watchdog's identity-Löb discharge). | **PROVED** (was the seam) | `genealogy/genealogyScript.sml : identity_vouch_unconditional, nonstrengthening_genealogy_unconditional` |
+| **Honest negative:** `vouch_sound` has *no genealogy parameter at all*, so no amount of succession structure can dissolve it for genuine logical strengthening — the Gödel/Löb wall stands, stated as a theorem (precise analogue of `loeb_finite_obstruction`). | **HONEST NEGATIVE** (proved) | `genealogy/genealogyScript.sml : genealogy_irrelevant_to_vouch_sound` |
+
+> Net: the recursion the whole architecture embodies — *prove, then act;
+> improvement integrates only through a predecessor-certified step* — is now
+> a theorem at the root too, not prose. Nothing is eternally frozen; the
+> only irreducible costs are the **genesis** judge's soundness (by Gödel,
+> unprovable from within — it is the single root assumption, and it is
+> exactly the *built* `proves_sound` at n=0) and **logical
+> strengthening** of the judge (the existing labelled `loeb_reflection`
+> family — not a new seam). Built cheat-free by light Holmake (~0 s, no
+> monster); zero `cheat`/axiom/oracle tags.
 
 ---
 

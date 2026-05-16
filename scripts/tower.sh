@@ -17,7 +17,7 @@ say(){ printf '\n=== %s ===\n' "$*"; }
 # DAG order: generic core -> the three composable slices -> integration.
 say "1. generic core (system/envelope/safety/sv_weakening/upgrade)"
 ( cd "$here" && "$HOL" )
-for d in pca specneg selfprover liberty amendment; do
+for d in pca specneg selfprover liberty amendment genealogy; do
   say "2. slice: $d"
   ( cd "$here/$d" && "$HOL" )
 done
@@ -48,6 +48,16 @@ if grep -rnE '(^|[[:space:]>(])cheat([[:space:]]|$|\))|new_axiom|mk_thm|mk_oracl
 else
   echo "  cheat/oracle scan: clean"
 fi
+# The general principle the keystone-composed crowns are instances of:
+# the gate applied to the root judge itself (forward-certified genealogy).
+for thm in genealogy_sound identity_vouch_unconditional genealogy_irrelevant_to_vouch_sound; do
+  if grep -aqE "^[[:space:]]*val $thm :" "$here"/genealogy/.hol/objs/genealogyTheory.sig 2>/dev/null; then
+    echo "  PROVED  genealogy   : $thm"
+  else
+    echo "  MISSING $thm"; ok=0
+  fi
+done
+
 [ "$ok" = 1 ] || { echo; echo "TOWER INCOMPLETE."; exit 1; }
 
 # Proof-carrying claims: the ledger must not lie about what was just built.

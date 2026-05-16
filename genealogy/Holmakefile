@@ -1,0 +1,6 @@
+# The genealogy slice — the one gate applied to the root judge itself.
+# Pure light HOL4: no svenvs-core dependency even — it is the *general
+# principle* (soundness propagates along a forward-certified succession;
+# only genesis + the strength-increase seam are irreducible) that the whole
+# tower is an instance of. Reproducible by anyone with HOL4.
+OPTIONS = QUIT_ON_FAILURE
