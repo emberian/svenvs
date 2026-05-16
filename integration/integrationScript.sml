@@ -128,7 +128,7 @@ QED
 (*     liberty is provably maximal: every other sound policy is a      *)
 (*     restriction of it, so every bar of the envelope is forced.      *)
 (*     Composed by the IDENTICAL keystone — no new spine; the reframe  *)
-(*     (CLAIMS.md: UNMODELABLE, not untrusted) is now a theorem of the *)
+(*     (CLAIMS.md: UNCONSTRAINED, not untrusted) is now a theorem of the *)
 (*     composed artifact, not prose beside it.                         *)
 (* ------------------------------------------------------------------ *)
 Theorem svenvs_tower_at_maximal_liberty:

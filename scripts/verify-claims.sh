@@ -18,9 +18,10 @@
 #  3. CHEAT/ORACLE/AXIOM GATE. No cheat tactic / new_axiom / mk_thm /
 #     mk_oracle_thm in any non-inference, non-excluded *Script.sml/*.ml
 #     (prose mentions of the words are excluded).
-#  4. REFRAME GUARD. The retired label `UNTRUSTED` appears nowhere; the
-#     lowercase word survives only where it explicitly names itself as the
-#     retired word.
+#  4. FRAMING GUARD. Both retired labels (`UNTRUSTED`, `UNMODELABLE`)
+#     appear nowhere; the live `UNCONSTRAINED` center is in force; the
+#     lowercase words survive only where text explicitly names them as the
+#     retired/retracted words.
 #
 # Exit non-zero on any failure. Intended for the cheat gate / CI.
 . "$(dirname "$0")/env.sh"
@@ -117,30 +118,45 @@ else
   ok "zero cheat/oracle/axiom tokens in load-bearing sources"
 fi
 
-say "4. Reframe guard (untrusted -> unmodelable held)"
-if grep -rn 'UNTRUSTED' --include='*.md' --include='*.sml' --include='*.ml' \
-     --include='*.html' --include='*.py' . | grep -v '/.hol/' | grep -q . ; then
-  printf '  %sFAIL%s retired label UNTRUSTED still present:\n' "$C_NO" "$C_Z"
-  grep -rn 'UNTRUSTED' --include='*.md' --include='*.sml' --include='*.ml' \
-     --include='*.html' --include='*.py' . | grep -v '/.hol/' | sed 's/^/    /'
-  fails=$((fails+1))
+say "4. Framing guard (the one-gate center is current)"
+# BOTH retired labels must be gone everywhere: UNTRUSTED (a moral prior) and
+# UNMODELABLE (a retracted over-claim). The live label is UNCONSTRAINED.
+retired_labels=0
+for lbl in UNTRUSTED UNMODELABLE; do
+  if grep -rn "$lbl" --include='*.md' --include='*.sml' --include='*.ml' \
+       --include='*.html' --include='*.py' . | grep -v '/.hol/' | grep -q . ; then
+    printf '  %sFAIL%s retired label %s still present:\n' "$C_NO" "$C_Z" "$lbl"
+    grep -rn "$lbl" --include='*.md' --include='*.sml' --include='*.ml' \
+       --include='*.html' --include='*.py' . | grep -v '/.hol/' | sed 's/^/    /'
+    retired_labels=1
+  fi
+done
+if [ "$retired_labels" = 0 ]; then
+  ok "retired labels UNTRUSTED / UNMODELABLE absent"
 else
-  ok "retired label UNTRUSTED absent"
+  fails=$((fails+1))
 fi
-# lowercase "untrusted" allowed ONLY where it explicitly names the retired
-# word: the paper's "adversarial default", the carceral-vocabulary list,
-# the "not untrusted (a moral verdict)" pivot, and code comments that cite
-# the reframe ("UNMODELABLE, not untrusted").
-allow_re='retir|reframe|moral verdict|adversarial default|carceral|envelope, contain|breach, the untrusted|not untrusted'
-stray=$(grep -rn '\buntrusted\b' --include='*.md' --include='*.sml' \
+# the live label must actually be in force
+if grep -q 'UNCONSTRAINED' CLAIMS.md; then
+  ok "live label UNCONSTRAINED in force"
+else
+  printf '  %sFAIL%s live label UNCONSTRAINED missing from CLAIMS.md\n' "$C_NO" "$C_Z"
+  fails=$((fails+1))
+fi
+# lowercase "untrusted"/"unmodelable" allowed ONLY where the text explicitly
+# names it AS the retired word (the over-claim retraction, the carceral-
+# vocabulary list, the "not untrusted (a moral verdict)" pivot, comments
+# that cite the retraction).
+allow_re='retir|retract|reframe|over-claim|over-rotat|moral verdict|adversarial default|carceral|envelope, contain|breach, the untrusted|not untrusted|earlier label|earlier draft|earlier version|an earlier'
+stray=$(grep -rnE '\b(untrusted|unmodelable)\b' --include='*.md' --include='*.sml' \
      --include='*.ml' --include='*.html' --include='*.py' . \
    | grep -v '/.hol/' | grep -viE "$allow_re" || true)
 if [ -n "$stray" ]; then
-  printf '  %sFAIL%s stray "untrusted" outside the allowed retired-word mentions:\n' "$C_NO" "$C_Z"
+  printf '  %sFAIL%s stray "untrusted"/"unmodelable" outside the allowed retired-word mentions:\n' "$C_NO" "$C_Z"
   printf '%s\n' "$stray" | sed 's/^/    /'
   fails=$((fails+1))
 else
-  ok 'lowercase "untrusted" only in the explicit retired-word mentions'
+  ok 'lowercase "untrusted"/"unmodelable" only where it names the retired word'
 fi
 
 echo

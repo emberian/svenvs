@@ -1,7 +1,7 @@
 # pca/CLAIMS.md — proof-carrying actions: the honest proven/assumed split
 
 A skeptic-facing ledger for the `pca/` layer. Same honesty labels as the
-top-level `CLAIMS.md` (PROVED / TRUSTED-GLUE / UNMODELABLE / ASSUMED).
+top-level `CLAIMS.md` (PROVED / TRUSTED-GLUE / UNCONSTRAINED / ASSUMED).
 
 **Zero `cheat` / `new_axiom` / `mk_thm` / `mk_oracle_thm` / oracle.** Verified
 by the repo cheat-scan pattern on `pca/*.sml` (empty) and by inspecting the
@@ -17,7 +17,7 @@ This layer **reuses** the generic core (`safetyTheory`,
 
 ## What the certifier is TRUSTED to decide vs what is PROVED for any certifier
 
-The generalisation moves from a FIXED policy predicate to an unmodelable
+The generalisation moves from a FIXED policy predicate to an unconstrained
 controller emitting `(action, certificate)` pairs, gated by a **checkable
 certifier** `cert_ok : 's -> 'a -> 'c -> bool` supplied per instance.
 
@@ -51,7 +51,7 @@ Fallenstein–Kumar discipline.
 | **Headline.** For **any** `pcc` (any stream of (action,cert)), the proof-carrying envelope keeps the invariant. `pcc` is `∀`-quantified with **no hypothesis on it whatsoever** — machine-confirmed statement: `… ⇒ ∀pcc. invariant step init (pca_enveloped cert_ok shield pcc) safe`. | **PROVED** | `pcaScript.sml : pca_safety_preservation` |
 | Spelled-out corollary: every reachable state of the proof-carrying enveloped system is safe, for an arbitrary controller. | **PROVED** | `pcaScript.sml : pca_enveloped_states_safe` |
 
-The unmodelable controller is **UNMODELABLE**: nothing about it is assumed; the
+The unconstrained controller is **UNCONSTRAINED**: nothing about it is assumed; the
 theorems are `∀pcc`-quantified and the envelope, not the controller, carries
 the proof — exactly as in `safetyTheory.safety_preservation`.
 
@@ -107,7 +107,7 @@ claim against the real dynamics (`c = cp_step a u ∧ cp_safe c`) — it does
 > concrete cartpole instance* that side-condition is **PROVED outright**
 > (`cp_certifier_sound`) because the certifier recomputes the safety check
 > on the real dynamics, so it is trusted for nothing there. A certifier
-> that merely *believed* an unmodelable certificate without re-checking would
+> that merely *believed* an unconstrained certificate without re-checking would
 > still satisfy the generic theorems' shape but would **fail** to discharge
 > `certifier_sound` — the side-condition is real and not vacuous.
 

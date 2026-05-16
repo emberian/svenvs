@@ -10,8 +10,8 @@ or discharge the labeled assumptions in general (three; one already
 discharged for the shipped finite instance — those need heavy/dedicated
 infra; see `CLAIMS.md`).
 
-A computationally irreducible inhabitant — *unmodelable*, not distrusted —
-acts through a **verified envelope**. The envelope's
+An inhabitant — the `∀`-quantified term, never reasoned about by the proof —
+acts through a **verified gate**. The gate's
 own **verified prover (Candle)** gates every self-modification — up to and
 including upgrading the proof-checker itself — with a machine-checked
 guarantee that safety is never lost. Zero `cheat` tactics.
@@ -31,7 +31,7 @@ agent literally run inside the logic and stay safe), runs a real adversarial
 LLM into the proven envelope, and shows the toy verified-inference result —
 with explicit PASS/FAIL. Then read [`CLAIMS.md`](CLAIMS.md): a ruthlessly
 honest, skeptic-facing ledger of *exactly* what is machine-checked vs.
-trusted-glue vs. unmodelable vs. assumed, with `file : theorem` citations.
+trusted-glue vs. unconstrained vs. assumed, with `file : theorem` citations.
 
 ## Reproduce
 

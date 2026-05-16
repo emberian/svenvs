@@ -2,11 +2,11 @@
   libertyScript — the prison question, answered as a theorem.
 
   svenvs has always answered "isn't this just a cage?" in prose. This file
-  answers it in HOL4. The reframe (CLAIMS.md): the inhabitant is not
-  distrusted, it is computationally irreducible — *unmodelable* — so the
-  envelope assumes nothing about it. The remaining honest worry is the
-  *opposite* of distrust: is the envelope gratuitously restrictive? A cage
-  that forbids more than safety strictly requires would indeed be a prison.
+  answers it in HOL4. The center (CLAIMS.md): the inhabitant is the
+  UNCONSTRAINED term in every theorem — the proof never reasons about it.
+  The remaining honest worry is the *opposite* of distrust: is the envelope
+  gratuitously restrictive? A cage that forbids more than safety strictly
+  requires would indeed be a prison.
 
   We prove it is not. Define the MAXIMAL sound policy `maxpol`: permit an
   action exactly when, from a safe state, it preserves safety (from an

@@ -15,7 +15,7 @@
 
   The point of this file: prove the *gate itself is sound*, and that this
   holds under an UNBOUNDED sequence of self-proposed upgrades. The proposer
-  (a computationally irreducible agent) must pay for every increase in authority with
+  (a unconstrained agent) must pay for every increase in authority with
   a checkable proof; the kernel guarantees safety is never lost.
 
   This is the HOL-level layer. The "typed-in program" that denotes [newp]
