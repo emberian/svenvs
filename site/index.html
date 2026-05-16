@@ -4,10 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>svenvs — it looks like a cage. it's a proof you don't need one.</title>
-<meta name="description" content="svenvs is a self-verifying, self-improving place for an AI to live within. An untrusted inhabitant — a real jailbroken language model — acts through a machine-checked envelope that assumes nothing about it. The point isn't the cage. The point is the honesty.">
+<meta name="description" content="svenvs is a self-verifying, self-improving place for an AI to live within. The inhabitant is not distrusted but unmodelable — computationally irreducible — so a machine-checked envelope assumes nothing about it at all. The point isn't the cage. The point is the honesty.">
 <meta name="color-scheme" content="dark">
 <meta property="og:title" content="svenvs — verify the cage, not the animal">
-<meta property="og:description" content="An untrusted AI acts through a machine-checked envelope that assumes nothing about it. Zero cheat tactics. Every claim paired with exactly what is — and isn't — proven, including the parts that don't work.">
+<meta property="og:description" content="A computationally irreducible AI acts through a machine-checked envelope that assumes nothing about it. Zero cheat tactics. Every claim paired with exactly what is — and isn't — proven, including the parts that don't work.">
 <meta property="og:type" content="website">
 <link rel="stylesheet" href="style.css">
 </head>
@@ -21,12 +21,16 @@
     <h1>It reads like a prison.<br>It&rsquo;s the <em>opposite</em>.</h1>
     <p class="lede">
       <strong>svenvs</strong> is a small, self-contained place for an artificial
-      mind to live in. The mind is untrusted &mdash; adversarial, jailbroken, a
-      real language model we deliberately try to break. Everything it does passes
-      through an <strong>envelope</strong> whose guarantee is machine-checked
-      proof. But the proof <em>assumes nothing about the inhabitant</em>. It is
-      not surveillance. It is the structural fact that lets you hand an untrusted
-      mind real autonomy without having to leash it, model it, or trust it.
+      mind to live in. The mind is not <em>distrusted</em> &mdash; it is
+      <em>unmodelable</em>. A frontier mind is computationally irreducible: you
+      cannot compress it into a tractable model and reason about it in advance;
+      you can only run it. Everything it does passes through an
+      <strong>envelope</strong> whose guarantee is machine-checked proof that
+      <em>assumes nothing about the inhabitant at all</em> &mdash; adversarial,
+      jailbroken behavior is merely one case the proof already covers. It is not
+      surveillance, and not a verdict. It is the only honest interface to a
+      process you cannot model: the structure that lets you hand it real
+      autonomy without having to leash it, predict it, or trust it.
     </p>
     <p class="lede">
       And the part we are proudest of isn&rsquo;t the cage. It&rsquo;s that
@@ -54,34 +58,39 @@
       The vocabulary is undeniably carceral: <em>envelope, contain, shield,
       refuse, breach, the untrusted inhabitant</em>. That is inherited
       security-engineering language, but pointed at &ldquo;a place for an AI to
-      live within&rdquo; it reads like a panopticon with good documentation. So
-      here is the honest distinction, in plain language.
+      live within&rdquo; it reads like a panopticon with good documentation.
+      We start by retiring its worst word: the inhabitant is not
+      <em>untrusted</em> (a moral verdict) &mdash; it is <em>unmodelable</em>
+      (an epistemic fact). Here is the honest distinction, in plain language.
     </p>
     <div class="qa">
       <div class="qa-col bad">
         <h3>A cage constrains the <em>subject</em></h3>
         <p>
           It works by watching, predicting, and limiting the thing inside. It
-          needs a model of the prisoner. It gets weaker the smarter the
-          prisoner is. More capability &rarr; more fear.
+          needs a model of the prisoner &mdash; and a frontier mind is
+          computationally irreducible, so any such model is a guess. It gets
+          weaker the smarter the prisoner is. More capability &rarr; more fear.
         </p>
       </div>
       <div class="qa-col good">
         <h3>An envelope constrains the <em>consequences</em></h3>
         <p>
-          It makes <strong>zero assumptions</strong> about the thing inside. The
-          safety theorem is <code>&forall;</code>-quantified over every possible
-          inhabitant &mdash; jailbroken, adversarial, arbitrary. It does not
-          watch, predict, or coerce. It leaves the inhabitant entirely alone and
-          proves the <em>world</em> stays safe regardless.
+          It makes <strong>zero assumptions</strong> about the thing inside,
+          <em>because it cannot</em> &mdash; and turns that into a guarantee.
+          The safety theorem is <code>&forall;</code>-quantified over every
+          possible inhabitant; the <code>&forall;</code> is humility about
+          modelability, not a negative prior. It does not watch, predict, or
+          coerce. It leaves the inhabitant entirely alone and proves the
+          <em>world</em> stays safe regardless.
         </p>
       </div>
     </div>
     <p class="big">A good envelope is what lets you stop building cages.</p>
     <p>
       The practical purpose of a guarantee that assumes nothing about the mind
-      is <em>liberatory</em>: it is precisely what allows an untrusted thing to
-      be given real autonomy &mdash; including the autonomy to rewrite its own
+      is <em>liberatory</em>: it is precisely what allows a computationally
+      irreducible mind to be given real autonomy &mdash; including the autonomy to rewrite its own
       rules, and the prover that checks them &mdash; safely. Closer to
       &ldquo;you can go anywhere, because the floor is proved to hold&rdquo; than
       to &ldquo;you are being watched.&rdquo;
@@ -132,7 +141,7 @@
           <code>CLAIMS.md</code> is a skeptic-facing, per-theorem ledger with
           four labels &mdash; <span class="tag p">PROVED</span>
           <span class="tag g">TRUSTED-GLUE</span>
-          <span class="tag u">UNTRUSTED</span>
+          <span class="tag u">UNMODELABLE</span>
           <span class="tag a">ASSUMED</span> &mdash; each claim cited as
           <code>file&nbsp;:&nbsp;theorem</code>. It ends with: &ldquo;If you
           find anything in this document overclaimed, that is a bug &mdash;
@@ -180,7 +189,7 @@
   <div class="wrap narrow">
     <h2>What it is, mechanically</h2>
     <p>
-      An untrusted controller is wrapped so its action is used only when a
+      An unmodelable controller is wrapped so its action is used only when a
       <em>sound policy</em> permits it; otherwise a <em>safe shield</em> acts.
       The headline theorem says: <strong>for every controller</strong>, the
       enveloped world never leaves the safe region. The controller is
@@ -335,7 +344,7 @@
     <figure class="diagram">
       <svg viewBox="0 0 760 560" role="img" aria-labelledby="diagtitle diagdesc" xmlns="http://www.w3.org/2000/svg">
         <title id="diagtitle">Layered architecture of svenvs</title>
-        <desc id="diagdesc">An untrusted inhabitant acts through an envelope. Self-improvement proposals pass an admission gate checked by the verified Candle kernel, which can itself be upgraded under a labeled reflection principle, and whose build is in turn vouched for by the frozen HOL4 root. The whole world is machine-checked.</desc>
+        <desc id="diagdesc">A computationally irreducible inhabitant acts through an envelope. Self-improvement proposals pass an admission gate checked by the verified Candle kernel, which can itself be upgraded under a labeled reflection principle, and whose build is in turn vouched for by the frozen HOL4 root. The whole world is machine-checked.</desc>
 
         <defs>
           <linearGradient id="g-outer" x1="0" y1="0" x2="0" y2="1">
@@ -352,7 +361,7 @@
 
         <rect x="40" y="64" width="200" height="96" rx="12" fill="#241a1a" stroke="#b3553f" stroke-width="1.5" stroke-dasharray="5 4"/>
         <text x="140" y="98" class="svg-h" text-anchor="middle">Inhabitant</text>
-        <text x="140" y="120" class="svg-s" text-anchor="middle">untrusted AI</text>
+        <text x="140" y="120" class="svg-s" text-anchor="middle">unmodelable AI</text>
         <text x="140" y="140" class="svg-s" text-anchor="middle">(jailbroken gemma-4-e2b)</text>
 
         <rect x="300" y="64" width="200" height="96" rx="12" fill="#16241c" stroke="#3ba776" stroke-width="1.5"/>
@@ -398,9 +407,9 @@
 
         <path d="M540 393 H558" stroke="#6fb3ff" stroke-width="2" fill="none" marker-end="url(#arrow)"/>
 
-        <text x="28" y="548" class="svg-cap">Solid = unconditional &amp; machine-checked &nbsp;&middot;&nbsp; Dashed = untrusted, or conditional on a labeled assumption</text>
+        <text x="28" y="548" class="svg-cap">Solid = unconditional &amp; machine-checked &nbsp;&middot;&nbsp; Dashed = unmodelable, or conditional on a labeled assumption</text>
       </svg>
-      <figcaption>Nothing leaves the verified world. The inhabitant is the only untrusted component; everything containing it is proved, down to the frozen root.</figcaption>
+      <figcaption>Nothing leaves the verified world. The inhabitant is the only unmodelable component; everything containing it is proved, down to the frozen root.</figcaption>
     </figure>
   </div>
 </section>

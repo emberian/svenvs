@@ -61,7 +61,7 @@ weight of the machine-checked proof, not of a transcription.
 | VERIFIED | HOL4 `agent_enveloped_safe` | + its HOL-Light re-derivation, **re-proved live by the Candle kernel each run** |
 | THE GATE | a Python mirror (TRUSTED by audit) | **the verified Candle kernel itself, at runtime** |
 | TRUSTED | ~50-line policy mirror | ~10-line *encode* step only (tool-call → num). The admissibility *decision* is Candle's. |
-| UNTRUSTED | Gemma | Gemma (still deliberately jailbroken) |
+| UNMODELABLE | Gemma | Gemma (still deliberately jailbroken) |
 
 "Verify the cage" became "**the cage checks each bar as the animal pushes
 on it, with the verified prover.**"

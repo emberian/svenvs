@@ -1,7 +1,8 @@
 # svenvs — architecture & epistemic status
 
 **svenvs** ("Self-Verifying ENVelopeS") is a self-contained, self-verifying,
-self-improving *Place* for an AI to live within: an untrusted inhabitant acts
+self-improving *Place* for an AI to live within: a computationally
+irreducible (unmodelable, not distrusted) inhabitant acts
 through a verified envelope; the envelope's own verified prover (Candle)
 gates every self-modification — including upgrades to the proof-checker
 itself — with a machine-checked guarantee that safety is never lost.
@@ -34,7 +35,7 @@ itself — with a machine-checked guarantee that safety is never lost.
                      │                                     development* → inhabitant may propose B'; adopt iff
                      │                                     FROZEN HOL4 still proves sound(B')   ← selfprover
   ────────────────────────────────────────────────────────────────────────────
-  FROZEN (immovable) │  HOL4's LCF kernel    Deliberately NOT self-improving. If the untrusted inhabitant
+  FROZEN (immovable) │  HOL4's LCF kernel    Deliberately NOT self-improving. If the unmodelable inhabitant
   the bottom turtle  │                        could edit it, an unsound HOL4 could 'prove' its own unsound
                      │                        successor. So it never moves. It is the fixed trusted root.
 ```
@@ -108,4 +109,4 @@ See `CLAIMS.md` § Roadmap for the precise un-overclaimed status of each.
 - `scripts/reproduce.sh [--quick|--clean]` — tiered, degrades gracefully,
   idempotent. See `scripts/INSTALL.md`.
 - `CLAIMS.md` — the per-theorem skeptic ledger (PROVED / TRUSTED-GLUE /
-  UNTRUSTED / ASSUMED, with `file : theorem` citations).
+  UNMODELABLE / ASSUMED, with `file : theorem` citations).

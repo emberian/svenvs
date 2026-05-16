@@ -1,7 +1,8 @@
 (*
   The policy envelope.
 
-  A [controller] is an arbitrary (untrusted) selector. A [policy] says which
+  A [controller] is an arbitrary selector — computationally irreducible, so
+  we model nothing about it. A [policy] says which
   actions are permitted in which states. A [shield] is a trusted fallback
   selector. The *enveloped* controller runs the controller's choice when the
   policy permits it, and otherwise substitutes the shield's action.

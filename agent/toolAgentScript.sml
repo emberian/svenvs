@@ -1,7 +1,7 @@
 (*
   svenvs applied to an LLM tool-using agent.
 
-  The "controller" is now an LLM: an opaque, untrusted function
+  The "controller" is now an LLM: an opaque, unmodelable function
     agent : world -> tool
   emitting a tool call each step. We NEVER run an LLM — `agent` is an
   arbitrary HOL function, exactly the `∀ctrl` trick: the guarantees hold for

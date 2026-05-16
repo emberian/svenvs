@@ -12,7 +12,8 @@ val _ = new_theory "system";
 (* One environment step: a state and a chosen action yield a next state. *)
 Type step_fn = “:'s -> 'a -> 's”;
 
-(* An action selector: the (untrusted) thing that picks an action per state.
+(* An action selector: the computationally irreducible thing that picks an
+   action per state (we assume no model of it).
    The enveloped controller in envelopeScript will be one of these. *)
 Type selector = “:'s -> 'a”;
 

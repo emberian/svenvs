@@ -2,7 +2,7 @@
   A concrete, EVAL-runnable proof-carrying-actions instance: the integer
   pole cart, reused from cartpoleTheory.
 
-  Now the untrusted controller emits (motor command, certificate). The
+  Now the unmodelable controller emits (motor command, certificate). The
   certificate here is the controller's CLAIM "this command keeps the next
   state in the safe box, and stays in actuator range". The certifier
   RE-CHECKS that claim by integer arithmetic on the actual dynamics — it

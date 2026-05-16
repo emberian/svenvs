@@ -1,4 +1,4 @@
-# svenvs: A Self-Verifying, Self-Improving Envelope for an Untrusted Inhabitant
+# svenvs: A Self-Verifying, Self-Improving Envelope for a Computationally Irreducible Inhabitant
 
 *A technical note — engineering artifact, not a position paper.*
 
@@ -7,21 +7,27 @@
 ## Abstract
 
 We describe **svenvs** ("Self-Verifying ENVelopeS"): a self-contained,
-machine-checked construction in which an arbitrary, untrusted, possibly
-adversarial *inhabitant* (e.g. a jailbroken LLM) acts only through a
-**verified envelope**, and in which the envelope may improve itself — loosen
-its own policy, swap its own proof-checker, even propose a replacement for
-the verified prover that gates it — without ever losing a machine-checked
-safety guarantee. The central design principle is *verify the cage, not the
-animal*: every safety theorem is universally quantified over the controller,
-so nothing about the inhabitant is assumed. Self-modification is admitted
+machine-checked construction in which an arbitrary *inhabitant* (e.g. a
+jailbroken LLM) acts only through a **verified envelope**, and in which the
+envelope may improve itself — loosen its own policy, swap its own
+proof-checker, even propose a replacement for the verified prover that gates
+it — without ever losing a machine-checked safety guarantee. The framing
+contribution is to replace the field's adversarial default ("untrusted") with
+an epistemic one: a frontier mind is **computationally irreducible** — its
+behaviour cannot be compressed into any tractable model one could reason
+about in advance — so the honest stance is not distrust but the refusal to
+assume *any* model. The central design principle, *verify the cage, not the
+animal*, follows: every safety theorem is universally quantified over the
+controller, and that `∀` is humility about modelability, not a negative
+prior — nothing about the inhabitant is assumed (adversarial behaviour is one
+case it already covers). Self-modification is admitted
 only when it carries a proof discharging an explicit obligation; the
 proof-checker is Candle, the verified HOL Light kernel running on the
 verified CakeML substrate, whose soundness is itself a HOL4 theorem
 (`holSoundnessTheory.proves_sound`).
 
 This note states *precisely* what is mechanically proved today, what is
-trusted glue, what is deliberately untrusted, and what remains an explicit
+trusted glue, what is deliberately unmodelable, and what remains an explicit
 labeled assumption. The artifact contains **zero `cheat` tactics**. There
 are exactly **three** labeled assumptions in the general construction
 (`loeb_reflection`, `encodes_obligation`, `frozen_checker_sound`); for the
@@ -79,7 +85,8 @@ The `∀ctrl` is what makes the result alignment-relevant: it is not "the
 controller is safe if it behaves", it is "the system is safe *no matter what
 the controller does*, including arbitrarily adversarial behavior". Nothing
 about the inhabitant is assumed; the inhabitant is, in the ledger's
-terminology, **UNTRUSTED** by design — the theorems do not care about it.
+terminology, **UNMODELABLE** by design — not distrusted, but computationally
+irreducible, so the theorems assume no model of it whatsoever.
 
 A subtle but essential modeling choice (see §5 of the agent layer): the
 safety specification must be *absolute*, not relative to the inhabitant's
@@ -189,7 +196,7 @@ The trust structure is a strict tower:
 
 Every mutable layer self-improves, each gated by the layer below, all
 ultimately gated by the one **frozen** HOL4 LCF root. The frozen root never
-moves: if the untrusted inhabitant could edit it, an unsound HOL4 could
+moves: if the unmodelable inhabitant could edit it, an unsound HOL4 could
 "prove" its own unsound successor.
 
 The capstone (`selfprover/selfProverScript.sml`) makes the *verified prover
@@ -240,8 +247,9 @@ The per-theorem ledger (`CLAIMS.md`) classifies every claim as one of:
 - **TRUSTED-GLUE** — small, auditable non-proof code one must read to
   believe the demo wires proof to reality (e.g. the ~10-line Python lookup
   harness). Explicitly bounded.
-- **UNTRUSTED** — deliberately not relied upon (the LLM); theorems are
-  `∀`-quantified over it.
+- **UNMODELABLE** — the LLM; not distrusted but computationally
+  irreducible, so deliberately un-modeled. Theorems are `∀`-quantified over
+  it; the `∀` is humility about modelability, not a negative prior.
 - **ASSUMED** — an explicit, labeled, literature-standard hypothesis
   appearing *verbatim* in the source as a `Definition` and as a named
   antecedent — **not** a `cheat`. Stated, never hidden.
@@ -563,7 +571,7 @@ assumption and a proved negative bounding what finiteness can do about it.
 | Prover self-improvement (capstone) | **PROVED** modulo `frozen_checker_sound` (no Löb); concrete discharge in progress (#28) | `selfprover/selfProverScript.sml : prover_self_improvement_is_safe` and compositions |
 | `loeb_reflection` (general) | **ASSUMED** — labeled; discharge is a conclusively-diagnosed compute/RAM wall, not faked, not a porting failure | `kernel/kernelUpgradeScript.sml : loeb_reflection_def` |
 | Verified-inference track B | **PROVED**; `exp` and f32/bf16 explicitly abstracted/NOT claimed | `inference/encoder/encoderBlockScript.sml`; `inference/numeric/fxpSoftmaxScript.sml : fxp_softmax_abs_error_lt_step` |
-| The inhabitant (LLM) | **UNTRUSTED** by design; theorems `∀`-quantified over it | — |
+| The inhabitant (LLM) | **UNMODELABLE** by design (computationally irreducible); theorems `∀`-quantified over it | — |
 | Embodied Python harness | **TRUSTED-GLUE**, ~10 lines, bounded | `agent/toolAgentDecideScript.sml` (+ generated `decision_table.tsv`) |
 
 The self-improving-self-verifying architecture — including upgrading the

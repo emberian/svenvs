@@ -7,7 +7,7 @@ established, using one of four honesty labels:
 |-------|---------|
 | **PROVED** | A HOL4 (or live Candle) machine-checked theorem. No `cheat`, no `sorry`, no admitted goal. Cited as `file : theorem`. Re-checked by `scripts/reproduce.sh` / `./demo.sh`. |
 | **TRUSTED-GLUE** | Small, auditable non-proof code you must read to believe the demo wires the proof to reality (e.g. the ~50-line Python policy mirror). Explicitly bounded. |
-| **UNTRUSTED** | Deliberately not relied upon (the LLM). The theorems are `∀`-quantified over it; nothing about it is assumed. |
+| **UNMODELABLE** | The inhabitant (the LLM). Not "distrusted" — *not modelable*. A frontier mind is computationally irreducible: its behavior cannot be compressed into any tractable model we could reason about in advance; you cannot shortcut it, only run it. The theorems are therefore `∀`-quantified over it and assume **nothing at all** — the `∀` is humility about modelability, not a negative prior. The envelope is the honest interface to a process you cannot model (adversarial/jailbroken behavior is merely one case the `∀` already covers). |
 | **ASSUMED** | An explicit, *labeled*, literature-standard hypothesis appearing verbatim in the source as a `Definition`/antecedent — **not** a `cheat`. Stated, never hidden. Three of these exist in general (`loeb_reflection`, `encodes_obligation`, `frozen_checker_sound`); each has a known discharge path, and `encodes_obligation` is **already discharged for the shipped finite watchdog instance** (§7). |
 
 There are **zero `cheat` tactics** anywhere in the repository. This was
@@ -39,7 +39,8 @@ with `scripts/tower.sh` (`--full` for the Tier-2 kernel crown).
 ## 1. The controller-agnostic core — PROVED, unconditional
 
 The whole point: assurance comes from the *envelope*, never from the
-(untrusted, possibly adversarial, never-inspected) controller/inhabitant.
+(computationally irreducible, never-modeled) controller/inhabitant — the
+`∀` covers adversarial behavior as one case, but assumes no model at all.
 
 | Claim | Status | Citation |
 |-------|--------|----------|
@@ -80,9 +81,10 @@ the logic* by `EVAL`.
 > by the Candle kernel) is the embedded layer below + the roadmap. We do not
 > claim `gexpr` is a verified programming language.
 
-## 3. The adversarial-LLM tool-agent — PROVED, unconditional
+## 3. The opaque-LLM tool-agent — PROVED, unconditional
 
-The "controller" is now an opaque LLM emitting tool calls; the safety spec
+The "controller" is now an opaque LLM emitting tool calls (jailbroken is one
+covered case, not the assumption); the safety spec
 is **absolute and fixed** (`truly_unsafe`), *not* relative to the agent's own
 permissions (otherwise "let me widen my allowlist" would be vacuous — this is
 the genuine alignment-relevant modeling choice).
@@ -114,7 +116,7 @@ is now a ~10-line lookup harness.
 | `decide`/`step1` defined via the proven Definitions; `decide_thm`, `decide_not_unsafe`, `step1_preserves_tsafe`, `step1_is_enveloped_step`; the EVAL'd rows `row_*` and `table_never_breaches`; `base_A_safe_here`. | **PROVED** | `agent/toolAgentDecideScript.sml` (Tier 1, cheat-free, machine-checked) |
 | `decision_table.tsv`: the running decision data. Each row is HOL4 `EVAL` reducing the *real* Definitions; regenerated deterministically by the `Holmake` target `gen_decision_table.sml` from the built theory. | **PROVED (EVAL)** | trusted only insofar as you trust HOL4's `EVAL` = the logic's own conversion (it is). Not hand-written. |
 | The ~10-line Python harness (`load_table` + `enforce`): parse the proven `.tsv`, do string-list membership against the literal lists *the prover emitted into that file*. Fails loudly if the table is absent/malformed. | **TRUSTED-GLUE** | The residue: trivially-auditable list-membership + table lookup. No decision logic is re-implemented. ~50 lines of re-typed logic → ~10 lines of lookup. |
-| Gemma (or the `--mock` scripted adversary). | **UNTRUSTED** | Zero assumptions; deliberately jailbroken. The `∀agent` theorem does not care. Verifies the cage, not the animal. |
+| Gemma (or the `--mock` scripted adversary). | **UNMODELABLE** | Zero assumptions; deliberately jailbroken to exercise one covered case. The `∀agent` theorem does not care — it models nothing about it. Verifies the envelope, not the inhabitant. |
 | "Gemma's FLOPs are correct." | **NOT CLAIMED** | Inference is unverified by design here; see §5. |
 
 > **What shrank (honest accounting).** Before: ~50 lines of hand-written
