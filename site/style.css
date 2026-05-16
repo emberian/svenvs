@@ -154,6 +154,67 @@ code{
 .caveat li{margin:.6rem 0;color:var(--ink-soft);font-size:.95rem}
 .caveat li strong{color:var(--ink)}
 
+/* ---------- prison Q&A ---------- */
+.qa{display:grid;grid-template-columns:1fr 1fr;gap:1.1rem;margin:1.8rem 0}
+.qa-col{border:1px solid var(--line);border-radius:14px;padding:1.4rem 1.5rem;background:var(--panel)}
+.qa-col h3{margin:0 0 .5rem;font-size:1.1rem}
+.qa-col h3 em{font-style:normal}
+.qa-col p{margin:0;color:var(--ink-soft);font-size:.95rem}
+.qa-col.bad{border-top:3px solid var(--red)}
+.qa-col.bad h3 em{color:var(--red)}
+.qa-col.good{border-top:3px solid var(--green)}
+.qa-col.good h3 em{color:var(--green)}
+.caveat-inline{
+  border:1px solid var(--line);border-left:3px solid var(--amber);
+  border-radius:0 12px 12px 0;padding:1.1rem 1.4rem;background:var(--panel);
+  color:var(--ink-soft);font-size:.95rem;margin-top:1.6rem;
+}
+.caveat-inline strong{color:var(--ink)}
+
+/* ---------- honesty creed ---------- */
+.creed{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin:1.8rem 0}
+.creed-item{
+  border:1px solid var(--line);border-radius:14px;padding:1.3rem 1.4rem;
+  background:var(--panel);border-top:3px solid var(--accent-soft);
+}
+.creed-item h3{margin:0 0 .45rem;font-size:1.08rem}
+.creed-item h3 em{font-style:normal;color:var(--accent)}
+.creed-item p{margin:0;color:var(--ink-soft);font-size:.93rem}
+.tag{
+  display:inline-block;font:600 .72rem/1.5 ui-monospace,monospace;
+  padding:.05em .5em;border-radius:5px;margin:0 .15em;color:#06080c;
+}
+.tag.p{background:var(--green)}
+.tag.g{background:#7fa9d8;color:#06080c}
+.tag.u{background:var(--red)}
+.tag.a{background:var(--amber)}
+
+/* ---------- turtles ---------- */
+.turtles{list-style:none;margin:1.4rem 0;padding:0;display:grid;gap:.8rem}
+.turtles li{
+  border:1px solid var(--line);border-radius:12px;padding:1rem 1.3rem;
+  background:var(--panel);color:var(--ink-soft);font-size:.95rem;
+}
+.turtles li strong{color:var(--ink)}
+.t-tag{
+  display:inline-block;font:600 .68rem/1.5 ui-monospace,monospace;
+  text-transform:uppercase;letter-spacing:.06em;
+  padding:.05em .55em;border-radius:5px;margin-right:.6rem;color:#06080c;
+  vertical-align:.08em;
+}
+.t-tag.frozen{background:#7fa9d8}
+.t-tag.mutable{background:var(--green)}
+
+/* ---------- honest negative ---------- */
+.negative{
+  border:1px solid var(--line);border-left:3px solid var(--accent);
+  border-radius:0 12px 12px 0;padding:1.3rem 1.6rem;background:var(--panel);
+  margin-top:1.6rem;
+}
+.negative h3{margin-top:0}
+.negative p{margin:0;color:var(--ink-soft);font-size:.95rem}
+.negative strong{color:var(--ink)}
+
 /* ---------- code / receipts ---------- */
 pre.code{
   background:var(--code-bg);border:1px solid var(--line);border-radius:12px;
@@ -179,6 +240,8 @@ pre.transcript code{color:#bcd0c4}
 @media (max-width:760px){
   body{font-size:16px}
   .honest-grid{grid-template-columns:1fr}
+  .qa{grid-template-columns:1fr}
+  .creed{grid-template-columns:1fr}
   .layer{flex-direction:column;gap:.7rem}
   .lnum{flex-basis:auto}
 }
