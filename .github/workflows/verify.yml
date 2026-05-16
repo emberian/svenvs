@@ -1,0 +1,172 @@
+# Continuous self-verification: on every push, RE-PROVE the Tier-1 headline
+# claim and re-assert cheat-freeness, from a clean clone, on a stock runner.
+#
+# WHAT THIS PROVES (and only this):
+#   Tier 1 — pure HOL4. The full proof-carrying self-improving-envelope core,
+#   the runnable cartpole, the adversarial-LLM tool-agent (incl. the EVAL'd
+#   running episodes), and the toy verified-inference kernel are BUILT and
+#   machine-checked by the HOL4 kernel at the pinned commit, with zero `cheat`
+#   tactics anywhere in Tier-1 sources.
+#
+# WHAT THIS DOES NOT PROVE:
+#   Tiers 2/3 (Candle-kernel-checked layers; the Place live in Candle) and the
+#   discharge of the two explicit labeled assumptions (loeb_reflection,
+#   encodes_obligation) are NOT exercised here — they need heavy/dedicated
+#   infra (CakeML candle chain, a Candle binary, hol-reflection/lca). See
+#   CLAIMS.md / ARCHITECTURE.md. The green check is a Tier-1 credibility
+#   artifact, not an end-to-end unconditional claim.
+#
+# Pins (kept in lockstep with scripts/env.sh & scripts/INSTALL.md):
+#   PolyML v5.9.2 ; HOL4 HOL-Theorem-Prover/HOL @ 2faefbd57
+
+name: "Verify (Tier 1: re-prove + cheat scan)"
+
+on:
+  push:
+    paths-ignore:
+      - 'site/**'
+      - '**/*.md'
+      - '.github/workflows/pages.yml'
+  pull_request:
+    paths-ignore:
+      - 'site/**'
+      - '**/*.md'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch: {}
+
+# Least privilege: only read the repository.
+permissions:
+  contents: read
+
+# One verification at a time per ref; let an in-progress run finish.
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  # Must match scripts/env.sh. The HOL4 build cache key is derived from these,
+  # so bumping a pin automatically invalidates the cache.
+  POLYML_VERSION: v5.9.2
+  HOL4_COMMIT: 2faefbd57
+
+jobs:
+  tier1:
+    name: Tier 1 — machine-check + cheat-free
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout svenvs
+        uses: actions/checkout@v4
+
+      - name: System packages (build deps for PolyML/HOL4)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y --no-install-recommends \
+            build-essential git libgmp-dev
+
+      # HOL4 lives at ~/dev/HOL because scripts/env.sh defaults HOLDIR there.
+      # The cache holds the built PolyML prefix AND the built HOL4 tree, keyed
+      # on both pins: a hit restores in seconds; a pin bump misses cleanly.
+      - name: Restore PolyML + HOL4 build cache
+        id: hol-cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/poly
+            ~/dev/HOL
+          key: hol4-${{ runner.os }}-poly-${{ env.POLYML_VERSION }}-hol-${{ env.HOL4_COMMIT }}-v1
+
+      - name: Build PolyML (cache miss only)
+        if: steps.hol-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euxo pipefail
+          git clone --depth 1 --branch "$POLYML_VERSION" \
+            https://github.com/polyml/polyml "$HOME/polyml-src"
+          cd "$HOME/polyml-src"
+          ./configure --prefix="$HOME/poly"
+          make -j"$(nproc)"
+          make install
+
+      - name: Build HOL4 at pinned commit (cache miss only)
+        if: steps.hol-cache.outputs.cache-hit != 'true'
+        run: |
+          set -euxo pipefail
+          export PATH="$HOME/poly/bin:$PATH"
+          mkdir -p "$HOME/dev"
+          git clone https://github.com/HOL-Theorem-Prover/HOL "$HOME/dev/HOL"
+          cd "$HOME/dev/HOL"
+          git checkout "$HOL4_COMMIT"
+          poly < tools/smart-configure.sml
+          bin/build --nograph
+
+      - name: Sanity-check the toolchain
+        run: |
+          set -euxo pipefail
+          export PATH="$HOME/poly/bin:$PATH"
+          test -x "$HOME/dev/HOL/bin/Holmake"
+          got="$(git -C "$HOME/dev/HOL" rev-parse --short HEAD)"
+          echo "HOL4 at $got (pinned ${HOL4_COMMIT})"
+          test "$got" = "$HOL4_COMMIT"
+
+      # The canonical one-command Tier-1 check. tier1-core.sh:
+      #   * builds + kernel-checks core/cartpole, the tool-agent (incl. the
+      #     EVAL'd running episodes), and the toy verified-inference kernel;
+      #   * asserts each expected *Theory was actually produced;
+      #   * runs the cheat-scan gate and exits non-zero if a real `cheat`
+      #     tactic appears anywhere in Tier-1 sources.
+      # Exit 0 here == Tier 1 re-proved, cheat-free, this run.
+      - name: Re-prove Tier 1 (scripts/tier1-core.sh)
+        run: |
+          set -euo pipefail
+          export PATH="$HOME/poly/bin:$PATH"
+          export HOLDIR="$HOME/dev/HOL"
+          bash scripts/tier1-core.sh 2>&1 | tee /tmp/tier1.log
+
+      # Defence in depth: re-run the exact cheat-scan logic from
+      # scripts/tier1-core.sh as its own loud, standalone gate, so a real
+      # `cheat` tactic fails the build unmissably even if the script's wiring
+      # ever regresses. Prose like "no cheats"/"cheat-free" is excluded; only
+      # a bare `cheat` tactic invocation trips it.
+      - name: Cheat-scan gate (independent, loud)
+        run: |
+          set -euo pipefail
+          cheats="$(grep -RnE '(^|[^[:alnum:]_])cheat([^[:alnum:]_]|$)' \
+                      *.sml agent/*.sml inference/mlpInferenceScript.sml 2>/dev/null \
+                    | grep -viE 'no cheat|cheat-free|not a .?cheat|without cheat|EXPLICIT|zero .?cheat|never .*cheat' \
+                    || true)"
+          if [ -n "$cheats" ]; then
+            echo "::error title=CHEAT TACTIC DETECTED::svenvs Tier-1 sources must be cheat-free"
+            echo "$cheats"
+            echo "## ❌ CHEAT TACTIC DETECTED IN TIER-1 SOURCES" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            echo "$cheats" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "Tier-1 sources are cheat-free (independent scan)."
+
+      - name: Job summary
+        if: always()
+        run: |
+          {
+            echo "# svenvs — Tier-1 self-verification"
+            echo
+            if [ "${{ job.status }}" = "success" ]; then
+              echo "✅ **Tier 1 RE-PROVED, cheat-free**, from a clean clone on a stock"
+              echo "Ubuntu runner, by the HOL4 kernel at pinned \`${HOL4_COMMIT}\`"
+              echo "(PolyML \`${POLYML_VERSION}\`)."
+            else
+              echo "❌ **Tier-1 verification FAILED** — see the failing step's log."
+            fi
+            echo
+            echo "Re-proved this run (pure HOL4, no CakeML):"
+            echo "- proof-carrying self-improving-envelope core + runnable cartpole"
+            echo "- adversarial-LLM tool-agent, incl. the EVAL'd running episodes"
+            echo "- toy verified-inference kernel"
+            echo "- **cheat-scan gate**: no \`cheat\` tactic anywhere in Tier-1 sources"
+            echo
+            echo "_Scope: this proves **Tier 1 only**. Tiers 2/3 and the discharge"
+            echo "of the two labeled assumptions (loeb_reflection, encodes_obligation)"
+            echo "need heavy/dedicated infra and are **not** exercised here. See"
+            echo "CLAIMS.md / ARCHITECTURE.md for the honest epistemic status._"
+          } >> "$GITHUB_STEP_SUMMARY"
