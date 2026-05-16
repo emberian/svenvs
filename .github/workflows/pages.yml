@@ -1,0 +1,54 @@
+# Deploy the svenvs static site to GitHub Pages.
+#
+# INTENTIONALLY PREPARED, NOT YET ACTIVE.
+# This workflow only runs once GitHub Pages is enabled for the repository
+# (Settings -> Pages -> Build and deployment -> Source: "GitHub Actions").
+# Until the maintainer explicitly enables Pages and pushes, nothing deploys.
+#
+# Least-privilege: read the repo, write only the Pages artifact + id-token.
+
+name: Deploy site to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment; let in-progress runs finish.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload static site artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

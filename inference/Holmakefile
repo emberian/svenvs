@@ -1,0 +1,3 @@
+# Pure HOL4. Research track B: a TOY verified inference kernel.
+# Not Gemma-scale; the seed of "verified inference" on a verified substrate.
+OPTIONS = QUIT_ON_FAILURE

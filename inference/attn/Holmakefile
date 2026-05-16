@@ -1,0 +1,4 @@
+# Pure HOL4. Research track B: a TOY *verified* attention micro-block.
+# Hardmax/argmax attention over integer scores + residual skip block.
+# Not real softmax/float; the structural seed of "verified attention".
+OPTIONS = QUIT_ON_FAILURE

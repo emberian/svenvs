@@ -1,0 +1,14 @@
+# Pure HOL4 + svenvs core (system/envelope/safety/sv_weakening/upgrade).
+# No CakeML/candle/reflection — builds in seconds, RAM-trivial.
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE
+
+# Regenerate the EVAL-extracted enforcer table from the BUILT
+# toolAgentDecideTheory whenever the theory or the generator changes.
+# The .tsv is a deterministic build artifact, never hand-edited.
+all: embodied/decision_table.tsv
+
+embodied/decision_table.tsv: gen_decision_table.sml toolAgentDecideTheory.uo
+	$(protect $(HOLDIR)/bin/hol) < gen_decision_table.sml > /dev/null
+
+EXTRA_CLEANS = embodied/decision_table.tsv

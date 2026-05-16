@@ -1,0 +1,9 @@
+# Pure HOL4. Research track B: a verified *reference specification* of the
+# gemma-4-e2b text forward pass (structural + shape correctness over int).
+#
+# Light HOL4 only — no CakeML / hol-reflection / Candle. Builds in seconds.
+# INCLUDES = .. lets us optionally reuse ../mlpInferenceTheory (the toy
+# ReLU seed) if desired; gemmaForward is self-contained and does not
+# require it for the default build.
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE
