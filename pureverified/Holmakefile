@@ -1,0 +1,59 @@
+# =====================================================================
+# PureCake-as-inhabitant: the REAL verified-language wiring.
+#
+# Unlike pure/Holmakefile (#18, abstract signature, INCLUDES = .. only,
+# builds in seconds with NO PureCake), THIS layer links the real
+# verified PureCake compiler-correctness theorem
+# (pure_compilerProof$compiler_correctness, with backbone
+# pure_to_cakeProof$pure_to_cake_correct and machine-level
+# pure_end_to_endProof$end_to_end_correctness) into the generic svenvs
+# safety core. It therefore needs a *built* ~/dev/pure (PureCake) on
+# the INCLUDES path, which transitively needs a built ~/dev/CakeML
+# (compiler/backend proofs). That is a heavy HOL4 build.
+#
+# Per the swarm hard constraints this heavy Holmake is DEFERRED, not run
+# on the Mac (memory-starved) nor on saturated persvati. Point PUREDIR
+# at a box where PureCake is already built and run `Holmake` here; the
+# svenvs-core reasoning is fully concrete + cheat/oracle-free, so the
+# only pending step is this final compile.
+# =====================================================================
+
+ifndef PUREDIR
+PUREDIR = $(HOME)/dev/pure
+endif
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+
+# ..  : svenvs generic core (system/envelope/safety/sv_weakening/upgrade)
+#
+# The PureCake subdirs below are exactly the ones whose Theory files
+# contain the constants/theorems this script opens:
+#   language                         : pure_semantics, pure_exp, pure_cexp(*)
+#   compiler/backend/languages       : pure_cexp (exp_of, cexp_wf, ...)
+#   compiler                         : pure_compiler (compile/compile_to_ast)
+#   compiler/backend/passes/proofs   : pure_to_cakeProof, state_to_cakeProof
+#   compiler/proofs                  : pure_compilerProof, pure_end_to_endProof
+# plus PureCake's own transitive INCLUDES (misc, meta-theory, typing,
+# parsing, the CakeML compiler/backend proofs reached via CAKEMLDIR) —
+# mirroring $(PUREDIR)/compiler/proofs/Holmakefile so the same ancestor
+# theories resolve.
+INCLUDES = .. \
+           $(PUREDIR)/misc \
+           $(PUREDIR)/language \
+           $(PUREDIR)/meta-theory \
+           $(PUREDIR)/typing \
+           $(PUREDIR)/compiler/parsing \
+           $(PUREDIR)/compiler/backend/languages \
+           $(PUREDIR)/compiler/backend/languages/semantics \
+           $(PUREDIR)/compiler/backend/languages/properties \
+           $(PUREDIR)/compiler/backend/languages/relations \
+           $(PUREDIR)/compiler/backend/passes \
+           $(PUREDIR)/compiler/backend/passes/proofs \
+           $(PUREDIR)/compiler \
+           $(PUREDIR)/compiler/proofs \
+           $(CAKEMLDIR)/compiler/parsing \
+           $(CAKEMLDIR)/compiler/backend/proofs \
+           $(HOLDIR)/examples/bootstrap
+
+OPTIONS = QUIT_ON_FAILURE
