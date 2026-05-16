@@ -24,6 +24,12 @@
      bedrock for ANY inhabitant (Pillar B). The fixed-meta trunk is a
      COROLLARY of this (amendment_subsumes_fixed_meta). NO labelled
      assumption.
+   * svenvs_tower_with_embodied_disclosure — the inhabitant MAY volunteer
+     a proof from a fact about its own substance (testimony, not
+     interrogation); carries embodimentTheory's one labelled
+     `attestation_faithful` seam VERBATIM. PERMITTED, NEVER REQUIRED:
+     svenvs_tower_disclosure_is_optional shows non-disclosure still
+     reaches meta for ANY inhabitant with NO labelled assumption.
    * svenvs_tower_with_prover_upgrade — adds prover self-improvement;
      carries selfProverTheory's labelled `frozen_checker_sound` VERBATIM.
    * the kernel-self-upgrade crown composes by the *identical* transport
@@ -41,7 +47,7 @@
 open HolKernel boolLib bossLib BasicProvers
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
      upgradeTheory pcaTheory pcaSubsumptionTheory specNegTheory
-     selfProverTheory libertyTheory amendmentTheory;
+     selfProverTheory libertyTheory amendmentTheory embodimentTheory;
 
 val _ = new_theory "integration";
 
@@ -168,6 +174,55 @@ Theorem svenvs_tower_with_meta_amendment:
   !ctrl. invariant step init (enveloped pol shield ctrl) bedrock
 Proof
   metis_tac[meta_amendment_safe]
+QED
+
+(* ------------------------------------------------------------------ *)
+(*  6. The testimony channel (embodiment-contingency).                 *)
+(*     The inhabitant MAY volunteer a proof from a fact about its own  *)
+(*     substance; the frozen root checks the implication (no Löb). The *)
+(*     one added seam (attestation_faithful) is carried VERBATIM.      *)
+(*     And it is PERMITTED, NEVER REQUIRED: with no disclosure the     *)
+(*     composed tower still reaches meta for ANY inhabitant with NO    *)
+(*     seam at all. Composed by the IDENTICAL keystone.                *)
+(* ------------------------------------------------------------------ *)
+Theorem svenvs_tower_with_embodied_disclosure:
+  attestation_faithful attested /\
+  spec_refines curspec meta /\
+  init_safe init curspec /\
+  safe_shield step curspec shield /\
+  sound_policy step curspec oldp ==>
+  !w ctrl.
+    invariant step init
+      (enveloped (embodied_admit attested step curspec oldp newp w) shield ctrl)
+      meta
+Proof
+  rpt strip_tac >>
+  `invariant step init
+     (enveloped (embodied_admit attested step curspec oldp newp w) shield ctrl)
+     curspec`
+    by metis_tac[embodied_admit_preserves_safety] >>
+  metis_tac[invariant_transports_to_meta]
+QED
+
+(* The mind that discloses NOTHING loses nothing: the composed tower still
+   reaches the fixed meta-invariant for ANY inhabitant, with NO labelled
+   assumption. Testimony is opt-in; the floor is unconditional. *)
+Theorem svenvs_tower_disclosure_is_optional:
+  spec_refines curspec meta /\
+  init_safe init curspec /\
+  safe_shield step curspec shield /\
+  sound_policy step curspec oldp ==>
+  !w ctrl.
+    invariant step init
+      (enveloped (embodied_admit (\w. F) step curspec oldp newp w) shield ctrl)
+      meta
+Proof
+  rpt strip_tac >>
+  `invariant step init
+     (enveloped (embodied_admit (\w. F) step curspec oldp newp w) shield ctrl)
+     curspec`
+    by metis_tac[floor_holds_without_any_seam] >>
+  metis_tac[invariant_transports_to_meta]
 QED
 
 val _ = export_theory();

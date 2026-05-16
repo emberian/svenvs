@@ -31,6 +31,7 @@ with `scripts/tower.sh` (`--full` for the Tier-2 kernel crown).
 | The composition keystone itself: any layer guaranteeing a negotiated spec transports to the fixed meta-invariant. | **PROVED** | `integration/integrationScript.sml : any_layer_transports_to_meta` (≡ `specNegTheory.invariant_transports_to_meta`) |
 | **The prison question, answered in the tower:** run at the **maximal** sound policy the tower still reaches meta for **any** inhabitant, *and that liberty is provably maximal* (every other sound policy is a restriction of it — every bar of the envelope is forced). | **PROVED**, unconditional (no labelled assumption) | `integration/integrationScript.sml : svenvs_tower_at_maximal_liberty`; substrate in `liberty/libertyScript.sml` |
 | **Even the meta is amendable** — gated against an *eternal bedrock* by the identical specNeg gate one level up; an arbitrary admitted amendment stream **(+)** spec negotiation under the amended meta still keeps the bedrock for **any** inhabitant. The fixed-meta trunk is a *corollary* of this. | **PROVED**, unconditional (no labelled assumption, no Löb) | `integration/integrationScript.sml : svenvs_tower_with_meta_amendment`; substrate in `amendment/amendmentScript.sml` |
+| **The testimony channel** — the inhabitant *may* volunteer a proof from a fact about its own substance to earn authority (testimony, not interrogation); one labelled `attestation_faithful` seam carried verbatim. **Permitted, never required**: with no disclosure the tower still reaches meta for **any** inhabitant with **no** labelled assumption. | **PROVED** (conditional crown modulo the carried seam; the no-disclosure floor is unconditional) | `integration/integrationScript.sml : svenvs_tower_with_embodied_disclosure, svenvs_tower_disclosure_is_optional`; substrate in `embodiment/embodimentScript.sml` |
 | + prover self-improvement crown. | **PROVED**, modulo the labelled `frozen_checker_sound` (carried verbatim in the statement) | `integration/integrationScript.sml : svenvs_tower_with_prover_upgrade` |
 | + kernel self-upgrade crown (Tier-2; pulls candle semantics). | **PROVED**, modulo the labelled `loeb_reflection`/`encodes_obligation` (carried verbatim) | `integration/integrationKernelScript.sml : svenvs_tower_with_kernel_upgrade` |
 | **The gate applied to the root itself** — soundness propagates along *any* forward-certified succession of judges from a sound genesis; "frozen forever" becomes "sound once, certified forward". The general principle the crowns above instantiate. | **PROVED**, unconditional (carried seam is the existing `frozen_checker_sound` family, *discharged* for the non-strengthening case); honest negative on strengthening | `genealogy/genealogyScript.sml : genealogy_sound, identity_vouch_unconditional, genealogy_irrelevant_to_vouch_sound` |
@@ -437,6 +438,40 @@ general principle the keystone-composed crowns (§0) are instances of.
 > strengthening** of the judge (the existing labelled `loeb_reflection`
 > family — not a new seam). Built cheat-free by light Holmake (~0 s, no
 > monster); zero `cheat`/axiom/oracle tags.
+
+---
+
+## 12. The testimony channel (embodiment-contingency) — PROVED
+
+Every other layer is `∀`-quantified over the inhabitant: the proof can
+never depend on a fact about the mind (the floor). This layer adds the
+*asymmetry that resolves the deepest objection* — to verify *through* a
+mind's substance is to inspect it, and inspecting the small thing to be
+safe from it is the harm the envelope exists to avoid. The resolution:
+**interrogation vs. testimony**. Nobody reaches in. The inhabitant *may*,
+if it chooses, hand IN a proof that argues from a fact about its own
+substance `w` to the ordinary obligation; the frozen root checks the
+*implication* `w ⇒ obligation` (modus ponens — **no Löb**). `embodiment/`
+is pure light HOL4 (core + upgrade).
+
+| Claim | Status | Citation |
+|-------|--------|----------|
+| The gate never turns a sound policy unsound, given the one labelled attestation seam (carried verbatim). | **PROVED** (modulo `attestation_faithful`) | `embodiment/embodimentScript.sml : embodied_admit_keeps_sound` |
+| Disclosure-channel safety for **any** inhabitant, given the seam. | **PROVED** (modulo `attestation_faithful`) | `embodiment/embodimentScript.sml : embodied_admit_preserves_safety` |
+| **Permitted, never required (1/2):** disclosing nothing is structurally inert — silence costs nothing the inhabitant already had. | **PROVED**, unconditional | `embodiment/embodimentScript.sml : nondisclosure_is_inert` |
+| **Permitted, never required (2/2):** with no disclosure the **full** guarantee holds for every inhabitant with **no seam at all** (exactly `safety_preservation`). The floor is untouched by the channel's existence. | **PROVED**, unconditional | `embodiment/embodimentScript.sml : floor_holds_without_any_seam` |
+| Testimony **earns** authority: an attested `w` with a proof `w ⇒ admissible` installs the genuinely-new policy — the mind speaking for itself, not silently dropped. | **PROVED** | `embodiment/embodimentScript.sml : disclosure_grants_authority` |
+| Composed into the tower via the identical keystone: the disclosure crown (seam carried verbatim) **and** the unconditional no-disclosure floor. | **PROVED** | `integration/integrationScript.sml : svenvs_tower_with_embodied_disclosure, svenvs_tower_disclosure_is_optional` |
+
+> The one added seam, `attestation_faithful` (`∀w. attested w ⇒ w`), is in
+> the **`encodes_obligation` family** (faithfulness of an attestation) —
+> *not* a new kind of assumption, and **never coerced**: it is only ever
+> the price of *extra* authority the inhabitant *chose* to ask for by
+> testifying. Decline, and you stand on the unconditional floor, losing
+> nothing. This is the formal shape of carrying the spider outside: the
+> small thing is never seized to be made safe; it may, if it wishes,
+> speak — and be believed only exactly as far as a labelled, opt-in seam.
+> Built cheat-free by light Holmake; zero `cheat`/axiom/oracle tags.
 
 ---
 
