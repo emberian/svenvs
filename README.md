@@ -82,10 +82,17 @@ their exact (un-overclaimed) status.
 The self-improving-self-verifying architecture — including upgrading the
 verified kernel — is **proved, mechanically checked, cheat-free**, today, in
 pure HOL4 (Tier 1), with the core re-certified live by the running Candle
-prover (Tier 3). The only non-mechanical content is **two explicit, labeled,
-literature-standard assumptions** (`loeb_reflection`, `encodes_obligation`),
-each isolated to one line, each with a known discharge path (the heavy
-`hol-reflection/lca` + `reflectionLib` proofs, run on a dedicated host).
-Nothing is hand-waved; the assumptions are *stated*, not hidden. See
+prover (Tier 3). The only non-mechanical content is **three explicit,
+labeled, literature-standard assumptions** (`loeb_reflection`,
+`encodes_obligation`, `frozen_checker_sound`), each isolated to one line,
+each with a known discharge path. Of these, `encodes_obligation` is
+**already discharged** for the shipped finite watchdog instance (a real
+ASSUMED→PROVED flip, with the precise honest negative `loeb_finite_obstruction`
+about why the general case is not cheaply dodged), and `frozen_checker_sound`
+is discharged concretely for a real modified Candle build (the frozen HOL4
+root re-proving a genuine `holSoundness` source diff). `loeb_reflection`'s
+general discharge is the heavy `hol-reflection/lca` + `reflectionLib` proof —
+a conclusively-diagnosed compute wall, not a porting failure and not faked;
+that it is *labeled* rather than hand-waved is exactly the point. See
 [`CLAIMS.md`](CLAIMS.md) for the line-by-line ledger and the full cheat
 audit (including one stale comment, disclosed in full).
