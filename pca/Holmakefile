@@ -1,0 +1,14 @@
+# pca: PURE light HOL4. NO CakeML / candle / hol-reflection.
+#
+# Proof-carrying actions: the untrusted controller emits (action,
+# certificate); a checkable certifier (an explicit predicate parameter,
+# NOT an oracle) gates execution; the trusted verified sub-policy shield
+# acts otherwise. Generalises the FIXED-policy envelope of envelopeTheory.
+#
+# Only `..` is needed: the generic policy-parametric core
+# (systemTheory / envelopeTheory / safetyTheory / sv_weakeningTheory /
+# upgradeTheory) is pure HOL4 with no CakeML dependency. This layer
+# REUSES that core (esp. safetyTheory.safety_preservation and
+# upgradeTheory.self_improvement_is_safe) and does not edit it.
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE

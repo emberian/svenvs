@@ -1,0 +1,14 @@
+# specneg: PURE light HOL4. NO CakeML / candle / hol-reflection.
+#
+# SPEC-LEVEL negotiation: the inhabitant may negotiate the safety SPEC
+# ITSELF, anchored to an immovable, NON-negotiable meta-invariant. The
+# spec-level analogue of selfprover/ (frozen prover root) and
+# kernel/ (frozen Candle kernel) — but, as proved in §5 of
+# specNegScript.sml, this layer needs NO Löb/reflection hypothesis at all.
+#
+# Only `..` is needed: the generic, parametric self-improvement core
+# (systemTheory / envelopeTheory / safetyTheory / sv_weakeningTheory /
+# upgradeTheory) is pure HOL4 with no CakeML dependency, and is reused
+# verbatim (NOT re-proved).
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE
