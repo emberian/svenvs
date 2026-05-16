@@ -1,7 +1,7 @@
 (* ===================================================================== *)
 (*  RUNTIME POLICY HOT-SWAP — OBLIGATION TEMPLATE                           *)
 (*                                                                         *)
-(*  The unmodelable inhabitant proposes a NEW allowlist at runtime. Before    *)
+(*  The unconstrained inhabitant proposes a NEW allowlist at runtime. Before    *)
 (*  the verified envelope is permitted to swap to it, the LIVE Candle       *)
 (*  kernel must certify the swap is safe. This file mirrors the HOL4        *)
 (*  self-improvement core into the num-only Candle dialect:                 *)

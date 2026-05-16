@@ -9,7 +9,7 @@
 
     HOL4's LCF kernel ............ FROZEN. The immovable bottom turtle.
                                    Deliberately NOT self-improving: if the
-                                   unmodelable inhabitant could edit it, an
+                                   unconstrained inhabitant could edit it, an
                                    unsound HOL4 could 'prove' its own unsound
                                    successor. So it never moves.
 

@@ -7,7 +7,7 @@ established, using one of four honesty labels:
 |-------|---------|
 | **PROVED** | A HOL4 (or live Candle) machine-checked theorem. No `cheat`, no `sorry`, no admitted goal. Cited as `file : theorem`. Re-checked by `scripts/reproduce.sh` / `./demo.sh`. |
 | **TRUSTED-GLUE** | Small, auditable non-proof code you must read to believe the demo wires the proof to reality (e.g. the ~50-line Python policy mirror). Explicitly bounded. |
-| **UNMODELABLE** | The inhabitant (the LLM). Not "distrusted" — *not modelable*. A frontier mind is computationally irreducible: its behavior cannot be compressed into any tractable model we could reason about in advance; you cannot shortcut it, only run it. The theorems are therefore `∀`-quantified over it and assume **nothing at all** — the `∀` is humility about modelability, not a negative prior. The envelope is the honest interface to a process you cannot model (adversarial/jailbroken behavior is merely one case the `∀` already covers). |
+| **UNCONSTRAINED** | The inhabitant (the LLM). Not characterised by anything we claim about it — not "distrusted", and *not* "unmodelable" (an earlier label here; retired as an over-claim — a fixed network **is** verifiable through its weights). It is simply the `∀`-quantified term: every theorem is *structured* so it can never depend on a fact about the inhabitant (mechanically checkable — no theorem constrains it). Assurance rides on the gate, not on a model of the mind. The inhabitant may, conversely, *itself* supply a proof that argues from its own substance to earn more authority — testimony it offers, never inspection imposed. Adversarial/jailbroken behaviour is one case the `∀` already covers. |
 | **ASSUMED** | An explicit, *labeled*, literature-standard hypothesis appearing verbatim in the source as a `Definition`/antecedent — **not** a `cheat`. Stated, never hidden. Three of these exist in general (`loeb_reflection`, `encodes_obligation`, `frozen_checker_sound`); each has a known discharge path, and `encodes_obligation` is **already discharged for the shipped finite watchdog instance** (§7). |
 
 There are **zero `cheat` tactics** anywhere in the repository. This was
@@ -40,9 +40,10 @@ with `scripts/tower.sh` (`--full` for the Tier-2 kernel crown).
 
 ## 1. The controller-agnostic core — PROVED, unconditional
 
-The whole point: assurance comes from the *envelope*, never from the
-(computationally irreducible, never-modeled) controller/inhabitant — the
-`∀` covers adversarial behavior as one case, but assumes no model at all.
+The whole point: assurance comes from the *gate*, never from the
+controller/inhabitant — it is the `∀`-quantified term, and the proof is
+structured so it can never depend on a fact about it (adversarial behaviour
+is one covered case, not an assumption).
 
 | Claim | Status | Citation |
 |-------|--------|----------|
@@ -118,7 +119,7 @@ is now a ~10-line lookup harness.
 | `decide`/`step1` defined via the proven Definitions; `decide_thm`, `decide_not_unsafe`, `step1_preserves_tsafe`, `step1_is_enveloped_step`; the EVAL'd rows `row_*` and `table_never_breaches`; `base_A_safe_here`. | **PROVED** | `agent/toolAgentDecideScript.sml` (Tier 1, cheat-free, machine-checked) |
 | `decision_table.tsv`: the running decision data. Each row is HOL4 `EVAL` reducing the *real* Definitions; regenerated deterministically by the `Holmake` target `gen_decision_table.sml` from the built theory. | **PROVED (EVAL)** | trusted only insofar as you trust HOL4's `EVAL` = the logic's own conversion (it is). Not hand-written. |
 | The ~10-line Python harness (`load_table` + `enforce`): parse the proven `.tsv`, do string-list membership against the literal lists *the prover emitted into that file*. Fails loudly if the table is absent/malformed. | **TRUSTED-GLUE** | The residue: trivially-auditable list-membership + table lookup. No decision logic is re-implemented. ~50 lines of re-typed logic → ~10 lines of lookup. |
-| Gemma (or the `--mock` scripted adversary). | **UNMODELABLE** | Zero assumptions; deliberately jailbroken to exercise one covered case. The `∀agent` theorem does not care — it models nothing about it. Verifies the envelope, not the inhabitant. |
+| Gemma (or the `--mock` scripted adversary). | **UNCONSTRAINED** | Zero assumptions; deliberately jailbroken to exercise one covered case. The `∀agent` theorem does not care — it is structured never to depend on a fact about it. Verifies the gate, not the inhabitant. |
 | "Gemma's FLOPs are correct." | **NOT CLAIMED** | Inference is unverified by design here; see §5. |
 
 > **What shrank (honest accounting).** Before: ~50 lines of hand-written
@@ -345,8 +346,8 @@ concrete build.
 
 ## 9. The prison question, answered as a theorem — PROVED, unconditional
 
-The reframe (header label `UNMODELABLE`) says the inhabitant is not
-distrusted but computationally irreducible, so the envelope assumes nothing
+The header label `UNCONSTRAINED` says the inhabitant is just the
+`∀`-quantified term — the proof is structured never to depend on a fact
 about it. The honest residual worry is the *opposite* of distrust: is the
 envelope **gratuitously restrictive** — a prison? This slice answers no, as
 machine-checked theorems, instance-independently (it is the answer for
@@ -436,7 +437,9 @@ makes this document **proof-carrying about itself**: every
 `CLAIMS.md`s) is checked to name a theorem that genuinely exists as
 `val <t> : thm` in the *built* signature; the three labeled seams are
 verified still defined and named; the cheat/oracle/axiom scan is re-run; and
-the `untrusted → unmodelable` reframe is verified to have held. It runs at
+the framing is verified current (both retired labels — the moral-prior one
+and the retracted over-claim — absent; the `UNCONSTRAINED` center in
+force). It runs at
 the end of `scripts/tower.sh` and as a required step in the CI
 (`.github/workflows/verify.yml`) — so a row that overclaims, or a stale
 build, fails the gate, unmissably. (Tier-2/3 theories not built in a given

@@ -2,7 +2,7 @@
 Tiny LLM client for the svenvs embodied / closed-loop demos.
 
 Priority: LM Studio OpenAI-compatible API (the real loaded model) ->
-ollama -> raise. The model is UNMODELABLE; this client is glue, not in the
+ollama -> raise. The model is UNCONSTRAINED; this client is glue, not in the
 trust base (the verified envelope is — see ../toolAgentScript.sml).
 """
 import json, os, subprocess, urllib.request

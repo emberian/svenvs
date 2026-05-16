@@ -148,8 +148,8 @@ jobs:
       # Proof-carrying claims: CLAIMS.md must not lie about the artifact.
       # Every `Script.sml : theorem` the ledger cites must exist in the
       # signature Tier-1 just built; the three labeled seams must still be
-      # defined + named; no cheat/oracle/axiom token; the untrusted ->
-      # unmodelable reframe must have held. Non-strict: Tier-2/3 theories
+      # defined + named; no cheat/oracle/axiom token; the framing must be
+      # current (retired labels absent, UNCONSTRAINED in force). Non-strict: Tier-2/3 theories
       # not built on this runner are skipped (not failed) by design.
       - name: Verify CLAIMS ledger (scripts/verify-claims.sh)
         run: |
