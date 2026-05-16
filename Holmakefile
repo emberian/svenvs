@@ -1,0 +1,6 @@
+# Core: plain HOL4, no CakeML / hol-reflection dependency.
+# Builds system / envelope / safety / weakening.
+#
+# The proof-producing reflection layer lives in reflection/ with its own
+# Holmakefile (it depends on the hol-reflection port + Candle semantics).
+OPTIONS = QUIT_ON_FAILURE

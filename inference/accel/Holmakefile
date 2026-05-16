@@ -1,0 +1,5 @@
+# Pure HOL4. Verified tensor acceleration: optimized kernels = naive reference.
+# Reuses ../mlpInferenceTheory so "tiled_matmul = matmul"-style theorems are
+# stated against the SAME reference inference kernel.
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE

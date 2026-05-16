@@ -1,0 +1,20 @@
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+ifndef HOLREFLDIR
+HOLREFLDIR = $(HOME)/dev/hol-reflection
+endif
+
+HOLHOL = $(CAKEMLDIR)/candle
+
+# .. : the svenvs core theories (system/envelope/safety/weakening)
+# HOLREFLDIR : reflectionLib / basicReflectionLib / holDerivation
+# the candle chain : deep HOL syntax + semantics that hol-reflection targets
+INCLUDES = .. \
+           $(HOLREFLDIR) \
+           $(CAKEMLDIR) $(CAKEMLDIR)/basis/pure \
+           $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
+           $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics \
+           $(HOLDIR)/src/pred_set/src/more_theories
+
+OPTIONS = QUIT_ON_FAILURE

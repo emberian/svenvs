@@ -1,0 +1,11 @@
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+HOLHOL = $(CAKEMLDIR)/candle
+# Minimal candle INCLUDES (NO $(CAKEMLDIR) root — avoids CakeML weakeningTheory
+# name-collision, per memory). .. = svenvs core; ../embedded = embeddedGateTheory.
+INCLUDES = .. ../embedded \
+           $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure \
+           $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
+           $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics
+OPTIONS = QUIT_ON_FAILURE

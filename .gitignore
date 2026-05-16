@@ -1,0 +1,10 @@
+.HOLMK/
+.hol/
+*Theory.sig
+*Theory.sml
+*Theory.dat
+*.ui
+*.uo
+__pycache__/
+*.pyc
+.DS_Store

@@ -1,0 +1,14 @@
+# selfprover: PURE light HOL4. NO CakeML / candle / hol-reflection.
+#
+# This layer models, ABSTRACTLY, the prover build that the envelope's
+# admission gate runs (Candle), and proves that the inhabitant may safely
+# self-improve THAT build, gated by the FROZEN HOL4 root. It deliberately
+# does NOT pull the heavy CakeML root (../kernel and ../embedded do that):
+# the architecture is established unconditionally here, the concrete
+# real-source replay is documented follow-up #28.
+#
+# Only `..` is needed: the generic, policy-parametric self-improvement core
+# (systemTheory / envelopeTheory / safetyTheory / sv_weakeningTheory /
+# upgradeTheory) is pure HOL4 with no CakeML dependency.
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE

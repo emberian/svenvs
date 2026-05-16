@@ -1,0 +1,11 @@
+# PureLang-as-inhabitant integration sketch.
+#
+# This is an ABSTRACT interface layer. It is pure HOL4 plus the svenvs core
+# theories (system/envelope/safety/sv_weakening/upgrade) reached via
+# INCLUDES=.. — exactly like the cartpole layer. It deliberately does NOT
+# depend on ~/dev/pure / PureCake / CakeML / hol-reflection: pure_semantics
+# enters only as an axiomatised abstract signature (see DESIGN.md §4), so
+# this builds in seconds and cheat-free today, and documents the precise
+# point at which the real (heavy) PureCake artifacts plug in.
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE
