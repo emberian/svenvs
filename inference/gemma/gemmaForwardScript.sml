@@ -263,20 +263,24 @@ Theorem el_flat_replicate:
     0 < rep /\ q < rep * LENGTH kv ==>
     EL q (FLAT (MAP (\h. REPLICATE rep h) kv)) = EL (q DIV rep) kv
 Proof
-  Induct
-  >- (rw[] >> fs[])
-  >- (rpt strip_tac >> fs[MULT_CLAUSES] >>
-      Cases_on `q < rep`
-      >- (rw[EL_APPEND1, LENGTH_REPLICATE, EL_REPLICATE] >>
-          `q DIV rep = 0` by rw[DIV_EQ_0] >> rw[])
-      >- (fs[NOT_LESS] >>
-          rw[EL_APPEND2, LENGTH_REPLICATE] >>
-          `?d. q = d + rep` by (qexists_tac `q - rep` >> simp[]) >>
-          `(d + rep) DIV rep = d DIV rep + 1`
-             by metis_tac[ADD_DIV_ADD_DIV, MULT_LEFT_1, MULT_COMM] >>
-          fs[GSYM ADD1] >>
-          first_x_assum (qspecl_then [`rep`,`d`] mp_tac) >>
-          impl_tac >> fs[]))
+  Induct >> rpt strip_tac
+  >- fs[]
+  >> gvs[FLAT, MAP, EL_APPEND_EQN, LENGTH_REPLICATE]
+  >> Cases_on `q < rep` >> gvs[]
+  >- (`q DIV rep = 0` by metis_tac[LESS_DIV_EQ_ZERO] >> gvs[EL_REPLICATE])
+  >> `rep <= q` by fs[NOT_LESS]
+  >> `q DIV rep = (q - rep) DIV rep + 1` by
+       (`q = 1 * rep + (q - rep)` by simp[] >>
+        `q DIV rep = 1 + (q - rep) DIV rep` by metis_tac[ADD_DIV_ADD_DIV] >>
+        simp[])
+  >> `q - rep < rep * LENGTH kv` by
+       (`rep * SUC (LENGTH kv) = rep + rep * LENGTH kv`
+          by simp[MULT_CLAUSES] >>
+        `q < rep + rep * LENGTH kv` by fs[] >>
+        decide_tac)
+  >> `EL (q - rep) (FLAT (MAP (\h. REPLICATE rep h) kv)) =
+      EL ((q - rep) DIV rep) kv` by (first_x_assum irule >> fs[])
+  >> gvs[GSYM ADD1, EL]
 QED
 
 Theorem repeat_kv_grouping:
@@ -363,8 +367,10 @@ Theorem map2_repl_mul0:
   !ys n. LENGTH ys = n ==>
          MAP2 (\u v. u*v) (REPLICATE n (0:int)) ys = REPLICATE n (0:int)
 Proof
-  Induct >> rw[REPLICATE] >> Cases_on `n` >> fs[REPLICATE] >>
-  intLib.ARITH_TAC
+  Induct >> rw[REPLICATE, MAP2]
+  >> `MAP2 (\u v. u * v) (REPLICATE (LENGTH ys) (0:int)) ys =
+      REPLICATE (LENGTH ys) (0:int)` by fs[]
+  >> gvs[integerTheory.INT_MUL_LZERO]
 QED
 
 Theorem apply_rope_pos0_identity:
@@ -467,23 +473,30 @@ Theorem gemma_layer_shape:
     LENGTH (gemma_layer attn s_in g_in s_pa g_pa s_pf g_pf s_po g_po
                         Wg Wu Wd lsc x) = d
 Proof
+  (* rw[gemma_layer_def] beta/let-reduces and (via LENGTH Wd = d)
+     normalizes the goal & hyps to use `LENGTH Wd` for the hidden dim;
+     we therefore carry the shape facts in `LENGTH Wd` form. *)
   rw[gemma_layer_def] >>
-  `LENGTH (rmsnorm s_in g_in x) = d` by metis_tac[rmsnorm_shape] >>
-  `LENGTH (attn (rmsnorm s_in g_in x)) = d` by metis_tac[] >>
-  `LENGTH (rmsnorm s_pa g_pa (attn (rmsnorm s_in g_in x))) = d`
+  `LENGTH (rmsnorm s_in g_in x) = LENGTH Wd` by metis_tac[rmsnorm_shape] >>
+  `LENGTH (attn (rmsnorm s_in g_in x)) = LENGTH Wd` by metis_tac[] >>
+  `LENGTH (rmsnorm s_pa g_pa (attn (rmsnorm s_in g_in x))) = LENGTH Wd`
      by metis_tac[rmsnorm_shape] >>
-  `LENGTH (vadd x (rmsnorm s_pa g_pa (attn (rmsnorm s_in g_in x)))) = d`
-     by metis_tac[vadd_shape] >>
-  qmatch_abbrev_tac `LENGTH (MAP _ (vadd x1 mm)) = d` >>
-  `LENGTH x1 = d` by metis_tac[] >>
-  `LENGTH (rmsnorm s_pf g_pf x1) = d` by metis_tac[rmsnorm_shape] >>
-  `LENGTH mm = d`
-     by (rw[Abbr`mm`] >>
-         `LENGTH (mlp Wg Wu Wd (rmsnorm s_pf g_pf x1)) = LENGTH Wd`
-            by metis_tac[mlp_shape] >>
-         metis_tac[rmsnorm_shape, mlp_shape]) >>
-  `LENGTH (vadd x1 mm) = d` by metis_tac[vadd_shape] >>
-  rw[LENGTH_MAP]
+  `LENGTH (vadd x (rmsnorm s_pa g_pa (attn (rmsnorm s_in g_in x)))) =
+   LENGTH Wd` by metis_tac[vadd_shape] >>
+  `LENGTH (rmsnorm s_pf g_pf
+             (vadd x (rmsnorm s_pa g_pa (attn (rmsnorm s_in g_in x))))) =
+   LENGTH Wd` by metis_tac[rmsnorm_shape] >>
+  `LENGTH (mlp Wg Wu Wd
+             (rmsnorm s_pf g_pf
+                (vadd x (rmsnorm s_pa g_pa (attn (rmsnorm s_in g_in x)))))) =
+   LENGTH Wd` by metis_tac[mlp_shape] >>
+  `LENGTH (rmsnorm s_po g_po
+             (mlp Wg Wu Wd
+                (rmsnorm s_pf g_pf
+                   (vadd x (rmsnorm s_pa g_pa
+                              (attn (rmsnorm s_in g_in x))))))) = LENGTH Wd`
+     by metis_tac[rmsnorm_shape] >>
+  metis_tac[vadd_shape]
 QED
 
 (* Residual structure: if attention and mlp both contribute zero and
@@ -548,11 +561,10 @@ Theorem gemma_forward_shape:
     LENGTH x = d /\ LENGTH g_f = d ==>
     LENGTH (gemma_forward blk n s_f g_f Wlm x) = LENGTH Wlm
 Proof
-  rw[gemma_forward_def] >>
-  `LENGTH (gemma_stack n blk x) = d` by metis_tac[gemma_stack_shape] >>
-  `LENGTH (rmsnorm s_f g_f (gemma_stack n blk x)) = d`
-     by metis_tac[rmsnorm_shape] >>
-  rw[matvec_shape]
+  (* lm_head = matvec Wlm _, and matvec_shape is unconditional:
+     output length = #rows Wlm = vocab_size, for any inner activation,
+     so the gemma_stack / rmsnorm shape facts are not even needed here. *)
+  rw[gemma_forward_def, matvec_shape]
 QED
 
 (* ===================================================================== *)
@@ -591,9 +603,15 @@ Definition toy_lm_head_def:
     [[1;0;0;0]; [0;1;0;0]; [1;1;1;1]]   (* vocab=3, hidden=4 *)
 End
 
+(* Whole pipeline, run in-logic (2 toy blocks, id final-norm, lm_head):
+     blk [1;2;0;3]      = [2;6;0;12]      (x + x*x)
+     blk [2;6;0;12]     = [6;42;0;156]
+     rmsnorm 1 1 (id)   = [6;42;0;156]
+     matvec lm_head h   = [ r0.h ; r1.h ; r2.h ]
+                        = [ 6 ; 42 ; 6+42+0+156 ] = [6;42;204]. *)
 Theorem toy_gemma_forward_eval:
   gemma_forward toy_block 2 1 [1;1;1;1] toy_lm_head [1;2;0;3] =
-    [6; 42; 96]
+    [6; 42; 204]
 Proof
   EVAL_TAC
 QED
