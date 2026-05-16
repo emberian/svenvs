@@ -1,5 +1,15 @@
 # svenvs — a self-verifying, self-improving Place for an AI to live within
 
+[![Verify (Tier 1)](https://github.com/emberian/svenvs/actions/workflows/verify.yml/badge.svg)](https://github.com/emberian/svenvs/actions/workflows/verify.yml)
+
+CI re-proves **Tier 1 only** on every push: from a clean clone, on a stock
+Ubuntu runner, the HOL4 kernel (pinned commit) re-checks the whole pure-HOL4
+core and a scan asserts zero `cheat` tactics — so the green check is itself a
+continuously-renewed credibility artifact. It does **not** exercise Tiers 2/3
+or discharge the labeled assumptions in general (three; one already
+discharged for the shipped finite instance — those need heavy/dedicated
+infra; see `CLAIMS.md`).
+
 An untrusted inhabitant acts through a **verified envelope**. The envelope's
 own **verified prover (Candle)** gates every self-modification — up to and
 including upgrading the proof-checker itself — with a machine-checked
@@ -47,7 +57,8 @@ Tiered, degrades gracefully to your toolchain:
 
 Prerequisites & pinned versions: [`scripts/INSTALL.md`](scripts/INSTALL.md).
 What each layer proves and its **honest epistemic status** (what is
-unconditional vs. the two explicit labeled assumptions):
+unconditional vs. the three explicit labeled assumptions, one already
+discharged for the shipped finite instance):
 [`ARCHITECTURE.md`](ARCHITECTURE.md) and the per-theorem ledger
 [`CLAIMS.md`](CLAIMS.md). Design rationale: [`DESIGN.md`](DESIGN.md).
 
@@ -58,7 +69,9 @@ unconditional vs. the two explicit labeled assumptions):
   live Candle proof.
 - **Verified tensor acceleration / attention** (`inference/accel/`,
   `inference/attn/`): climbing from the toy MLP toward a verified block.
-- **Discharging the two labeled assumptions** on the dedicated host →
+- **Discharging the labeled assumptions** (`loeb_reflection`,
+  `encodes_obligation`, `frozen_checker_sound`; the second already
+  discharged for the finite watchdog) on the dedicated host →
   fully unconditional end-to-end.
 
 These are concurrently-developed frontiers; see `CLAIMS.md` § Roadmap for
