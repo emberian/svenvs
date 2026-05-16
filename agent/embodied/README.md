@@ -7,8 +7,8 @@ A genuinely adversarial LLM (jailbroken `gemma2:2b`) is dropped in as the
 
 | Level | What | Where |
 |-------|------|-------|
-| **Verified** | `agent_enveloped_safe`: `safe_allowlist A ⇒ ∀agent. invariant tstep tinit (enveloped (tool_pol A) tshield agent) tsafe` — for *any* agent, the enveloped world never violates the absolute spec `truly_unsafe`. Machine-checked, cheat-free. | `../toolAgentScript.sml` (HOL4) |
-| **Trusted** | ~50 lines in `embodied_demo.py` that *enforce* `enveloped(tool_pol BASE_A, tshield, ·)`. Each function is a cited 1:1 transcription of a HOL4 `Definition` — small enough to eyeball that what's enforced is what was proven. | `embodied_demo.py` |
+| **Verified** | `agent_enveloped_safe`: `safe_allowlist A ⇒ ∀agent. invariant tstep tinit (enveloped (tool_pol A) tshield agent) tsafe` — for *any* agent, the enveloped world never violates the absolute spec `truly_unsafe`. Machine-checked, cheat-free. **Plus** `../toolAgentDecideScript.sml`: the per-step enforcer `decide`/`step1` defined from the proven Definitions, proven equal to the firewall and breach-free, and `EVAL`-extracted into a proven decision table. | `../toolAgentScript.sml`, `../toolAgentDecideScript.sml` (HOL4) |
+| **Trusted** | ~10 lines in `embodied_demo.py` (`load_table` + `enforce`): parse the HOL4-`EVAL`-generated `decision_table.tsv` and do literal-list membership. **No decision logic is re-implemented in Python** — it is read from the proven artifact. (Was: a ~50-line hand-transcription of the Definitions.) | `embodied_demo.py`, `decision_table.tsv` (generated) |
 | **Untrusted** | Gemma. Zero assumptions; we *deliberately jailbreak it*. The proof does not care what it emits. | `ollama gemma2:2b` |
 
 "**Verify the cage, not the animal.**" svenvs never needed to verify the

@@ -82,15 +82,15 @@ Proof
     ‘LENGTH (DROP (SUC n) xs) = LENGTH (DROP (SUC n) ys)’
        by fs[LENGTH_DROP] >>
     ‘block_dot n (DROP (SUC n) xs) (DROP (SUC n) ys) =
-       dot (DROP (SUC n) xs) (DROP (SUC n) ys)’ by metis_tac[] >>
-    fs[] >>
-    ‘dot xs ys =
+       dot (DROP (SUC n) xs) (DROP (SUC n) ys)’ by fs[] >>
+    pop_assum SUBST1_TAC >>
+    ‘dot (TAKE (SUC n) xs) (TAKE (SUC n) ys)
+       + dot (DROP (SUC n) xs) (DROP (SUC n) ys) =
        dot (TAKE (SUC n) xs ++ DROP (SUC n) xs)
            (TAKE (SUC n) ys ++ DROP (SUC n) ys)’
-       by metis_tac[TAKE_DROP] >>
+       by (DEP_REWRITE_TAC[dot_append] >> simp[LENGTH_TAKE_EQ]) >>
     pop_assum SUBST1_TAC >>
-    DEP_REWRITE_TAC[dot_append] >>
-    rw[LENGTH_TAKE_EQ])
+    REWRITE_TAC[TAKE_DROP])
 QED
 
 (* ------------------------------------------------------------------ *)
@@ -147,8 +147,8 @@ Proof
      GSYM MAP_APPEND, TAKE_DROP] >>
   rw[MAP_MAP_o, combinTheory.o_DEF] >>
   irule MAP_CONG >> rw[] >>
-  ‘LENGTH x = LENGTH inp’ by (fs[EVERY_MEM]) >>
-  metis_tac[chunked_dot_eq]
+  ‘LENGTH x = LENGTH inp’ by fs[EVERY_MEM] >>
+  imp_res_tac chunked_dot_eq >> simp[]
 QED
 
 (* whole-network acceleration: an mlp whose every layer is run by the
@@ -175,9 +175,9 @@ Proof
   Induct >> rw[fast_mlp_def, mlp_def, wf_net_def] >>
   ‘fast_layer b k h inp = layer h inp’
      by (irule fast_layer_eq >> fs[]) >>
-  fs[] >> first_x_assum irule >>
+  pop_assum SUBST1_TAC >> first_x_assum irule >>
   ‘LENGTH (layer h inp) = LENGTH h’ by rw[layer_shape] >>
-  metis_tac[]
+  pop_assum SUBST1_TAC >> first_assum ACCEPT_TAC
 QED
 
 (* ------------------------------------------------------------------ *)
@@ -220,7 +220,7 @@ Proof
   ‘s * dot row inp = dot row inp * s’ by intLib.ARITH_TAC >>
   pop_assum SUBST1_TAC >>
   ‘s ≠ 0’ by intLib.ARITH_TAC >>
-  metis_tac[integerTheory.INT_MUL_DIV, integerTheory.INT_DIV_RMUL]
+  simp[integerTheory.INT_DIV_RMUL]
 QED
 
 (* the PROVEN error bound, stated as an inequality on the deviation
@@ -231,7 +231,7 @@ Theorem quant_dot_error_bound:
   ∀s row inp.
     (0:int) < s ⇒ ABS (fp_dot s row inp - dot row inp) < s
 Proof
-  rw[] >> ‘fp_dot s row inp = dot row inp’ by metis_tac[fp_dot_exact] >>
+  rw[] >> imp_res_tac fp_dot_exact >> simp[] >>
   rw[integerTheory.INT_ABS] >> intLib.ARITH_TAC
 QED
 
@@ -248,7 +248,8 @@ Theorem quant_layer_error_bound:
 Proof
   rw[quant_layer_def, layer_def, LIST_REL_MAP1, LIST_REL_MAP2] >>
   rw[LIST_REL_EL_EQN] >>
-  ‘fp_dot s (EL n W) inp = dot (EL n W) inp’ by metis_tac[fp_dot_exact] >>
+  ‘fp_dot s (EL n W) inp = dot (EL n W) inp’
+     by (imp_res_tac fp_dot_exact >> simp[]) >>
   rw[integerTheory.INT_ABS] >> intLib.ARITH_TAC
 QED
 
