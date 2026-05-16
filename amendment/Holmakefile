@@ -1,0 +1,5 @@
+# The amendment slice — a MOVABLE meta over an ETERNAL bedrock.
+# Reuses specNeg's gate verbatim one level up. Pure light HOL4
+# (core + specneg only); no CakeML / candle / hol-reflection.
+INCLUDES = .. ../specneg
+OPTIONS = QUIT_ON_FAILURE
