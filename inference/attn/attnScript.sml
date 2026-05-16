@@ -63,7 +63,7 @@ End
 (* ------------------------------------------------------------------ *)
 
 Definition scores_def:
-  scores (q:int list) (K:(int list) list) = MAP (λk. idot q k) K
+  scores (q:int list) (Ks:(int list) list) = MAP (λk. idot q k) Ks
 End
 
 (* ------------------------------------------------------------------ *)
@@ -72,13 +72,13 @@ End
 (* ------------------------------------------------------------------ *)
 
 Definition attn1_def:
-  attn1 (q:int list) (K:(int list) list) (V:(int list) list) =
-    EL (argmax (scores q K)) V
+  attn1 (q:int list) (Ks:(int list) list) (V:(int list) list) =
+    EL (argmax (scores q Ks)) V
 End
 
 (* Multi-query single-head attention: one output row per query. *)
 Definition attention_def:
-  attention (Q:(int list) list) K V = MAP (λq. attn1 q K V) Q
+  attention (Q:(int list) list) Ks V = MAP (λq. attn1 q Ks V) Q
 End
 
 (* ------------------------------------------------------------------ *)
@@ -135,26 +135,22 @@ Proof
               >- simp[EL_APPEND1]
               >- (rpt strip_tac >>
                   ‘j < LENGTH acc ∨ j = LENGTH acc’ by decide_tac
-                  >- (‘EL j (acc ++ [h]) = EL j acc’ by simp[EL_APPEND1] >>
-                      simp[])
-                  >- (‘EL j (acc ++ [h]) = h’ by
-                        (‘j = LENGTH acc’ by decide_tac >>
-                         simp[EL_APPEND2]) >>
-                      simp[]))) >>
+                  >- simp[EL_APPEND1]
+                  >- (‘j = LENGTH acc’ by decide_tac >>
+                      simp[EL_APPEND2]))) >>
           strip_tac >>
           ‘argmax_from i best bi (h::ss) = argmax_from (i+1) best bi ss’
              by simp[Once argmax_from_def] >>
-          ‘acc ++ h::ss = acc ++ [h] ++ ss’ by simp[] >>
-          fs[ADD1] >> simp[GSYM APPEND_ASSOC])
+          fs[ADD1] >>
+          qpat_x_assum ‘∀j. _ ⇒ EL _ (acc ++ [h] ++ ss) ≤ _’ mp_tac >>
+          REWRITE_TAC[GSYM listTheory.APPEND_ASSOC, listTheory.APPEND])
       >- (* best < h : new running max is h at index i *)
          (first_x_assum (qspecl_then [‘acc ++ [h]’,‘i+1’,‘h’,‘i’] mp_tac) >>
           impl_tac
           >- (rpt conj_tac
               >- simp[]
               >- decide_tac
-              >- (‘EL i (acc ++ [h]) = h’ by
-                    (‘i = LENGTH acc’ by decide_tac >> simp[EL_APPEND2]) >>
-                  simp[])
+              >- simp[EL_APPEND2]
               >- (rpt strip_tac >>
                   ‘j < LENGTH acc ∨ j = LENGTH acc’ by decide_tac
                   >- (‘EL j (acc ++ [h]) = EL j acc’ by simp[EL_APPEND1] >>
@@ -162,15 +158,14 @@ Proof
                       ‘EL j acc ≤ best’ by metis_tac[] >>
                       metis_tac[integerTheory.INT_LT_IMP_LE,
                                 integerTheory.INT_LE_TRANS])
-                  >- (‘EL j (acc ++ [h]) = h’ by
-                        (‘j = LENGTH acc’ by decide_tac >>
-                         simp[EL_APPEND2]) >>
-                      simp[]))) >>
+                  >- (‘j = LENGTH acc’ by decide_tac >>
+                      simp[EL_APPEND2]))) >>
           strip_tac >>
           ‘argmax_from i best bi (h::ss) = argmax_from (i+1) h i ss’
              by simp[Once argmax_from_def] >>
-          ‘acc ++ h::ss = acc ++ [h] ++ ss’ by simp[] >>
-          fs[ADD1] >> simp[GSYM APPEND_ASSOC]))
+          fs[ADD1] >>
+          qpat_x_assum ‘∀j. _ ⇒ EL _ (acc ++ [h] ++ ss) ≤ _’ mp_tac >>
+          REWRITE_TAC[GSYM listTheory.APPEND_ASSOC, listTheory.APPEND]))
 QED
 
 (* Headline argmax correctness: for any non-empty score list ss,
@@ -180,14 +175,13 @@ Theorem argmax_is_max:
        argmax ss < LENGTH ss ∧
        (∀j. j < LENGTH ss ⇒ EL j ss ≤ EL (argmax ss) ss)
 Proof
-  Cases >> strip_tac >> rw[argmax_def]
-  >- (irule argmax_lt_length >> simp[])
-  >- (qspecl_then [‘t’,‘[h]’,‘1’,‘h’,‘0’] mp_tac argmax_from_dom >>
-      impl_tac >- rw[] >>
-      strip_tac >>
-      ‘h::t = [h] ++ t’ by simp[] >>
-      pop_assum (fn th => once_rewrite_tac[th]) >>
-      first_x_assum (qspec_then ‘j’ mp_tac) >> simp[])
+  Cases >- simp[] >>
+  strip_tac >> simp[argmax_def] >>
+  qspecl_then [‘t’,‘[h]’,‘1’,‘h’,‘0’] mp_tac argmax_from_dom >>
+  impl_tac >- simp[] >>
+  ‘h::t = [h] ++ t’ by simp[] >>
+  pop_assum (fn th => REWRITE_TAC[th]) >>
+  simp[ADD1]
 QED
 
 (* ------------------------------------------------------------------ *)
@@ -196,21 +190,21 @@ QED
 
 (* scores has exactly one entry per key row *)
 Theorem scores_length:
-  ∀q K. LENGTH (scores q K) = LENGTH K
+  ∀q Ks. LENGTH (scores q Ks) = LENGTH Ks
 Proof
   rw[scores_def]
 QED
 
 (* (a) attn1 returns a value actually PRESENT in V (one-hot / convex
-       selection: no hallucinated vector), provided V is aligned w/ K. *)
+       selection: no hallucinated vector), provided V is aligned w/ Ks. *)
 Theorem attn1_picks_a_value:
-  ∀q K V.
-    K ≠ [] ∧ LENGTH V = LENGTH K ⇒
-    MEM (attn1 q K V) V
+  ∀q Ks V.
+    Ks ≠ [] ∧ LENGTH V = LENGTH Ks ⇒
+    MEM (attn1 q Ks V) V
 Proof
   rw[attn1_def] >> irule EL_MEM >>
-  ‘scores q K ≠ []’ by (Cases_on ‘K’ >> fs[scores_def]) >>
-  ‘argmax (scores q K) < LENGTH (scores q K)’ by
+  ‘scores q Ks ≠ []’ by (Cases_on ‘Ks’ >> fs[scores_def]) >>
+  ‘argmax (scores q Ks) < LENGTH (scores q Ks)’ by
     metis_tac[argmax_is_max] >>
   fs[scores_length]
 QED
@@ -218,22 +212,22 @@ QED
 (* (a') the selected index = argmax of the score vector, and that index
        maximises the query-key score. *)
 Theorem attn1_argmax_correct:
-  ∀q K V.
-    K ≠ [] ⇒
-    let i = argmax (scores q K) in
-      i < LENGTH K ∧
-      (∀j. j < LENGTH K ⇒ idot q (EL j K) ≤ idot q (EL i K)) ∧
-      attn1 q K V = EL i V
+  ∀q Ks V.
+    Ks ≠ [] ⇒
+    let i = argmax (scores q Ks) in
+      i < LENGTH Ks ∧
+      (∀j. j < LENGTH Ks ⇒ idot q (EL j Ks) ≤ idot q (EL i Ks)) ∧
+      attn1 q Ks V = EL i V
 Proof
   rw[attn1_def]
-  >- (‘scores q K ≠ []’ by (Cases_on ‘K’ >> fs[scores_def]) >>
-      ‘argmax (scores q K) < LENGTH (scores q K)’ by
+  >- (‘scores q Ks ≠ []’ by (Cases_on ‘Ks’ >> fs[scores_def]) >>
+      ‘argmax (scores q Ks) < LENGTH (scores q Ks)’ by
         metis_tac[argmax_is_max] >> fs[scores_length])
-  >- (‘scores q K ≠ []’ by (Cases_on ‘K’ >> fs[scores_def]) >>
-      ‘∀j. j < LENGTH (scores q K) ⇒
-           EL j (scores q K) ≤ EL (argmax (scores q K)) (scores q K)’ by
+  >- (‘scores q Ks ≠ []’ by (Cases_on ‘Ks’ >> fs[scores_def]) >>
+      ‘∀j. j < LENGTH (scores q Ks) ⇒
+           EL j (scores q Ks) ≤ EL (argmax (scores q Ks)) (scores q Ks)’ by
         metis_tac[argmax_is_max] >>
-      ‘argmax (scores q K) < LENGTH (scores q K)’ by
+      ‘argmax (scores q Ks) < LENGTH (scores q Ks)’ by
         metis_tac[argmax_is_max] >>
       first_x_assum (qspec_then ‘j’ mp_tac) >>
       fs[scores_length, scores_def, EL_MAP])
@@ -241,16 +235,16 @@ QED
 
 (* (b) shape correctness: one output row per query. *)
 Theorem attention_shape:
-  ∀Q K V. LENGTH (attention Q K V) = LENGTH Q
+  ∀Q Ks V. LENGTH (attention Q Ks V) = LENGTH Q
 Proof
   rw[attention_def]
 QED
 
 (* every attention output row is one of the supplied V rows. *)
 Theorem attention_rows_from_V:
-  ∀Q K V.
-    K ≠ [] ∧ LENGTH V = LENGTH K ⇒
-    EVERY (λr. MEM r V) (attention Q K V)
+  ∀Q Ks V.
+    Ks ≠ [] ∧ LENGTH V = LENGTH Ks ⇒
+    EVERY (λr. MEM r V) (attention Q Ks V)
 Proof
   rw[attention_def, EVERY_MEM, MEM_MAP, PULL_EXISTS] >>
   metis_tac[attn1_picks_a_value]
@@ -258,8 +252,8 @@ QED
 
 (* structural: permuting the queries permutes the output identically. *)
 Theorem attention_query_map:
-  ∀f Q K V.
-    attention (MAP f Q) K V = MAP (λq. attn1 (f q) K V) Q
+  ∀f Q Ks V.
+    attention (MAP f Q) Ks V = MAP (λq. attn1 (f q) Ks V) Q
 Proof
   rw[attention_def, MAP_MAP_o, combinTheory.o_DEF]
 QED
@@ -337,16 +331,16 @@ QED
 
 (* Compose: a single-query attention sublayer fed into the block. *)
 Definition attn_block_def:
-  attn_block K V (x:int list) =
-    block (λq. attn1 q K V) x
+  attn_block Ks V (x:int list) =
+    block (λq. attn1 q Ks V) x
 End
 
 (* (e) end-to-end shape: attention rows aligned to query width make the
        attention block dimension-preserving. *)
 Theorem attn_block_shape:
-  ∀K V x.
-    LENGTH (attn1 x K V) = LENGTH x ⇒
-    LENGTH (attn_block K V x) = LENGTH x
+  ∀Ks V x.
+    LENGTH (attn1 x Ks V) = LENGTH x ⇒
+    LENGTH (attn_block Ks V x) = LENGTH x
 Proof
   rw[attn_block_def] >> irule block_shape >> rw[]
 QED
