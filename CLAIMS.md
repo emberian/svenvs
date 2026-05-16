@@ -29,6 +29,7 @@ with `scripts/tower.sh` (`--full` for the Tier-2 kernel crown).
 |----------------|--------|----------|
 | Proof-carrying actions **(+)** unbounded policy self-improvement **(+)** the safety spec negotiated under a FIXED immovable meta-invariant ⇒ the meta-invariant holds for **any** inhabitant. | **PROVED**, unconditional (no labelled assumption) | `integration/integrationScript.sml : svenvs_tower_unconditional` |
 | The composition keystone itself: any layer guaranteeing a negotiated spec transports to the fixed meta-invariant. | **PROVED** | `integration/integrationScript.sml : any_layer_transports_to_meta` (≡ `specNegTheory.invariant_transports_to_meta`) |
+| **The prison question, answered in the tower:** run at the **maximal** sound policy the tower still reaches meta for **any** inhabitant, *and that liberty is provably maximal* (every other sound policy is a restriction of it — every bar of the envelope is forced). | **PROVED**, unconditional (no labelled assumption) | `integration/integrationScript.sml : svenvs_tower_at_maximal_liberty`; substrate in `liberty/libertyScript.sml` |
 | + prover self-improvement crown. | **PROVED**, modulo the labelled `frozen_checker_sound` (carried verbatim in the statement) | `integration/integrationScript.sml : svenvs_tower_with_prover_upgrade` |
 | + kernel self-upgrade crown (Tier-2; pulls candle semantics). | **PROVED**, modulo the labelled `loeb_reflection`/`encodes_obligation` (carried verbatim) | `integration/integrationKernelScript.sml : svenvs_tower_with_kernel_upgrade` |
 
@@ -338,6 +339,39 @@ ordinary proof replay (no monster), but needs the heavy CakeML root and is
 deliberately left off the Mac. This abstract layer establishes the
 *architecture* unconditionally; #28 discharges `frozen_checker_sound` for one
 concrete build.
+
+---
+
+## 9. The prison question, answered as a theorem — PROVED, unconditional
+
+The reframe (header label `UNMODELABLE`) says the inhabitant is not
+distrusted but computationally irreducible, so the envelope assumes nothing
+about it. The honest residual worry is the *opposite* of distrust: is the
+envelope **gratuitously restrictive** — a prison? This slice answers no, as
+machine-checked theorems, instance-independently (it is the answer for
+*every* svenvs instance, not one demo). `liberty/` is pure light HOL4 (core
+deps only); the headline composes into the tower via the *identical*
+keystone (§0).
+
+`maxpol step safe ≜ λ s a. safe s ⇒ safe (step s a)` is the **maximal sound
+policy**: from a safe state it permits exactly the safety-preserving
+actions; only safe states are ever reachable under the envelope.
+
+| Claim | Status | Citation |
+|-------|--------|----------|
+| The maximal sound policy is sound. | **PROVED** | `liberty/libertyScript.sml : maxpol_sound` |
+| It is the unique ⊆-greatest sound policy: every sound policy is a *restriction* of it. | **PROVED** | `liberty/libertyScript.sml : maxpol_is_greatest_sound` |
+| **Headline — least-restrictive:** any policy that permits, from a safe state, an action `maxpol` forbids is **unsound** (it admits a safety-breaking action). Every restriction the envelope imposes is load-bearing; there is no slack. | **PROVED** | `liberty/libertyScript.sml : envelope_is_least_restrictive` |
+| **No starvation:** a controller proposing a safe action from a safe state is passed through *untouched* — never gratuitously shielded. | **PROVED** | `liberty/libertyScript.sml : envelope_never_overrides_safe_action` |
+| The envelope acts **only** on actions that would actually break safety — real work, not decoration (pairs with the executed cartpole `chaos_*`). | **PROVED** | `liberty/libertyScript.sml : envelope_overrides_only_unsafe` |
+| With the maximally permissive policy the **full** safety-preservation guarantee still holds for every inhabitant — maximal autonomy and safety simultaneously, no trade-off. | **PROVED** | `liberty/libertyScript.sml : maxpol_envelope_safe` |
+| Composed into the tower: at maximal liberty the tower still reaches the fixed meta-invariant for **any** inhabitant, and that liberty is provably maximal. | **PROVED**, unconditional | `integration/integrationScript.sml : svenvs_tower_at_maximal_liberty` |
+
+> Net: "every bar in the cage is load-bearing, and the door is open
+> whenever the floor provably holds." The envelope restricts the inhabitant
+> *exactly* as much as safety forces and not one action more — and that is a
+> theorem, not a footnote. Built cheat-free by light Holmake (~0 s, no
+> monster); zero `cheat`/axiom/oracle tags.
 
 ---
 

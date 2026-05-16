@@ -14,6 +14,10 @@
    * svenvs_tower_unconditional — core (+) proof-carrying actions (+)
      unbounded policy self-improvement (+) spec negotiated under a FIXED
      meta-invariant, for ANY inhabitant.  NO labelled assumption.
+   * svenvs_tower_at_maximal_liberty — the same tower run at the MAXIMAL
+     sound policy still reaches meta for ANY inhabitant, and that liberty
+     is provably maximal (Pillar A: the prison question, answered in the
+     tower). NO labelled assumption.
    * svenvs_tower_with_prover_upgrade — adds prover self-improvement;
      carries selfProverTheory's labelled `frozen_checker_sound` VERBATIM.
    * the kernel-self-upgrade crown composes by the *identical* transport
@@ -31,7 +35,7 @@
 open HolKernel boolLib bossLib BasicProvers
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
      upgradeTheory pcaTheory pcaSubsumptionTheory specNegTheory
-     selfProverTheory;
+     selfProverTheory libertyTheory;
 
 val _ = new_theory "integration";
 
@@ -109,6 +113,34 @@ Theorem any_layer_transports_to_meta:
   invariant step init sel meta
 Proof
   metis_tac[invariant_transports_to_meta]
+QED
+
+(* ------------------------------------------------------------------ *)
+(*  4. The prison question, answered IN the tower (Pillar A).          *)
+(*     Run at the MAXIMAL sound policy, the composed tower still       *)
+(*     reaches the fixed meta-invariant for ANY inhabitant, AND that   *)
+(*     liberty is provably maximal: every other sound policy is a      *)
+(*     restriction of it, so every bar of the envelope is forced.      *)
+(*     Composed by the IDENTICAL keystone — no new spine; the reframe  *)
+(*     (CLAIMS.md: UNMODELABLE, not untrusted) is now a theorem of the *)
+(*     composed artifact, not prose beside it.                         *)
+(* ------------------------------------------------------------------ *)
+Theorem svenvs_tower_at_maximal_liberty:
+  spec_refines curspec meta /\
+  init_safe init curspec /\
+  safe_shield step curspec shield ==>
+  !ctrl.
+    invariant step init
+      (enveloped (maxpol step curspec) shield ctrl) meta /\
+    (!pol. sound_policy step curspec pol ==>
+           weaker (maxpol step curspec) pol)
+Proof
+  rpt strip_tac
+  >- (`invariant step init
+         (enveloped (maxpol step curspec) shield ctrl) curspec`
+        by metis_tac[maxpol_envelope_safe] >>
+      metis_tac[invariant_transports_to_meta])
+  >- metis_tac[maxpol_is_greatest_sound]
 QED
 
 val _ = export_theory();

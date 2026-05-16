@@ -1,0 +1,5 @@
+# The liberty slice — the prison question answered as a theorem.
+# Pure light HOL4: depends only on the generic core (..), no CakeML /
+# candle / hol-reflection. Reproducible by anyone with HOL4.
+INCLUDES = ..
+OPTIONS = QUIT_ON_FAILURE
