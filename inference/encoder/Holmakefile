@@ -1,0 +1,10 @@
+# Pure HOL4. Research track B: a FULLER verified encoder block — the
+# verified hardmax-attention micro-block (../attn) composed with the
+# verified ReLU MLP (../mlpInference) into a real two-sublayer encoder
+# block (attention sublayer + feed-forward sublayer, each with a residual
+# skip), proved end-to-end (shape preservation + residual invariant) and
+# EVAL-run on a concrete instance. Cheat-free.
+#
+# Depends on ../mlpInferenceTheory and ../attn/attnTheory.
+INCLUDES = .. ../attn
+OPTIONS = QUIT_ON_FAILURE
