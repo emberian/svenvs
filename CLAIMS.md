@@ -167,13 +167,21 @@ finite watchdog instance — see §7.)
 > LCA-justified reflection principle", which is the literature's own framing.
 > Base-kernel soundness (`candle_kernel_sound`) is **unconditional**.
 
-## 5. Verified inference (research track B) — PROVED, but TOY
+## 5. Verified inference (research track B) — PROVED; scope stated exactly
 
 | Claim | Status | Citation |
 |-------|--------|----------|
 | A ReLU dense net over integers: forward pass structurally correct (non-negativity preserved, shape correct). | **PROVED** | `inference/mlpInferenceScript.sml : relu_nonneg, layer_nonneg, layer_shape, mlp_shape, mlp_pres_nonneg, mlp_nonneg` |
 | A concrete net runs in-logic: `mlp demo_net [2;3] = [11]`; ReLU genuinely clamps `-5 → 0`. | **PROVED (EVAL)** | `inference/mlpInferenceScript.sml : demo_forward_eval, demo_relu_clamps` |
-| "This is Gemma-scale / a verified transformer." | **NOT CLAIMED** | Explicitly TOY — the *seed* of verified inference, not the thing. |
+| Hardmax single-head attention micro-block + residual skip: argmax correctness, picks a real V row (no hallucinated vector), shape. | **PROVED** | `inference/attn/attnScript.sml : argmax_is_max, attn1_picks_a_value, attn1_argmax_correct, attention_shape, block_shape` |
+| **Fuller verified encoder block**: the verified hardmax-attention micro-block composed with the verified ReLU MLP into a real **two-sublayer encoder block** (attention sublayer + feed-forward sublayer, **each with a residual skip**). End-to-end shape preservation under natural well-formedness premises; depth-N stack shape (depth-independent). | **PROVED** | `inference/encoder/encoderBlockScript.sml : encoder_block_shape, encoder_stack_shape, encoder_stack_shape_aux, res_shape, attn_sublayer_shape, ff_sublayer_shape` |
+| End-to-end **residual invariant**: with both sublayers contributing zero the whole encoder block is the **identity on x** (a true identity, proved — not shape-only); the attention contribution is an actual V row; the feed-forward contribution is genuinely ReLU-gated (≥0). | **PROVED** | `inference/encoder/encoderBlockScript.sml : res_zero_sublayer, encoder_block_zero_collapses, attn_sublayer_picks_real_value, ff_sublayer_nonneg` |
+| A concrete encoder block + depth-2 stack **run in-logic**: `encoder_block … [1;0] = [42;10]`, `encoder_stack 2 … [1;0] = [124;30]`. | **PROVED (EVAL)** | `inference/encoder/encoderBlockScript.sml : demo_encoder_block_eval, demo_encoder_stack_eval, demo_encoder_block_shape` |
+| **Genuine fixed-point softmax-normalization** (replaces the gemma "softmax = supplied integer weight vector" shape-only abstraction) with a **machine-checked per-component error bound vs the EXACT rational softmax-normalization**: `\|pᵢ/Q − wᵢ/S\| < 1/Q` (strictly under one quantization step, per component). | **PROVED** | `inference/numeric/fxpSoftmaxScript.sml : fxp_softmax_component_error, fxp_softmax_abs_error_lt_step` |
+| The **fixed-point normalization (sum-of-weights = denominator) invariant**: `Q − (#weights) < Σ(fxp_softmax Q w) ≤ Q` — sums to the denominator `Q` with total deviation provably `< n`. Exact `Σ = Q` is **NOT claimed** (impossible under floor rounding; claiming it would be triviality — flagged loudly per this discipline). | **PROVED** | `inference/numeric/fxpSoftmaxScript.sml : fxp_softmax_sum_upper, fxp_softmax_sum_lower, fxp_softmax_normalization_envelope` |
+| Fixed-point softmax-normalization runs in-logic, incl. a real floor-deviation case (`[1;1;1]@Q=100 → Σ=99≠100`, inside the proven envelope). | **PROVED (EVAL)** | `inference/numeric/fxpSoftmaxScript.sml : demo_fxp_softmax_eval, demo_fxp_softmax_floor_eval` |
+| The transcendental `exp` of softmax (`softmax = exp(z)/Σexp`); f32/bf16 bit-exactness; the real ~4 B-param weights; that the fixed-point op is yet *wired into* the gemma forward pass. | **NOT CLAIMED / still ABSTRACTED** | `exp` is taken as a given non-negative weight input (a fixed-point exp-table stand-in) — strictly *weaker* than the prior "whole softmax supplied" abstraction, since the normalization is now real & proven. See `inference/numeric/CLAIMS.md` and `inference/gemma/conformance/README.md` §4. |
+| "This is Gemma-scale / a bit-exact verified transformer." | **NOT CLAIMED** | The honesty: the encoder block is a *real two-sublayer-with-residual composition of two verified pieces*, proved end-to-end over `int`/hardmax; the numeric track replaces *one* shape-only abstraction with a *proven-error-bound* fixed-point op. It is **not** a FLOP-level f32 proof of gemma-4 on real weights. Every abstraction that remains is labeled, here and in the per-directory `CLAIMS.md`. |
 
 ## 6. The Place, live in Candle — PROVED at runtime, when a Candle binary is present (Tier 3)
 
@@ -321,8 +329,15 @@ These are in-flight or planned and are **not** asserted as done anywhere:
 - **PureCake** as the inhabitant's *verified* language (`pure/`).
 - **Closed-loop runtime**: each admission a real live Candle proof
   (`agent/closedloop/`).
-- **Verified tensor acceleration / attention** (`inference/accel/`,
-  `inference/attn/`) — climbing from the toy MLP toward a verified block.
+- **Verified inference, research track B** — the verified encoder block
+  (`inference/encoder/`, attention⊕MLP, two residual sublayers, proved
+  end-to-end) and the proven-error-bound fixed-point softmax-
+  normalization (`inference/numeric/`) are **done** (§5). The remaining
+  frontier here is wiring the fixed-point op into the `inference/gemma/`
+  forward pass and running the end-to-end numeric conformance against
+  catgrad/mistral.rs gemma-4 (`inference/gemma/conformance/README.md` §4)
+  — explicitly NOT claimed done; the abstractions that remain are
+  labeled in each directory's `CLAIMS.md`.
 
 All four are marked in-progress in `README.md` / `ARCHITECTURE.md`. They are
 listed here so a skeptic knows precisely where the frontier is.

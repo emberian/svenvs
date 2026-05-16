@@ -1,0 +1,8 @@
+# Pure HOL4. Research track B: numeric track — a *genuine fixed-point*
+# softmax-normalization with a MACHINE-CHECKED error bound vs the EXACT
+# rational softmax-normalization (no transcendental `exp`; that residual
+# abstraction is stated loudly). Replaces one integer-param abstraction
+# from ../gemma with real numerics carrying a proven bound.
+#
+# Light HOL4 only — no CakeML / hol-reflection / Candle. Builds in seconds.
+OPTIONS = QUIT_ON_FAILURE
