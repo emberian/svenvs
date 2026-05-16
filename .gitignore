@@ -8,3 +8,6 @@
 __pycache__/
 *.pyc
 .DS_Store
+# EVAL-extracted enforcer table: a deterministic build artifact regenerated
+# by `Holmake` in agent/ from the proven toolAgentDecideTheory. Never hand-edited.
+agent/embodied/decision_table.tsv
