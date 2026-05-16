@@ -11,7 +11,7 @@ ifndef CAKEMLDIR
 CAKEMLDIR = $(HOME)/dev/CakeML
 endif
 HOLHOL = $(CAKEMLDIR)/candle
-INCLUDES = .. ../pca ../specneg ../selfprover ../liberty ../kernel ../embedded \
+INCLUDES = .. ../pca ../specneg ../selfprover ../liberty ../amendment ../kernel ../embedded \
            $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure \
            $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
            $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics

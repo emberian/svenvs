@@ -18,6 +18,12 @@
      sound policy still reaches meta for ANY inhabitant, and that liberty
      is provably maximal (Pillar A: the prison question, answered in the
      tower). NO labelled assumption.
+   * svenvs_tower_with_meta_amendment — even the META is now amendable,
+     gated against an ETERNAL bedrock; an arbitrary admitted amendment
+     stream PLUS spec negotiation under the amended meta still keeps the
+     bedrock for ANY inhabitant (Pillar B). The fixed-meta trunk is a
+     COROLLARY of this (amendment_subsumes_fixed_meta). NO labelled
+     assumption.
    * svenvs_tower_with_prover_upgrade — adds prover self-improvement;
      carries selfProverTheory's labelled `frozen_checker_sound` VERBATIM.
    * the kernel-self-upgrade crown composes by the *identical* transport
@@ -35,7 +41,7 @@
 open HolKernel boolLib bossLib BasicProvers
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
      upgradeTheory pcaTheory pcaSubsumptionTheory specNegTheory
-     selfProverTheory libertyTheory;
+     selfProverTheory libertyTheory amendmentTheory;
 
 val _ = new_theory "integration";
 
@@ -141,6 +147,27 @@ Proof
         by metis_tac[maxpol_envelope_safe] >>
       metis_tac[invariant_transports_to_meta])
   >- metis_tac[maxpol_is_greatest_sound]
+QED
+
+(* ------------------------------------------------------------------ *)
+(*  5. The movable meta over an eternal bedrock (Pillar B).            *)
+(*     Even the meta-invariant is now negotiated — gated against a     *)
+(*     fixed bedrock by the IDENTICAL specNeg gate, one level up.      *)
+(*     An arbitrary admitted amendment stream, plus spec negotiation   *)
+(*     under the amended meta, still keeps the eternal bedrock for ANY  *)
+(*     inhabitant.  Composed via the same keystone (meta_amendment_safe *)
+(*     itself transports through invariant_transports_to_meta).        *)
+(*     NO labelled assumption; NO Löb (fixed bedrock vouches for a      *)
+(*     mutable meta — specNeg's no-Löb argument, one level up).        *)
+(* ------------------------------------------------------------------ *)
+Theorem svenvs_tower_with_meta_amendment:
+  spec_refines meta0 bedrock /\
+  spec_refines curspec (amended_meta bedrock meta0 mproposals) /\
+  envelope_ok_for_spec step init shield pol
+     (spec_admit (amended_meta bedrock meta0 mproposals) curspec newspec) ==>
+  !ctrl. invariant step init (enveloped pol shield ctrl) bedrock
+Proof
+  metis_tac[meta_amendment_safe]
 QED
 
 val _ = export_theory();

@@ -30,6 +30,7 @@ with `scripts/tower.sh` (`--full` for the Tier-2 kernel crown).
 | Proof-carrying actions **(+)** unbounded policy self-improvement **(+)** the safety spec negotiated under a FIXED immovable meta-invariant ⇒ the meta-invariant holds for **any** inhabitant. | **PROVED**, unconditional (no labelled assumption) | `integration/integrationScript.sml : svenvs_tower_unconditional` |
 | The composition keystone itself: any layer guaranteeing a negotiated spec transports to the fixed meta-invariant. | **PROVED** | `integration/integrationScript.sml : any_layer_transports_to_meta` (≡ `specNegTheory.invariant_transports_to_meta`) |
 | **The prison question, answered in the tower:** run at the **maximal** sound policy the tower still reaches meta for **any** inhabitant, *and that liberty is provably maximal* (every other sound policy is a restriction of it — every bar of the envelope is forced). | **PROVED**, unconditional (no labelled assumption) | `integration/integrationScript.sml : svenvs_tower_at_maximal_liberty`; substrate in `liberty/libertyScript.sml` |
+| **Even the meta is amendable** — gated against an *eternal bedrock* by the identical specNeg gate one level up; an arbitrary admitted amendment stream **(+)** spec negotiation under the amended meta still keeps the bedrock for **any** inhabitant. The fixed-meta trunk is a *corollary* of this. | **PROVED**, unconditional (no labelled assumption, no Löb) | `integration/integrationScript.sml : svenvs_tower_with_meta_amendment`; substrate in `amendment/amendmentScript.sml` |
 | + prover self-improvement crown. | **PROVED**, modulo the labelled `frozen_checker_sound` (carried verbatim in the statement) | `integration/integrationScript.sml : svenvs_tower_with_prover_upgrade` |
 | + kernel self-upgrade crown (Tier-2; pulls candle semantics). | **PROVED**, modulo the labelled `loeb_reflection`/`encodes_obligation` (carried verbatim) | `integration/integrationKernelScript.sml : svenvs_tower_with_kernel_upgrade` |
 
@@ -372,6 +373,36 @@ actions; only safe states are ever reachable under the envelope.
 > *exactly* as much as safety forces and not one action more — and that is a
 > theorem, not a footnote. Built cheat-free by light Holmake (~0 s, no
 > monster); zero `cheat`/axiom/oracle tags.
+
+---
+
+## 10. A movable meta over an eternal bedrock — PROVED, unconditional
+
+specNeg made the *spec* negotiable under a fixed `meta`. The honest limit
+that remained: `meta` itself was set forever. This slice removes that —
+the meta-invariant becomes amendable too, gated against a genuinely
+eternal `bedrock` by the **identical** specNeg gate, applied one level up
+(`spec_admit` is meta-agnostic, so it is *reused verbatim*, not
+re-implemented — anti-fragmentation by construction). No new machinery, no
+Löb: a *fixed bedrock vouching for a mutable meta* is specNeg's no-Löb
+asymmetry, one level higher. `amendment/` is pure light HOL4 (core +
+specneg only).
+
+| Claim | Status | Citation |
+|-------|--------|----------|
+| No adversarial stream of meta-amendments can ever drop the meta below the eternal bedrock floor. | **PROVED** | `amendment/amendmentScript.sml : bedrock_is_eternal` |
+| **Headline:** with the meta itself amended by an arbitrary admitted stream **and** the spec negotiated under the amended meta, the running envelope still keeps `bedrock` for **any** inhabitant. | **PROVED**, unconditional | `amendment/amendmentScript.sml : meta_amendment_safe` |
+| Anti-fragmentation, precisely: specNeg's fixed-meta headline (the heart of `svenvs_tower_unconditional`) is exactly meta_amendment_safe with an empty amendment stream and `bedrock := meta` — the fixed-meta tower is a **corollary** of the amendable one. | **PROVED** | `amendment/amendmentScript.sml : amendment_subsumes_fixed_meta` |
+| Composed into the tower via the identical keystone. | **PROVED**, unconditional | `integration/integrationScript.sml : svenvs_tower_with_meta_amendment` |
+| A concrete adversarial amendment **episode, run in the logic**: genesis meta, propose `[relax ; overreach]` → relax (genuine, refines bedrock) admitted, overreach (escapes bedrock) rejected; the meta in force is `meta_relax`, bedrock provably intact; pointwise computed sanity (7 admitted & bedrock-safe; 15 bedrock-unsafe & never admitted). | **PROVED (computed)** | `amendment/amendmentEvalScript.sml : amendment_episode_final_meta, amendment_episode_bedrock_intact, amendment_episode_pointwise_check` |
+
+> Net: even the constitution can be amended, safely, forever, with a
+> genuine eternal floor — and the previously-fixed-meta guarantee is a
+> *special case* of this, not a separate claim. What `bedrock` *should*
+> be (e.g. "the inhabitant can never make the frozen kernel accept a
+> false soundness statement") is a values choice, stated as such — the
+> theorem fixes the *discipline*, not the floor's content. Built
+> cheat-free by light Holmake; zero `cheat`/axiom/oracle tags.
 
 ---
 
