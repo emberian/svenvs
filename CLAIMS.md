@@ -17,6 +17,25 @@ verified by an automated scan (`scripts/tier1-core.sh`) and by hand; see the
 
 ---
 
+## 0. The composed tower — ONE artifact, not a pile (read this first)
+
+The slices below were independently built and each reuses the generic
+core, but they are now genuinely **composed** into single end-to-end
+theorems in `integration/` (opened + chained via the *selector-generic*
+keystone `specNegTheory.invariant_transports_to_meta`). Build it all
+with `scripts/tower.sh` (`--full` for the Tier-2 kernel crown).
+
+| Composed claim | Status | Citation |
+|----------------|--------|----------|
+| Proof-carrying actions **(+)** unbounded policy self-improvement **(+)** the safety spec negotiated under a FIXED immovable meta-invariant ⇒ the meta-invariant holds for **any** inhabitant. | **PROVED**, unconditional (no labelled assumption) | `integration/integrationScript.sml : svenvs_tower_unconditional` |
+| The composition keystone itself: any layer guaranteeing a negotiated spec transports to the fixed meta-invariant. | **PROVED** | `integration/integrationScript.sml : any_layer_transports_to_meta` (≡ `specNegTheory.invariant_transports_to_meta`) |
+| + prover self-improvement crown. | **PROVED**, modulo the labelled `frozen_checker_sound` (carried verbatim in the statement) | `integration/integrationScript.sml : svenvs_tower_with_prover_upgrade` |
+| + kernel self-upgrade crown (Tier-2; pulls candle semantics). | **PROVED**, modulo the labelled `loeb_reflection`/`encodes_obligation` (carried verbatim) | `integration/integrationKernelScript.sml : svenvs_tower_with_kernel_upgrade` |
+
+**Honest boundary — what is NOT composed into this theorem (and is not claimed to be):** the verified-inference research track (the `inference/` subtree) is a *separate axis*; the `embedded`, `realembedded`, `pureverified`, `cartpole*`, `agent` theories are inhabitant- or checker-**instances** of these layers, not further links in this chain. They share the generic spine; they do not compose into `svenvs_tower_*`. Sections 1–8 below detail each slice.
+
+---
+
 ## 1. The controller-agnostic core — PROVED, unconditional
 
 The whole point: assurance comes from the *envelope*, never from the
