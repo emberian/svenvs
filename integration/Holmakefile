@@ -1,0 +1,18 @@
+# The composed svenvs tower. Opens the independently-built slices and
+# composes them via specNeg's selector-generic transport keystone.
+#
+#   integrationScript        — pure HOL4 trunk + prover crown
+#                              (core + pca + specneg + selfprover)
+#   integrationKernelScript  — Tier-2 kernel crown (pulls candle
+#                              semantics via kernelUpgradeTheory)
+#
+# kernelUpgradeTheory is already built here, so its candle deps resolve.
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+HOLHOL = $(CAKEMLDIR)/candle
+INCLUDES = .. ../pca ../specneg ../selfprover ../kernel ../embedded \
+           $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure \
+           $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
+           $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics
+OPTIONS = QUIT_ON_FAILURE
