@@ -6,7 +6,7 @@
   predicate `pol`; the inhabitant can only ever ask for "more permissiveness"
   by weakening that policy.
 
-  Here the untrusted controller emits *(action, certificate)* pairs. The
+  Here the unmodelable controller emits *(action, certificate)* pairs. The
   envelope executes the proposed action iff a *checkable certifier* accepts
   the certificate as a valid witness that the action preserves the safety
   invariant from the current state; otherwise the trusted shield acts.

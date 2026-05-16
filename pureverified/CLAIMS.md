@@ -1,6 +1,6 @@
 # `pureverified/` — honest claims
 
-This directory makes "the untrusted inhabitant acts through a *verified*
+This directory makes "the unmodelable inhabitant acts through a *verified*
 language" a real theorem, linking the **real** PureCake verified
 compiler-correctness result into the **generic** svenvs safety core.
 It supersedes `pure/pureInhabitantScript.sml` (#18), which had no real

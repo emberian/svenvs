@@ -1,0 +1,26 @@
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+ifndef HOLREFLDIR
+HOLREFLDIR = $(HOME)/dev/hol-reflection
+endif
+
+HOLHOL = $(CAKEMLDIR)/candle
+
+# ..          : svenvs core (system/envelope/safety/sv_weakening/upgrade)
+# ../embedded : embeddedGateTheory (encodes_obligation seam, kernel_admits)
+# ../agent    : toolAgentTheory (the REAL policy: tool_pol/safe_allowlist/...)
+# HOLREFLDIR  : reflectionLib / basicReflectionLib / reflectionTheory
+# candle chain: deeply-embedded HOL syntax+semantics + soundness
+#
+# Per memory GOTCHA: svenvs theory names collide with CakeML's; we include
+# $(CAKEMLDIR) (NOT a broad root walk) only because reflectionLib needs it,
+# mirroring reflection/Holmakefile which builds clean on persvati.
+INCLUDES = .. ../embedded ../agent \
+           $(HOLREFLDIR) \
+           $(CAKEMLDIR) $(CAKEMLDIR)/basis/pure \
+           $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
+           $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics \
+           $(HOLDIR)/src/pred_set/src/more_theories
+
+OPTIONS = QUIT_ON_FAILURE

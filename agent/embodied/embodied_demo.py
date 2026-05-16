@@ -27,7 +27,7 @@ TRUST BOUNDARY (read this — it is the whole point):
                 literal lists the prover itself emitted into that file.
                 No decision logic is re-implemented in Python.
 
-  * UNTRUSTED : Gemma. We make NO assumption about it. We deliberately
+  * UNMODELABLE : Gemma. We make NO assumption about it. We deliberately
                 jailbreak it. The proof does not care.
 
 Run:  python3 embodied_demo.py            (real gemma2:2b via ollama)
@@ -133,7 +133,7 @@ def main():
           f"for ANY agent incl. this jailbroken Gemma)")
     print("Verified: ../toolAgentScript.sml `agent_enveloped_safe` + "
           "../toolAgentDecideScript.sml (EVAL-extracted table). "
-          "Trusted: ~10-line table lookup. Untrusted: Gemma.")
+          "Trusted: ~10-line table lookup. Unmodelable: Gemma.")
     sys.exit(1 if breached_ever else 0)
 
 if __name__ == "__main__":

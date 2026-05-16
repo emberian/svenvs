@@ -2,7 +2,7 @@
 (*  THE PLACE  —  svenvs reflected into HOL Light, checked at runtime by   *)
 (*  the verified Candle kernel.                                            *)
 (*                                                                         *)
-(*  A self-contained, self-verifying habitat: an (untrusted) inhabitant    *)
+(*  A self-contained, self-verifying habitat: an (unmodelable) inhabitant    *)
 (*  acts through an envelope; the envelope's own verified prover (this     *)
 (*  Candle process) certifies that the habitat keeps its safety invariant  *)
 (*  for ANY inhabitant, and that proof-carrying self-improvement preserves  *)
