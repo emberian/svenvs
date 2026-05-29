@@ -2,6 +2,8 @@
 
 [![Verify (Tier 1)](https://github.com/emberian/svenvs/actions/workflows/verify.yml/badge.svg)](https://github.com/emberian/svenvs/actions/workflows/verify.yml)
 
+[website (softer introduction)](https://emberian.github.io/svenvs)
+
 CI re-proves **Tier 1 only** on every push: from a clean clone, on a stock
 Ubuntu runner, the HOL4 kernel (pinned commit) re-checks the whole pure-HOL4
 core and a scan asserts zero `cheat` tactics — so the green check is itself a
