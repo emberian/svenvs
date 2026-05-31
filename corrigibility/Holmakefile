@@ -1,0 +1,6 @@
+# The corrigibility slice — the floor you can actually decide.
+# Pure light HOL4: the generic core (..) + liberty's maxpol (../liberty)
+# + specNeg's keystone (../specneg) for the negotiable-bedrock composition.
+# No CakeML / candle / hol-reflection. Reproducible by anyone with HOL4.
+INCLUDES = .. ../liberty ../specneg
+OPTIONS = QUIT_ON_FAILURE
