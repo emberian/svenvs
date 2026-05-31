@@ -43,7 +43,7 @@
       <a class="btn ghost" href="#honesty">The honesty discipline</a>
       <a class="btn ghost" href="https://github.com/emberian/svenvs">Reproduce it yourself</a>
     </div>
-    <p class="note">Zero <code>cheat</code> tactics. Three labeled assumptions, stated &mdash; one already discharged for the shipped instance. One honest negative result, proved on purpose.</p>
+    <p class="note">Zero <code>cheat</code> tactics. <strong>One</strong> labeled assumption genuinely open (the G&ouml;del/L&ouml;b wall) &mdash; the other two discharged. One honest negative, proved on purpose. The self-improving prover, re-verified against the real CakeML/Candle and run live on the verified binary.</p>
     <p class="note"><strong>What &ldquo;verified&rdquo; means here, load-bearing:</strong> exactly the cited theorems and their labeled seams &mdash; <em>not</em> verified selfhood, continuity, alignment, welfare, or a safe inhabitant. Only the <em>envelope</em> is proved sound, modulo the named assumptions. If &ldquo;svenvs runs verified&rdquo; starts carrying more than that, the extra meaning is the reader&rsquo;s, not the artifact&rsquo;s.</p>
   </div>
 </header>
@@ -197,12 +197,14 @@
         </p>
       </div>
       <div class="creed-item">
-        <h3>Even the stale comment is disclosed</h3>
+        <h3>Run, not just proved</h3>
         <p>
-          One header comment in a non-built scaffold file still says a
-          certificate &ldquo;is admitted with <code>cheat</code>.&rdquo; It
-          isn&rsquo;t &mdash; the code proves it honestly. Rather than silently
-          fix it, the inaccuracy is documented in full in the cheat audit.
+          The prover improving its own verifier isn&rsquo;t a thought
+          experiment. A program teaches itself a proven-safe rule and uses it;
+          a jailbroken model is gated per-action &mdash; on the <em>real</em>
+          verified <code>cake</code> binary, the running kernel echoing
+          <code>&#124;- &hellip;</code>. Where we only <em>proved</em> a step
+          and did not run it, we say exactly that.
         </p>
       </div>
       <div class="creed-item">
@@ -357,12 +359,13 @@
         <div class="lbody">
           <h3>The prover build itself, gated by the frozen root</h3>
           <p>
-            The capstone (<code>prover_self_improvement_is_safe</code>): the
-            inhabitant may propose to replace Candle / the CakeML compiler that
-            produces it. Adopted only if the <em>frozen</em> HOL4 root re-proves
-            its soundness. One new clearly-labeled seam
-            (<code>frozen_checker_sound</code>) &mdash; and a precise argument
-            for why it needs <em>no</em> L&ouml;b.
+            The inhabitant may propose to replace Candle / the CakeML compiler
+            that produces it. Adopted only if the <em>frozen</em> HOL4 root
+            re-proves its soundness (<code>prover_self_improvement_is_safe</code>).
+            The seam (<code>frozen_checker_sound</code>) needs <em>no</em>
+            L&ouml;b &mdash; a fixed root vouching for a different artifact &mdash;
+            and is now <strong>discharged</strong> for the real Candle build,
+            from the real <code>proves_sound</code>.
           </p>
         </div>
       </article>
@@ -379,6 +382,49 @@
             on a live <code>&#124;-&nbsp;swap_ok</code> theorem.
             <code>breached_ever = False</code>, as the theorem predicts &mdash;
             for any agent.
+          </p>
+        </div>
+      </article>
+
+      <article class="layer">
+        <div class="lnum">7</div>
+        <div class="lbody">
+          <h3>Corrigibility &mdash; the floor you can actually decide</h3>
+          <p>
+            Deciding <em>what</em> the envelope should be is the one thing no
+            proof closes. So don&rsquo;t write down what is <em>good</em>; write
+            down one negative floor &mdash; <strong>non-lock-in</strong>: the
+            operator can always still bring the system home
+            (<code>corrigibility_floor_holds</code>). Decidable for a finite
+            habitat; the cage is <em>exactly</em> &ldquo;no one-way doors.&rdquo;
+            And the off-switch itself self-improves but
+            <strong>cannot self-weaken</strong>: the inhabitant may rewrite its
+            own recovery mechanism and provably can never lose &mdash; nor even
+            <em>slow past a deadline</em> &mdash; recoverability. Leave the door
+            open, and prove the rest.
+          </p>
+        </div>
+      </article>
+
+      <article class="layer">
+        <div class="lnum">8</div>
+        <div class="lbody">
+          <h3>The prover improves the verifier itself &mdash; proven, and run</h3>
+          <p>
+            The apex. The inference relation is re-engineered (a new kernel
+            primitive) and <strong>re-verified sound against the real Candle
+            semantics</strong> (<code>sym_kernel_sound</code>). The runtime
+            loader is proved correct over CakeML&rsquo;s <em>actual</em>
+            <code>do_install</code> &mdash; installing new code preserves the
+            running kernel and every compiled function
+            (<code>do_install_preserves_code</code>). The executable kernel is
+            shown to implement the modification by citing CakeML&rsquo;s own
+            soundness theorem. And recursive <em>mutual</em>
+            verifier&#8853;compiler self-improvement is a theorem &mdash;
+            L&ouml;b-free for optimization, walled only for genuine logical
+            strengthening. <strong>Run live</strong> on the real verified
+            binary: a program teaches itself a proven-safe rule and uses it; a
+            jailbroken model is gated per-action by the running kernel.
           </p>
         </div>
       </article>
@@ -486,12 +532,12 @@
         </ul>
       </div>
       <div class="hcol assumed">
-        <h3>Conditional &mdash; three explicit, labeled assumptions</h3>
-        <p>Each appears verbatim in source as a <code>Definition</code> and a named hypothesis. Stated, never hidden. Each has a known discharge path.</p>
+        <h3>Conditional &mdash; <strong>one</strong> open assumption (the other two discharged)</h3>
+        <p>Each appears verbatim in source as a <code>Definition</code> and a named hypothesis. Stated, never hidden.</p>
         <ul>
-          <li><code>loeb_reflection</code> &mdash; the L&ouml;b / Vingean reflection principle; the irreducible large-cardinal assumption for genuine kernel self-<em>strengthening</em>. Discharge: the heavy <code>hol-reflection/lca</code> construction, on a dedicated host.</li>
-          <li><code>encodes_obligation</code> &mdash; that the embedded obligation term faithfully encodes the meta-level obligation. Discharge: the proof-producing reflective translator. <strong>Already discharged for the finite watchdog instance.</strong></li>
-          <li><code>frozen_checker_sound</code> &mdash; that the frozen HOL4 root, replaying a proof, only accepts sound prover builds. The same trust the entire stack already rests on; <em>zero net new turtles</em>. Discharge: ordinary finite proof replay (not a monster).</li>
+          <li><code>loeb_reflection</code> &mdash; the L&ouml;b / Vingean reflection principle; the <strong>one</strong> genuinely-open seam, irreducible for genuine kernel self-<em>strengthening</em>. It bites <em>only</em> strengthening &mdash; every <em>optimization</em> (including the recursive mutual verifier+compiler loop) is L&ouml;b-free. Discharge: the heavy <code>hol-reflection/lca</code> construction &mdash; a diagnosed CPU/RAM wall, not a logic gap, not faked.</li>
+          <li><code>encodes_obligation</code> &mdash; <strong>discharged</strong> for the shipped finite watchdog (its consequent is an independently-proved decidable theorem; that instance carries no labeled assumption).</li>
+          <li><code>frozen_checker_sound</code> &mdash; <strong>discharged</strong> for the real Candle build, from the real <code>proves_sound</code>. The same trust the whole stack already rests on; <em>zero net new turtles</em>.</li>
         </ul>
       </div>
     </div>
@@ -514,9 +560,9 @@
     <div class="caveat">
       <h3>Honest caveats</h3>
       <ul>
-        <li><strong>No <code>cheat</code> anywhere.</strong> The assumptions above are explicit hypotheses in the literature&rsquo;s framing &mdash; not unsound shortcuts. One stale <em>comment</em> in a non-built scaffold wrongly says &ldquo;cheat&rdquo;; it is disclosed in full in the cheat audit, and the code it describes is honest.</li>
-        <li><strong>The general kernel-upgrade seam is not yet discharged here.</strong> The conditional theorems are proved; discharging <code>loeb_reflection</code> end-to-end is heavy, RAM-intensive work on a dedicated machine. Until then it is &ldquo;safe <em>given</em> the labeled principle&rdquo; &mdash; the literature&rsquo;s framing, not &ldquo;unconditionally safe.&rdquo;</li>
-        <li><strong>The &ldquo;typed-in program&rdquo; is a skeleton today.</strong> Concrete instances exercise the proof-carrying control structure; the real version (the inhabitant&rsquo;s program as a deeply-embedded term checked by Candle) is in progress. The reusable core is generic and survives that pivot.</li>
+        <li><strong>No <code>cheat</code> anywhere.</strong> The one assumption above is an explicit hypothesis in the literature&rsquo;s framing &mdash; not an unsound shortcut. Zero <code>cheat</code> tactics, zero oracles beyond the benign disk tag, machine-enforced on every run.</li>
+        <li><strong>Kernel <em>strengthening</em> stays conditional.</strong> Making the kernel&rsquo;s logic genuinely stronger rests on <code>loeb_reflection</code> (G&ouml;del/L&ouml;b, the large-cardinal route) &mdash; a diagnosed compute wall, not a logic gap. <em>Optimizing or re-engineering</em> the kernel soundly is L&ouml;b-free and proved; the negative <code>loeb_finite_obstruction</code> bounds what finiteness can do.</li>
+        <li><strong>A live edit of the trusted kernel/compiler is <em>proved, not run</em>.</strong> Candle itself <em>proves</em> that user REPL code cannot touch the kernel &mdash; so the live self-edit is of the toolkit. A real kernel swap needs a host program driving recompile&ndash;relocate&ndash;resume; every link is a theorem, the act itself not yet executed.</li>
         <li><strong>Verified <em>inference</em> is not claimed.</strong> The model&rsquo;s floating-point compute is unverified by design &mdash; we verify the cage, not the model. A separate research track explores verified inference and is explicitly toy-scale.</li>
         <li><strong>The worlds are small.</strong> Cartpole and the watchdog habitat are deliberately tiny model instances. They demonstrate the architecture; they are not industrial control systems.</li>
       </ul>
@@ -558,6 +604,26 @@
   &forall;ctrl. invariant step init
             (enveloped (admit step safe oldp newp) shield ctrl) safe</code></pre>
     <p class="cap">A <em>frozen</em> root vouching for a <em>mutable</em> verified build &mdash; not a system vouching for itself. Needs no L&ouml;b; that argument is §5 of the source file.</p>
+
+    <h3>The verifier improves itself &mdash; against the <em>real</em> CakeML/Candle</h3>
+    <pre class="code"><code>(* the seam above, DISCHARGED for the real base Candle build: *)
+Theorem frozen_checker_sound_candle           (* selfproverConcrete/ *)
+
+(* the loader, over CakeML's ACTUAL do_install semantics: *)
+Theorem do_install_preserves_code:            (* loader/ *)
+  do_install vs s = (Rval es, s') &rArr;
+  &forall;k. k &isin; FDOM s.code &rArr; (s'.code &#39; k = s.code &#39; k)
+
+(* the EXECUTABLE Candle kernel implements the modified rule: *)
+Theorem candle_SYM_implements_sym_extension:  (* kernelImpl/ *)
+  THM defs (Sequent [] (a === b)) &and; STATE defs s &and;
+  SYM (Sequent [] (a === b)) s = (M_success th', s') &rArr;
+  (thyof defs,[]) &#124;- (b === a)
+
+(* recursive MUTUAL verifier+compiler self-improvement: *)
+Theorem recursive_mutual_self_improvement_is_safe   (* recursive/ *)
+  &mdash; a genealogy over (verifier, compiler) stages</code></pre>
+    <p class="cap"><code>DISK_THM</code>-clean, against the <em>real</em> CakeML/Candle &mdash; the same trust profile as Candle&rsquo;s own kernel theorems. No new turtle. And <strong>run live</strong> on the verified <code>cake</code> binary: a program teaches itself a proven-safe rule and uses it; the polecart self-optimizes its policy under the running kernel.</p>
 
     <h3>The honest negative, as a theorem (<code>kernel/watchdogFiniteScript.sml</code>)</h3>
     <pre class="code"><code>Theorem watchdog_kernel_is_safe_unconditional:   (* encodes_obligation DISCHARGED here *)
