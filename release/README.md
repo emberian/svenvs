@@ -129,9 +129,12 @@ builder and is **not** pinned:
 | builder | `gcc` | ELF sha256 |
 |---|---|---|
 | `persvati` | 15.2.0 | `1ca86f65…` |
-| `ubuntu-latest` (GitHub runner) | runner default | `c5b30993…` |
+| `ubuntu-latest` (GitHub runner) | runner default | `c5b30993…` ← **the published release asset** |
 
-Different bytes, behaviorally identical. This is the right place for the
+Different bytes, behaviorally identical. The binary attached to a GitHub
+release is the `ubuntu-latest` build; verify your download against the
+`envelope_console.sha256` attached alongside it, and the machine-independent
+`envelope_console.cake.S.sha256` against `5c518f0d…` above. This is the right place for the
 non-determinism to live: it is entirely in the *trusted* C glue, **outside** the
 verified-compiler boundary — the part the proof actually covers (`.cml` → asm)
 is the part that reproduces exactly. (On a *fixed* toolchain it is fully
