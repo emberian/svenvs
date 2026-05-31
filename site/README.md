@@ -21,32 +21,19 @@ python3 -m http.server 8000
 (Or just open `site/index.html` directly in a browser — it has no
 same-origin dependencies.)
 
-## Deployment — INTENTIONALLY NOT ENABLED
+## Deployment — LIVE
+
+The site is published at **<https://emberian.github.io/svenvs/>**.
 
 `.github/workflows/pages.yml` is a standard GitHub Pages deploy via Actions
 (`configure-pages` + `upload-pages-artifact` from `site/` + `deploy-pages`,
-on push to `main`, least-privilege permissions). It is **prepared only**.
+least-privilege permissions). GitHub Pages is enabled (Settings → Pages →
+Source: "GitHub Actions"), so **every push touching `site/**` auto-deploys** —
+the live URL appears in the workflow run's `deploy` job. A manual run is also
+available via **Actions → Deploy site to GitHub Pages → Run workflow**.
 
-It will not publish anything until a human explicitly green-lights it. As
-shipped:
-
-- no commit or push has been made,
-- no GitHub repository has been created,
-- GitHub Pages has **not** been enabled,
-- no deploy has been triggered.
-
-### Exact steps to publish (NOT yet run — do these only when you choose to)
-
-1. Review the copy one more time for accuracy against the repo's
-   `ARCHITECTURE.md` / `DESIGN.md` (and `CLAIMS.md` if it now exists).
-2. Commit the `site/` directory and `.github/workflows/pages.yml`, and push
-   to the `main` branch of the GitHub remote.
-3. In the GitHub repo: **Settings → Pages → Build and deployment →
-   Source → "GitHub Actions"**. This is the step that actually enables Pages;
-   without it the workflow never deploys.
-4. The next push touching `site/**` (or a manual **Actions → Deploy site to
-   GitHub Pages → Run workflow**) builds and deploys. The live URL appears in
-   the workflow run's `deploy` job and under Settings → Pages.
+To take it down, disable Pages in Settings → Pages, or remove
+`.github/workflows/pages.yml`.
 
 Until step 3 is done by a human, the workflow is inert.
 
