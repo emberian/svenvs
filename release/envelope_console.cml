@@ -1,0 +1,151 @@
+(* ===================================================================== *)
+(*  svenvs envelope console — a RUNNABLE x86-64 image of a HOL4 theorem.   *)
+(*                                                                         *)
+(*  This program is the executable shadow of `cp_enveloped_safe`           *)
+(*  (cartpoleEnvelopeScript.sml):                                          *)
+(*                                                                         *)
+(*    |- !ctrl. invariant cp_step cp_init                                  *)
+(*                (enveloped cp_pol cp_shield ctrl) cp_safe                 *)
+(*                                                                         *)
+(*  i.e. "for ANY controller, the policy-enveloped pole-cart stays safe".  *)
+(*  The controller is universally quantified and NEVER constrained — the   *)
+(*  envelope, not the controller, carries the proof.                       *)
+(*                                                                         *)
+(*  Here YOU are the unconstrained controller. Each line you type is a      *)
+(*  raw command `u` from the black box. The verified envelope reflects on   *)
+(*  it: if the proven policy `cp_pol` permits `u` it is ADMITted; otherwise *)
+(*  it is SHIELDed (replaced by the trusted fallback `cp_shield`). The pole *)
+(*  angle is printed after every tick and — by the theorem above — is       *)
+(*  ALWAYS inside the safe box -3..3, no matter what you feed it.           *)
+(*                                                                         *)
+(*  The definitions below are a line-for-line transcription of the HOL4     *)
+(*  definitions that the theorem is stated over (cartpoleScript.sml,        *)
+(*  envelopeScript.sml, cartpoleEnvelopeScript.sml). Read them side by      *)
+(*  side; they are the same arithmetic.                                     *)
+(* ===================================================================== *)
+
+(* --- cartpoleScript.sml --------------------------------------------- *)
+
+(* cp_drift a = if 0 < a then 1 else if a < 0 then -1 else 0 *)
+fun cp_drift a = if 0 < a then 1 else if a < 0 then ~1 else 0;
+
+(* cp_step a u = a + cp_drift a - 2 * u *)
+fun cp_step a u = a + cp_drift a - 2 * u;
+
+(* cp_safe a <=> -3 <= a /\ a <= 3 *)
+fun cp_safe a = ~3 <= a andalso a <= 3;
+
+(* cp_init a <=> a = 0  (the cart starts perfectly balanced) *)
+val cp_init = 0;
+
+(* --- envelopeScript.sml / cartpoleEnvelopeScript.sml ---------------- *)
+
+(* cp_valid u <=> u = -1 \/ u = 0 \/ u = 1 *)
+fun cp_valid u = (u = ~1) orelse (u = 0) orelse (u = 1);
+
+(* cp_pol a u <=> cp_valid u /\ cp_safe (cp_step a u) *)
+fun cp_pol a u = cp_valid u andalso cp_safe (cp_step a u);
+
+(* cp_shield a = cp_drift a  (the trusted fallback: counter the lean) *)
+fun cp_shield a = cp_drift a;
+
+(* enveloped pol shield ctrl s =
+     if pol s (ctrl s) then ctrl s else shield s
+   Here `ctrl s` is the user's raw command `u`. Returns the command that
+   is actually executed (the user's, when admitted; the shield's otherwise). *)
+fun enveloped a u = if cp_pol a u then u else cp_shield a;
+
+(* ===================================================================== *)
+(*  The read/eval/print loop.                                             *)
+(* ===================================================================== *)
+
+val instream = TextIO.openStdIn ();
+
+(* strip a single trailing '\n' if present *)
+fun chomp s =
+  let val n = String.size s in
+    if n > 0 andalso String.sub s (n - 1) = #"\n"
+    then String.substring s 0 (n - 1)
+    else s
+  end;
+
+(* trim leading/trailing ASCII spaces and tabs *)
+fun is_space c = (c = #" ") orelse (c = #"\t") orelse (c = #"\r");
+fun trim s =
+  let
+    val n = String.size s
+    fun lead i = if i < n andalso is_space (String.sub s i) then lead (i+1) else i
+    fun trail i = if i >= 0 andalso is_space (String.sub s i) then trail (i-1) else i
+    val i = lead 0
+    val j = trail (n - 1)
+  in
+    if j < i then "" else String.substring s i (j - i + 1)
+  end;
+
+(* parse an integer command; accepts a leading '+' for convenience *)
+fun parse_cmd s =
+  let val s = trim s in
+    if s = "" then None
+    else if String.sub s 0 = #"+"
+         then Int.fromString (String.substring s 1 (String.size s - 1))
+         else Int.fromString s
+  end;
+
+fun show i = Int.toString i;
+
+val banner = String.concat [
+  "svenvs envelope console  (executable image of cp_enveloped_safe)\n",
+  "---------------------------------------------------------------\n",
+  "You are the UNCONSTRAINED controller. Type a command u each tick.\n",
+  "The verified envelope ADMITs it iff the proven policy cp_pol permits it,\n",
+  "otherwise it SHIELDs (substitutes cp_shield). The angle stays in -3..3\n",
+  "for EVERY input -- that is the theorem, made runnable.\n",
+  "\n",
+  "  commands : an integer u   (the envelope only ever executes -1, 0 or 1)\n",
+  "  EOF / Ctrl-D : quit\n",
+  "\n" ];
+
+fun report a u exec admitted a' =
+  let
+    val tag = if admitted then "ADMIT " else "SHIELD"
+    val why =
+      if admitted then "policy permits u=" ^ show u
+      else if not (cp_valid u)
+           then "u=" ^ show u ^ " is out of range {-1,0,1}; fell back to shield=" ^ show exec
+      else "u=" ^ show u ^ " would breach safety; fell back to shield=" ^ show exec
+  in
+    TextIO.print
+      (tag ^ " | angle " ^ show a ^ " --(exec " ^ show exec ^ ")--> "
+       ^ show a' ^ "   (" ^ why ^ ")\n"
+       ^ (if cp_safe a' then "" else
+            (* unreachable by cp_enveloped_safe; printed only as a tripwire *)
+            "*** INVARIANT VIOLATED (this should be impossible) ***\n"))
+  end;
+
+fun prompt a = TextIO.print ("angle=" ^ show a ^ " u? ");
+
+fun loop a =
+  (prompt a;
+   case TextIO.inputLine instream of
+     None => TextIO.print "\n[eof] the pole never left the safe box. (qed)\n"
+   | Some line =>
+       let val raw = chomp line in
+         case parse_cmd raw of
+           None =>
+             (if trim raw = "" then ()
+              else TextIO.print ("?? not an integer: \"" ^ trim raw
+                                 ^ "\"  (try -1, 0, or 1)\n");
+              loop a)
+         | Some u =>
+             let
+               val exec = enveloped a u          (* the command actually run *)
+               val admitted = cp_pol a u
+               val a' = cp_step a exec
+             in
+               report a u exec admitted a';
+               loop a'
+             end
+       end);
+
+val _ = TextIO.print banner;
+val _ = loop cp_init;
