@@ -1,0 +1,5 @@
+# recursive — the capstone: recursive MUTUAL verifier+compiler self-improvement
+# is safe, as a genealogy over (verifier, compiler) stages. Pure light HOL4:
+# the generic core (..) + the genealogy spine (../genealogy). No CakeML.
+INCLUDES = .. ../genealogy
+OPTIONS = QUIT_ON_FAILURE

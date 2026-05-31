@@ -55,6 +55,42 @@ infra; see `CLAIMS.md`).
 This is an *engineering artifact*, not a position paper: clone it and check
 the proofs yourself.
 
+## Improving the prover itself — the answer, with the boundary marked
+
+*"How can it improve the theorem prover itself? As in, has it ever tried
+doing that?"* svenvs answers that as a machine-checked chain, against the
+**real** CakeML/Candle, with a live demo of the part that is safe to run —
+and an honest line where execution stops and proof takes over. Full ledger:
+[`paper/self-optimizing-prover.md`](paper/self-optimizing-prover.md).
+
+- **Proved** (real CakeML/Candle, `DISK_THM`-clean, no new turtle): a
+  modified inference relation is sound (`kernelMod/`); an in-place kernel
+  swap is safe iff the new kernel is a sound *extension*, so the heap
+  survives (`kernelMod/inplaceUpdate`); the unbounded self-optimization loop
+  stays sound (`kernelMod/selfOptimize`); **the loader, over CakeML's actual
+  `closSem$do_install`, preserves every running code entry**
+  (`loader/installLoader`); **the executable Candle SYM kernel function
+  soundly implements the modified rule** (`kernelImpl/` — citing CakeML's own
+  `SYM_thm`/`THM_def`); HOL4 is provably *out of the runtime loop*
+  (`kernelMod/genesisRuntime`); and **recursive *mutual* verifier+compiler
+  self-improvement is a genealogy over `(verifier, compiler)` stages**
+  (`recursive/`) — Löb-free for optimization, walled only for genuine
+  logical *strengthening*.
+- **Ran live** on the real `cake` binary (Tier 3): a verified program
+  self-extends its own code with a proven-safe derived rule and uses it
+  (`candle/selfopt_demo.ml`), and the polecart + watchdog self-optimize their
+  own policies under the live kernel (`candle/theplace.ml`).
+- **Proved, not run:** a live edit of the *trusted kernel or compiler*.
+  Candle *proves* (`candle_prover`) that REPL code cannot touch the kernel —
+  so the live self-edit is of the *toolkit*, never the verifier; executing a
+  real kernel swap needs a host program driving the recompile-relocate-resume
+  loop, every link of which is already a theorem.
+- **Walled** (honestly): logical *strengthening* of the verifier — the one
+  Gödel/Löb seam (`loeb_reflection`, LCA), isolated and labeled.
+
+These layers reproduce only on a host with the built CakeML candle chain
+(Tier 2) and the `cake` binary (Tier 3); Tier 1 stands alone.
+
 ## 2-minute tour
 
 ```bash
