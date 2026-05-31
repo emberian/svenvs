@@ -61,5 +61,6 @@ echo ">> built: ${OUTDIR}/envelope_console"
 file envelope_console || true
 sha256sum envelope_console || true
 echo
-echo ">> smoke test (feed: 1, 1, -1, 5):"
-printf '1\n1\n-1\n5\n' | ./envelope_console
+echo ">> smoke test (eval a typed control law: '1', then run it 4 ticks,"
+echo "   then the adversarial live-angle law '100-a', then garbage):"
+printf '1\nrun 4\n100-a\nbanana\n' | ./envelope_console

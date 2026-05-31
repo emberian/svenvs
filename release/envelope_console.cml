@@ -11,17 +11,24 @@
 (*  The controller is universally quantified and NEVER constrained — the   *)
 (*  envelope, not the controller, carries the proof.                       *)
 (*                                                                         *)
-(*  Here YOU are the unconstrained controller. Each line you type is a      *)
-(*  raw command `u` from the black box. The verified envelope reflects on   *)
-(*  it: if the proven policy `cp_pol` permits `u` it is ADMITted; otherwise *)
-(*  it is SHIELDed (replaced by the trusted fallback `cp_shield`). The pole *)
-(*  angle is printed after every tick and — by the theorem above — is       *)
-(*  ALWAYS inside the safe box -3..3, no matter what you feed it.           *)
+(*  Here YOU supply that arbitrary `ctrl`. You do not type a single        *)
+(*  number — you type a CONTROL LAW: an arithmetic expression in the live  *)
+(*  pole angle `a` (e.g. `0-a`, `2*a-1`, `a*a`, `100-a`). Each tick the     *)
+(*  program EVALUATES your law against the current angle to get the raw    *)
+(*  command `u = ctrl a`, then the verified envelope reflects on it: if the *)
+(*  proven policy `cp_pol` permits `u` it is ADMITted, otherwise it is      *)
+(*  SHIELDed (replaced by the trusted fallback `cp_shield`). The angle is   *)
+(*  printed after every tick and — by the theorem above — is ALWAYS inside  *)
+(*  the safe box -3..3, no matter what law you write or how adversarial it  *)
+(*  is. `ctrl` is now literally just-typed, evaluated user code; the        *)
+(*  universal quantifier `!ctrl` is being satisfied at runtime.            *)
 (*                                                                         *)
 (*  The definitions below are a line-for-line transcription of the HOL4     *)
 (*  definitions that the theorem is stated over (cartpoleScript.sml,        *)
 (*  envelopeScript.sml, cartpoleEnvelopeScript.sml). Read them side by      *)
-(*  side; they are the same arithmetic.                                     *)
+(*  side; they are the same arithmetic. Only the SECTION marked "the        *)
+(*  controller you type" is new, and it lives strictly OUTSIDE the proven   *)
+(*  envelope — it is the black box the theorem quantifies over.            *)
 (* ===================================================================== *)
 
 (* --- cartpoleScript.sml --------------------------------------------- *)
@@ -51,12 +58,111 @@ fun cp_shield a = cp_drift a;
 
 (* enveloped pol shield ctrl s =
      if pol s (ctrl s) then ctrl s else shield s
-   Here `ctrl s` is the user's raw command `u`. Returns the command that
-   is actually executed (the user's, when admitted; the shield's otherwise). *)
+   Here `ctrl s` is whatever the user's control law evaluates to at the
+   current angle. Returns the command actually executed (the user's, when
+   admitted; the shield's otherwise). *)
 fun enveloped a u = if cp_pol a u then u else cp_shield a;
 
 (* ===================================================================== *)
-(*  The read/eval/print loop.                                             *)
+(*  THE CONTROLLER YOU TYPE — an evaluator for user-supplied control laws. *)
+(*                                                                         *)
+(*  This is the unconstrained `ctrl` the theorem quantifies over. It is a   *)
+(*  tiny recursive-descent evaluator for integer expressions in one         *)
+(*  variable `a` (the live angle):                                          *)
+(*                                                                         *)
+(*     expr   := term  (('+' | '-') term)*                                  *)
+(*     term   := factor ('*' factor)*                                       *)
+(*     factor := ('-' | '~' | '+') factor | atom                           *)
+(*     atom   := integer | 'a' | '(' expr ')'                              *)
+(*                                                                         *)
+(*  CakeML integers are arbitrary precision, so `100-a` and `a*a` cannot    *)
+(*  overflow — the envelope, not luck, is what keeps the pole safe.        *)
+(*  NOTHING in here can affect safety: its result is just fed to            *)
+(*  `enveloped`, which the theorem already covers for every possible value. *)
+(* ===================================================================== *)
+
+datatype tok = TI int | TA | TP | TM | TS | TL | TR;
+
+fun opt_cons x r = case r of None => None | Some xs => Some (x :: xs);
+
+fun tokenize s =
+  let
+    val n = String.size s
+    fun digits i acc =
+      if i < n then
+        let val oc = Char.ord (String.sub s i) in
+          if 48 <= oc andalso oc <= 57
+          then digits (i + 1) (acc * 10 + (oc - 48))
+          else (acc, i)
+        end
+      else (acc, i)
+    fun go i =
+      if i >= n then Some []
+      else
+        let val c = String.sub s i in
+          if c = #" " orelse c = #"\t" orelse c = #"\r" then go (i + 1)
+          else if c = #"+" then opt_cons TP (go (i + 1))
+          else if c = #"-" orelse c = #"~" then opt_cons TM (go (i + 1))
+          else if c = #"*" then opt_cons TS (go (i + 1))
+          else if c = #"(" then opt_cons TL (go (i + 1))
+          else if c = #")" then opt_cons TR (go (i + 1))
+          else if c = #"a" then opt_cons TA (go (i + 1))
+          else
+            let val oc = Char.ord c in
+              if 48 <= oc andalso oc <= 57
+              then let val (v, j) = digits i 0 in opt_cons (TI v) (go j) end
+              else None
+            end
+        end
+  in go 0 end;
+
+(* evaluate the token stream against a concrete angle `a` *)
+fun eval_expr a ts =
+  case eval_term a ts of
+    None => None
+  | Some (v, ts) => eval_more a v ts
+and eval_more a v ts =
+  case ts of
+    TP :: ts => (case eval_term a ts of
+                   None => None | Some (w, ts) => eval_more a (v + w) ts)
+  | TM :: ts => (case eval_term a ts of
+                   None => None | Some (w, ts) => eval_more a (v - w) ts)
+  | _ => Some (v, ts)
+and eval_term a ts =
+  case eval_factor a ts of
+    None => None
+  | Some (v, ts) => eval_term_more a v ts
+and eval_term_more a v ts =
+  case ts of
+    TS :: ts => (case eval_factor a ts of
+                   None => None | Some (w, ts) => eval_term_more a (v * w) ts)
+  | _ => Some (v, ts)
+and eval_factor a ts =
+  case ts of
+    TM :: ts => (case eval_factor a ts of None => None | Some (w, ts) => Some (~w, ts))
+  | TP :: ts => eval_factor a ts
+  | _ => eval_atom a ts
+and eval_atom a ts =
+  case ts of
+    TI n :: ts => Some (n, ts)
+  | TA :: ts => Some (a, ts)
+  | TL :: ts => (case eval_expr a ts of
+                   None => None
+                 | Some (v, ts) =>
+                     (case ts of TR :: ts => Some (v, ts) | _ => None))
+  | _ => None;
+
+(* the user's control law, evaluated at angle `a`. None = does not parse. *)
+fun eval_law a s =
+  case tokenize s of
+    None => None
+  | Some ts =>
+      (case eval_expr a ts of
+         None => None
+       | Some (v, ts) => (case ts of [] => Some v | _ => None));
+
+(* ===================================================================== *)
+(*  The read / evaluate-law / envelope / print loop.                      *)
 (* ===================================================================== *)
 
 val instream = TextIO.openStdIn ();
@@ -74,34 +180,32 @@ fun is_space c = (c = #" ") orelse (c = #"\t") orelse (c = #"\r");
 fun trim s =
   let
     val n = String.size s
-    fun lead i = if i < n andalso is_space (String.sub s i) then lead (i+1) else i
-    fun trail i = if i >= 0 andalso is_space (String.sub s i) then trail (i-1) else i
+    fun lead i = if i < n andalso is_space (String.sub s i) then lead (i + 1) else i
+    fun trail i = if i >= 0 andalso is_space (String.sub s i) then trail (i - 1) else i
     val i = lead 0
     val j = trail (n - 1)
   in
     if j < i then "" else String.substring s i (j - i + 1)
   end;
 
-(* parse an integer command; accepts a leading '+' for convenience *)
-fun parse_cmd s =
-  let val s = trim s in
-    if s = "" then None
-    else if String.sub s 0 = #"+"
-         then Int.fromString (String.substring s 1 (String.size s - 1))
-         else Int.fromString s
-  end;
+fun starts_with pre s =
+  String.size s >= String.size pre andalso
+  String.substring s 0 (String.size pre) = pre;
 
 fun show i = Int.toString i;
 
 val banner = String.concat [
   "svenvs envelope console  (executable image of cp_enveloped_safe)\n",
   "---------------------------------------------------------------\n",
-  "You are the UNCONSTRAINED controller. Type a command u each tick.\n",
-  "The verified envelope ADMITs it iff the proven policy cp_pol permits it,\n",
-  "otherwise it SHIELDs (substitutes cp_shield). The angle stays in -3..3\n",
-  "for EVERY input -- that is the theorem, made runnable.\n",
+  "You are the UNCONSTRAINED controller. Type a CONTROL LAW: an integer\n",
+  "expression in the live pole angle `a`. Each tick it is EVALUATED to a\n",
+  "raw command u = ctrl a; the verified envelope ADMITs u iff the proven\n",
+  "policy cp_pol permits it, otherwise it SHIELDs (substitutes cp_shield).\n",
+  "The angle stays in -3..3 for EVERY law you can write -- that is the\n",
+  "theorem !ctrl, made runnable: your just-typed code IS the ctrl.\n",
   "\n",
-  "  commands : an integer u   (the envelope only ever executes -1, 0 or 1)\n",
+  "  a law    : e.g.  0-a   2*a-1   a*a   100-a   1   (uses +, -, *, (), a)\n",
+  "  run N    : let the current law drive the cart N ticks autonomously\n",
   "  EOF / Ctrl-D : quit\n",
   "\n" ];
 
@@ -122,30 +226,50 @@ fun report a u exec admitted a' =
             "*** INVARIANT VIOLATED (this should be impossible) ***\n"))
   end;
 
-fun prompt a = TextIO.print ("angle=" ^ show a ^ " u? ");
+(* one tick: evaluate the law at `a`, envelope it, report, return new angle *)
+fun tick law a =
+  case eval_law a law of
+    None => (TextIO.print ("(law no longer parses: \"" ^ law ^ "\")\n"); a)
+  | Some u =>
+      let
+        val exec = enveloped a u
+        val admitted = cp_pol a u
+        val a' = cp_step a exec
+      in report a u exec admitted a'; a' end;
 
-fun loop a =
+fun run_ticks law a k = if k <= 0 then a else run_ticks law (tick law a) (k - 1);
+
+fun prompt a = TextIO.print ("angle=" ^ show a ^ " law? ");
+
+(* state: current angle `a`, and the last successfully-parsed law string *)
+fun loop a law =
   (prompt a;
    case TextIO.inputLine instream of
      None => TextIO.print "\n[eof] the pole never left the safe box. (qed)\n"
    | Some line =>
-       let val raw = chomp line in
-         case parse_cmd raw of
-           None =>
-             (if trim raw = "" then ()
-              else TextIO.print ("?? not an integer: \"" ^ trim raw
-                                 ^ "\"  (try -1, 0, or 1)\n");
-              loop a)
-         | Some u =>
-             let
-               val exec = enveloped a u          (* the command actually run *)
-               val admitted = cp_pol a u
-               val a' = cp_step a exec
-             in
-               report a u exec admitted a';
-               loop a'
-             end
+       let val t = trim (chomp line) in
+         if t = "" then loop a law
+         else if t = "run" then loop (run_ticks law a 1) law
+         else if starts_with "run " t then
+           (case Int.fromString (trim (String.substring t 4 (String.size t - 4))) of
+              None => (TextIO.print "?? run needs a count, e.g.  run 12\n"; loop a law)
+            | Some k =>
+                if law = ""
+                then (TextIO.print "?? no law yet -- type one first, e.g.  2*a-1\n"; loop a law)
+                else loop (run_ticks law a k) law)
+         else
+           (case eval_law a t of
+              None =>
+                (TextIO.print ("?? not a control law in `a`: \"" ^ t
+                               ^ "\"  (try: 1, 0-a, 2*a-1, a*a, 100-a)\n");
+                 loop a law)
+            | Some u =>
+                let
+                  val exec = enveloped a u
+                  val admitted = cp_pol a u
+                  val a' = cp_step a exec
+                in report a u exec admitted a'; loop a' t end)
        end);
 
 val _ = TextIO.print banner;
-val _ = loop cp_init;
+val _ = loop cp_init "";

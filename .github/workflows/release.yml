@@ -21,7 +21,8 @@
 #   CakeML verified compiler  release v3304  asset cake-x64-64.tar.gz
 #   sha256 6d4d60511597828a58853aa45f21e2cd75bb564908f239368ff7b40e8073b2b3
 #   (verified on x86-64 Linux to produce envelope_console with sha256
-#    d3e957bd20c034fdd3608aeb1a9aac1ef5d6287645e679a6223f0aa95b1615d2)
+#    1ca86f653027ed9abf1855c99ad02ee9280c5c61991e1116e95c5de22c89f2cb,
+#    bit-for-bit reproducible across independent builds)
 
 name: "Release: build the envelope console (x86-64 ELF)"
 
@@ -53,12 +54,15 @@ jobs:
           file out/envelope_console
           sha256sum out/envelope_console | tee out/envelope_console.sha256
 
-      - name: Smoke test (eval user input through the verified gate)
+      - name: Smoke test (eval a typed control law through the verified gate)
         run: |
           set -euo pipefail
-          printf '1\n1\n-1\n5\n-1\n' | out/envelope_console | tee out/transcript.txt
+          # A constant push run autonomously, then an adversarial law that
+          # depends on the live angle, then garbage — the controller is
+          # just-typed, evaluated user code; the envelope is the proof.
+          printf '1\nrun 4\n100-a\nbanana\n' | out/envelope_console | tee out/transcript.txt
           # The proven invariant: the angle never leaves -3..3, so the
-          # tripwire line must never appear.
+          # tripwire line must never appear, for any input.
           if grep -q "INVARIANT VIOLATED" out/transcript.txt; then
             echo "::error::safety invariant tripwire fired — this must be impossible"
             exit 1
