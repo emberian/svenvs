@@ -111,12 +111,31 @@ envelope_console: ELF 64-bit LSB pie executable, x86-64, version 1 (SYSV),
   dynamically linked, interpreter /lib64/ld-linux-x86-64.so.2, ... not stripped
 $ stat -c %s envelope_console
 205744
-$ sha256sum envelope_console
+$ sha256sum envelope_console.cake.S   # the verified compiler's OUTPUT
+5c518f0ded8d042f135ab97e2914fec046517765be679bd2587e5c54941e9766  envelope_console.cake.S
+$ sha256sum envelope_console           # the final linked ELF
 1ca86f653027ed9abf1855c99ad02ee9280c5c61991e1116e95c5de22c89f2cb  envelope_console
 ```
 
-The build is **bit-for-bit reproducible**: two independent builds from the same
-pinned `cake` yield the identical sha256 `1ca86f65…`.
+**What is reproducible, precisely.** The *verified compiler's output assembly*
+(`envelope_console.cake.S`) is **deterministic across machines** — the `cake`
+translation has no randomness or timestamps, so the same pinned `cake` always
+emits sha256 `5c518f0d…`. The build pipeline uploads this file so you can check
+it directly. The *final linked ELF*, by contrast, is assembled and linked by the
+**trusted host C toolchain** (`gcc`/`ld`), which embeds a `BuildID` and can
+codegen `basis_ffi.c` differently between versions — so its sha256 varies by
+builder and is **not** pinned:
+
+| builder | `gcc` | ELF sha256 |
+|---|---|---|
+| `persvati` | 15.2.0 | `1ca86f65…` |
+| `ubuntu-latest` (GitHub runner) | runner default | `c5b30993…` |
+
+Different bytes, behaviorally identical. This is the right place for the
+non-determinism to live: it is entirely in the *trusted* C glue, **outside** the
+verified-compiler boundary — the part the proof actually covers (`.cml` → asm)
+is the part that reproduces exactly. (On a *fixed* toolchain it is fully
+bit-for-bit: two builds on `persvati` gave the identical ELF `1ca86f65…`.)
 
 ### Sample session (eval a typed control law through the verified gate)
 

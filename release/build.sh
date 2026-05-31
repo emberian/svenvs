@@ -54,11 +54,19 @@ echo ">> assembling + linking the ELF (with basis_ffi.c)"
 "${CC}" -O2 envelope_console.cake.S basis_ffi.c -lm -o envelope_console
 
 cp envelope_console "${OUTDIR}/envelope_console"
+# Also keep the verified compiler's OUTPUT assembly: this, unlike the final
+# linked ELF, is what is reproducible across machines — the `cake` translation
+# is deterministic, whereas the ELF's exact bytes depend on the host C
+# toolchain (gcc/ld version, embedded BuildID). See release/README.md.
+cp envelope_console.cake.S "${OUTDIR}/envelope_console.cake.S"
 cd "${OUTDIR}"
 
 echo
 echo ">> built: ${OUTDIR}/envelope_console"
 file envelope_console || true
+echo ">> sha256 of the verified-compiler output (reproducible across machines):"
+sha256sum envelope_console.cake.S || true
+echo ">> sha256 of the linked ELF (depends on host C toolchain):"
 sha256sum envelope_console || true
 echo
 echo ">> smoke test (eval a typed control law: '1', then run it 4 ticks,"

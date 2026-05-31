@@ -20,9 +20,16 @@
 # Pinned toolchain (kept in lockstep with release/build.sh):
 #   CakeML verified compiler  release v3304  asset cake-x64-64.tar.gz
 #   sha256 6d4d60511597828a58853aa45f21e2cd75bb564908f239368ff7b40e8073b2b3
-#   (verified on x86-64 Linux to produce envelope_console with sha256
-#    1ca86f653027ed9abf1855c99ad02ee9280c5c61991e1116e95c5de22c89f2cb,
-#    bit-for-bit reproducible across independent builds)
+#
+# Reproducibility (honest): the VERIFIED COMPILER's output assembly is
+# deterministic across machines —
+#   sha256(envelope_console.cake.S) =
+#     5c518f0ded8d042f135ab97e2914fec046517765be679bd2587e5c54941e9766
+# The final LINKED ELF's exact bytes depend on the trusted host C toolchain
+# (gcc/ld version + embedded BuildID), so its sha256 varies by builder and is
+# NOT pinned: e.g. persvati (gcc 15.2.0) -> 1ca86f65…, the ubuntu-latest GH
+# runner -> c5b30993… — different bytes, behaviorally identical. The .cake.S
+# sha is the one to compare; this job uploads it so you can.
 
 name: "Release: build the envelope console (x86-64 ELF)"
 
@@ -52,6 +59,9 @@ jobs:
           set -euxo pipefail
           release/build.sh "${GITHUB_WORKSPACE}/out"
           file out/envelope_console
+          # The verified-compiler output (deterministic across machines):
+          sha256sum out/envelope_console.cake.S | tee out/envelope_console.cake.S.sha256
+          # The linked ELF (host-toolchain-dependent bytes):
           sha256sum out/envelope_console | tee out/envelope_console.sha256
 
       - name: Smoke test (eval a typed control law through the verified gate)
@@ -75,6 +85,8 @@ jobs:
           path: |
             out/envelope_console
             out/envelope_console.sha256
+            out/envelope_console.cake.S
+            out/envelope_console.cake.S.sha256
 
       # Attach to a release only when one actually exists: either this run was
       # triggered by `release: published`, or a tag was supplied via dispatch.
@@ -88,4 +100,6 @@ jobs:
           gh release upload "$TAG" \
             out/envelope_console \
             out/envelope_console.sha256 \
+            out/envelope_console.cake.S \
+            out/envelope_console.cake.S.sha256 \
             --clobber --repo "${GITHUB_REPOSITORY}"
