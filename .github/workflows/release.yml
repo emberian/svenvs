@@ -1,0 +1,87 @@
+# Build the svenvs "envelope console" and attach it to a GitHub release.
+#
+# WHAT THIS BUILDS:
+#   release/envelope_console.cml is the executable shadow of the HOL4 theorem
+#   cp_enveloped_safe (cartpoleEnvelopeScript.sml): "for ANY controller, the
+#   policy-enveloped pole-cart stays inside the safe box". This workflow
+#   compiles it FROM SCRATCH with the *verified* CakeML compiler into a fresh
+#   x86-64 Linux ELF, smoke-tests it, and uploads it as a release asset.
+#   See release/README.md for the full story + a sample transcript.
+#
+# TRIGGERS:
+#   - release: published  -> attach the binary to that release.
+#   - workflow_dispatch    -> build (and smoke-test) on demand; only attaches
+#                             to a release if you pass an existing tag.
+#
+# This workflow does NOT create tags or publish releases — that is the
+# maintainer's outward-facing call. It only builds the artifact and, when a
+# release already exists, attaches it.
+#
+# Pinned toolchain (kept in lockstep with release/build.sh):
+#   CakeML verified compiler  release v3304  asset cake-x64-64.tar.gz
+#   sha256 6d4d60511597828a58853aa45f21e2cd75bb564908f239368ff7b40e8073b2b3
+#   (verified on x86-64 Linux to produce envelope_console with sha256
+#    d3e957bd20c034fdd3608aeb1a9aac1ef5d6287645e679a6223f0aa95b1615d2)
+
+name: "Release: build the envelope console (x86-64 ELF)"
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Existing release tag to attach the binary to (optional)."
+        required: false
+        default: ""
+
+# Least privilege: write only the release asset; nothing else.
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest # x86-64 GitHub-hosted runner
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build the envelope console (verified CakeML -> x86-64 ELF)
+        run: |
+          set -euxo pipefail
+          release/build.sh "${GITHUB_WORKSPACE}/out"
+          file out/envelope_console
+          sha256sum out/envelope_console | tee out/envelope_console.sha256
+
+      - name: Smoke test (eval user input through the verified gate)
+        run: |
+          set -euo pipefail
+          printf '1\n1\n-1\n5\n-1\n' | out/envelope_console | tee out/transcript.txt
+          # The proven invariant: the angle never leaves -3..3, so the
+          # tripwire line must never appear.
+          if grep -q "INVARIANT VIOLATED" out/transcript.txt; then
+            echo "::error::safety invariant tripwire fired — this must be impossible"
+            exit 1
+          fi
+
+      - name: Upload as workflow artifact (always)
+        uses: actions/upload-artifact@v4
+        with:
+          name: envelope_console-x86_64-linux
+          path: |
+            out/envelope_console
+            out/envelope_console.sha256
+
+      # Attach to a release only when one actually exists: either this run was
+      # triggered by `release: published`, or a tag was supplied via dispatch.
+      - name: Attach binary to the release
+        if: ${{ github.event_name == 'release' || github.event.inputs.tag != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name || github.event.inputs.tag }}
+        run: |
+          set -euo pipefail
+          gh release upload "$TAG" \
+            out/envelope_console \
+            out/envelope_console.sha256 \
+            --clobber --repo "${GITHUB_REPOSITORY}"

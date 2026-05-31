@@ -11,3 +11,6 @@ __pycache__/
 # EVAL-extracted enforcer table: a deterministic build artifact regenerated
 # by `Holmake` in agent/ from the proven toolAgentDecideTheory. Never hand-edited.
 agent/embodied/decision_table.tsv
+# Local output of release/build.sh (the freshly compiled envelope-console ELF
+# + the downloaded CakeML compiler). The release workflow rebuilds it in CI.
+release/_build/
