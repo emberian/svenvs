@@ -48,9 +48,10 @@ CI re-proves **Tier 1 only** on every push: from a clean clone, on a stock
 Ubuntu runner, the HOL4 kernel (pinned commit) re-checks the whole pure-HOL4
 core and a scan asserts zero `cheat` tactics — so the green check is itself a
 continuously-renewed credibility artifact. It does **not** exercise Tiers 2/3
-or discharge the labeled assumptions in general (three; one already
-discharged for the shipped finite instance — those need heavy/dedicated
-infra; see `CLAIMS.md`).
+(the real CakeML/Candle layers — kernel modification, the `do_install` loader,
+the live prover) or discharge the one genuinely-open assumption
+(`loeb_reflection`, the LCA wall; the other two named seams are discharged —
+see `CLAIMS.md`).
 
 This is an *engineering artifact*, not a position paper: clone it and check
 the proofs yourself.
@@ -127,51 +128,53 @@ Tiered, degrades gracefully to your toolchain:
   contained by the proven envelope (`agent/embodied/`) + a toy
   *verified-inference* kernel (`inference/`, research track B).
 - **Tier 2** — + a built CakeML candle chain: the admission obligation is
-  discharged by Candle's *verified inference system*; kernel-self-upgrade.
-- **Tier 3** — + a Candle binary: the Place's core theorems re-certified
-  **at runtime by the running verified Candle prover**.
+  discharged by Candle's *verified inference system*; the kernel modification,
+  the loader over the real `do_install`, and the executable-kernel SYM
+  refinement all check against the real Candle development.
+- **Tier 3** — + a Candle binary: the Place (incl. the polecart),
+  the live self-optimization loop, and the **closed-loop runtime** (a real
+  jailbroken gemma2:2b gated per-action) re-certified **at runtime by the
+  running verified Candle prover**.
 
 Prerequisites & pinned versions: [`scripts/INSTALL.md`](scripts/INSTALL.md).
-What each layer proves and its **honest epistemic status** (what is
-unconditional vs. the three explicit labeled assumptions, one already
-discharged for the shipped finite instance):
-[`ARCHITECTURE.md`](ARCHITECTURE.md) and the per-theorem ledger
-[`CLAIMS.md`](CLAIMS.md). Design rationale: [`DESIGN.md`](DESIGN.md).
+Per-theorem epistemic status: [`CLAIMS.md`](CLAIMS.md) (the self-optimizing-
+prover arc: [`paper/self-optimizing-prover.md`](paper/self-optimizing-prover.md)).
+Architecture: [`ARCHITECTURE.md`](ARCHITECTURE.md). Design: [`DESIGN.md`](DESIGN.md).
 
-### Roadmap axes (in progress — explicitly NOT yet claimed as done)
+### Where the frontier actually is now
 
-- **PureCake** (`pure/`) as the inhabitant's *verified* language.
-- **Closed-loop runtime** (`agent/closedloop/`): each admission a real,
-  live Candle proof.
-- **Verified tensor acceleration / attention** (`inference/accel/`,
-  `inference/attn/`): climbing from the toy MLP toward a verified block.
-- **Discharging the labeled assumptions** (`loeb_reflection`,
-  `encodes_obligation`, `frozen_checker_sound`; the second already
-  discharged for the finite watchdog) on the dedicated host →
-  fully unconditional end-to-end.
+Two of the three named seams are **discharged**: `encodes_obligation` for the
+shipped finite watchdog, `frozen_checker_sound` for the real Candle build. The
+closed-loop runtime is **live**. What genuinely remains:
 
-These are concurrently-developed frontiers; see `CLAIMS.md` § Roadmap for
-their exact (un-overclaimed) status.
+- **`loeb_reflection`** — the one Gödel/Löb seam: a sound kernel certifying a
+  *logically stronger* successor. Discharged from `lcaTheory.LCA_def` via the
+  heavy `hol-reflection/lca` — a diagnosed CPU/RAM wall, not a logic gap;
+  `loeb_finite_obstruction` proves finiteness cannot shortcut it. Every
+  *other* self-improvement here — including a sound *optimization* of the
+  kernel and the recursive mutual verifier+compiler loop — is Löb-free.
+- **A live edit of the trusted kernel/compiler** — proved end to end, not
+  *run*: it needs a host program driving the recompile-relocate-resume loop
+  (the live REPL self-extends the toolkit, never the kernel — `candle_prover`
+  proves it can't).
+- **PureCake** (`pure/`) as the inhabitant's verified language; **Gemma-scale
+  verified inference** (`inference/`) — the long research axes.
 
 ## Status in one paragraph
 
-The self-improving-self-verifying architecture — including upgrading the
-verified kernel — is **proved, mechanically checked, cheat-free**, today, in
-pure HOL4 (Tier 1), with the core re-certified live by the running Candle
-prover (Tier 3). The only non-mechanical content is **three explicit,
-labeled, literature-standard assumptions** (`loeb_reflection`,
-`encodes_obligation`, `frozen_checker_sound`), each isolated to one line,
-each with a known discharge path. Of these, `encodes_obligation` is
-**already discharged** for the shipped finite watchdog instance (a real
-ASSUMED→PROVED flip, with the precise honest negative `loeb_finite_obstruction`
-about why the general case is not cheaply dodged), and `frozen_checker_sound`
-is discharged concretely for a real modified Candle build (the frozen HOL4
-root re-proving a genuine `holSoundness` source diff). `loeb_reflection`'s
-general discharge is the heavy `hol-reflection/lca` + `reflectionLib` proof —
-a conclusively-diagnosed compute wall, not a porting failure and not faked;
-that it is *labeled* rather than hand-waved is exactly the point. See
-[`CLAIMS.md`](CLAIMS.md) for the line-by-line ledger and the full cheat
-audit (including one stale comment, disclosed in full).
+The self-verifying, self-improving architecture — policy, spec, meta, the
+prover build, and the inference relation itself — is **proved, mechanically
+checked, cheat-free**, today, in pure HOL4 (Tier 1), re-certified live by the
+running Candle prover (Tier 3), and where it touches the running prover (the
+loader, the executable-kernel SYM refinement) checked against the **real
+CakeML/Candle** with no oracle beyond the benign disk tag. The inference
+relation can be re-engineered and re-verified sound, the loader provably
+preserves the running heap, and the recursive mutual verifier+compiler
+self-improvement is a theorem. The **one** genuinely-open cost is the single
+labeled `loeb_reflection` — strengthening the kernel's *logic* (Gödel/Löb,
+LCA), isolated to one `Definition`, with a proved negative bounding what
+finiteness can do about it. Everything else is unconditional. The assumptions
+are stated, not hidden; if anything is overclaimed, that is a bug.
 
 Separately, the **corrigibility** neighborhood (`corrigibility/`, 10
 theories, ~60 theorems, pure HOL4, zero `cheat`, its own proof-carrying
