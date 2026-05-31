@@ -1,0 +1,20 @@
+# loader — the REAL machine-level loader proof: over CakeML's OWN verified
+# runtime code-installation semantics (closSem `do_install` / the `Install`
+# op), prove that installing new code at runtime preserves all existing code.
+# This discharges the hot-swap's heap/code-survival obligation against the
+# actual CakeML compiler semantics — no toy. Needs the built CakeML backend.
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+INCLUDES = $(CAKEMLDIR)/misc \
+           $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs \
+           $(CAKEMLDIR)/semantics/alt_semantics \
+           $(CAKEMLDIR)/semantics/alt_semantics/proofs \
+           $(CAKEMLDIR)/compiler/backend \
+           $(CAKEMLDIR)/compiler/backend/semantics \
+           $(CAKEMLDIR)/compiler/encoders/asm \
+           $(CAKEMLDIR)/compiler/backend/reg_alloc
+OPTIONS = QUIT_ON_FAILURE
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+endif

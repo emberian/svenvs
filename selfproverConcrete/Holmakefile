@@ -1,0 +1,15 @@
+# Follow-up #28, base case — the CONCRETE discharge of frozen_checker_sound
+# for the real Candle build, from the real holSoundnessTheory.proves_sound
+# (via kernelUpgradeTheory.candle_kernel_sound). Tier 2: needs the built
+# CakeML candle chain. Mirrors kernel/Holmakefile's candle wiring + the
+# svenvs selfprover/kernel layers. NO $(CAKEMLDIR) root (weakeningTheory
+# name-collision), per the kernel/embedded convention.
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+HOLHOL = $(CAKEMLDIR)/candle
+INCLUDES = .. ../embedded ../kernel ../selfprover \
+           $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure \
+           $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
+           $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics
+OPTIONS = QUIT_ON_FAILURE

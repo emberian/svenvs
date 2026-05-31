@@ -28,9 +28,22 @@ ok "Candle verification server live (hol.ml loaded)"
 
 say "Tier 3: submitting the Place to the live verified kernel"
 "$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/theplace.ml" _SVENVS_PLACE_OK
-for thm in SAFETY_PRESERVATION SAFE_WEAKENING WD_SHIELD_SAFE WD_HABITAT_SAFE; do
+# core habitat + the SYM kernel-mod tie-in + the live policy self-optimizations
+# (watchdog and polecart), all certified at runtime by the verified kernel.
+for thm in SAFETY_PRESERVATION SAFE_WEAKENING WD_SHIELD_SAFE WD_HABITAT_SAFE \
+           EQ_SYM_RULE WD_SELF_OPTIMIZED_SAFE CP_HABITAT_SAFE CP_SELF_OPTIMIZED_SAFE; do
   grep -aE "val $thm = " "$LOG" | tail -1 | grep -q '|-' \
     && ok "Candle kernel certified $thm" \
     || die "$thm not certified by live Candle"
 done
-say "TIER 3 REPRODUCED — the Place certified at runtime by the verified Candle prover"
+
+# the live self-optimization loop: the prover proves a rule sound, ADOPTS it
+# as a reusable derived rule, and uses it to prove more (LCF self-extension).
+say "Tier 3: submitting the live self-optimization loop"
+"$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/selfopt_demo.ml" _SVENVS_SELFOPT_OK
+for thm in SYM_LEMMA FACT1_SYM FACT1_ROUNDTRIP; do
+  grep -aE "val $thm = " "$LOG" | tail -1 | grep -q '|-' \
+    && ok "Candle kernel certified $thm (self-extended)" \
+    || die "$thm not certified by live Candle"
+done
+say "TIER 3 REPRODUCED — the Place + live self-optimization, certified at runtime by the verified Candle prover"

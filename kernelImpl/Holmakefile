@@ -1,0 +1,12 @@
+# kernelImpl — closing the heavy link: the running verified Candle kernel's
+# EXECUTABLE SYM function implements sym_kernel's new rule, soundly, via
+# CakeML's OWN verified holKernelProof (SYM_thm + THM_def) — not new
+# translator work. Needs the built CakeML candle monadic kernel.
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/translator/monadic \
+           $(CAKEMLDIR)/candle/syntax-lib \
+           $(CAKEMLDIR)/candle/standard/syntax \
+           $(CAKEMLDIR)/candle/standard/monadic
+OPTIONS = QUIT_ON_FAILURE

@@ -1,0 +1,15 @@
+# kernelMod — follow-up #28, the genuine KERNEL-MODIFICATION case: a real
+# inference-rule edit to the Candle kernel, RE-VERIFIED sound against the
+# real holSoundness semantics (reusing Candle's modular per-rule `_correct`
+# lemmas), then fed into selfProver's frozen-root gate. Tier 2: needs the
+# built CakeML candle chain. Mirrors kernel/Holmakefile's candle wiring +
+# the svenvs selfprover/kernel layers. NO $(CAKEMLDIR) root.
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+HOLHOL = $(CAKEMLDIR)/candle
+INCLUDES = .. ../embedded ../kernel ../selfprover \
+           $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure \
+           $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
+           $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics
+OPTIONS = QUIT_ON_FAILURE
