@@ -1,0 +1,11 @@
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+HOLHOL = $(CAKEMLDIR)/candle
+# Pure candle-semantics deps only (matches kernel/Holmakefile's candle INCLUDES,
+# minus the svenvs-core dirs — this theory restates the 3 kernelUpgrade defs
+# verbatim so it is self-contained and does not need svenvs core to be built).
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure \
+           $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
+           $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics
+OPTIONS = QUIT_ON_FAILURE

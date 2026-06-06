@@ -51,6 +51,9 @@ build_dir "self-recompile gate — runtime loop <-> proved spine bridge" "$SVENV
 build_dir "APEX — self-improving+self-recompiling system, proved safe" "$SVENVS_ROOT/apex" apex \
   apex
 
+build_dir "closed-loop num-encoding faithfulness (gate can't be fooled)" "$SVENVS_ROOT/agent/closedloop" encfaith \
+  encFaith
+
 if [ "$QUICK" = 0 ]; then
   build_dir "toy verified-inference kernel" "$SVENVS_ROOT/inference" inf \
     mlpInference
