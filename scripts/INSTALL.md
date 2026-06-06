@@ -37,6 +37,25 @@ Holmake-cached no-op) and exit non-zero with a clear message on any failure.
 `demo.sh` additionally needs `python3` (for the embodied-LLM segment;
 `--mock` needs no model). What is proven vs. assumed: `../CLAIMS.md`.
 
+### If a build hangs at 0% CPU (many-core machines)
+
+HOL4's **parallel** Holmake can deadlock against its own prebuilt-theory
+cache (`~/.cache/HOL`): the build wedges indefinitely, futex-blocked, at 0%
+CPU. It bites reliably on many-core boxes (small core counts sometimes slip
+through — which is why it can look like "it just never finishes" rather than
+an error). svenvs's scripts therefore pass `--no-cache` by default
+(`SVENVS_HM_FLAGS` in `scripts/env.sh`), which keeps full parallelism without
+the deadlock and only disables the *cross-clone* cache, not local incremental
+rebuilds. To restore caching (e.g. on a 1–2 core box), run with
+`SVENVS_HM_FLAGS= scripts/reproduce.sh`. Running a bare `Holmake` by hand on a
+many-core machine? Add `--no-cache`, or `-j1`.
+
+Reference timings (24-core box, prebuilt PolyML/HOL4, `--no-cache`): Tier 1
+~16s cold / <1s warm; the CakeML candle/standard/semantics chain ~2m30s cold;
+Tier 2 ~108s cold; Tier 3 (live Candle) ~55s. End-to-end cold from a built
+toolchain is roughly 5 minutes; the one large one-time cost is building HOL4
+itself (`bin/build`, ~30–60 min).
+
 ## Tier 2 (Candle-kernel-checked layers)
 
 ```bash

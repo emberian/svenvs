@@ -10,25 +10,29 @@
 set -euo pipefail
 here="$(cd "$(dirname "$0")/.." && pwd)"
 HOL="${HOLDIR:-$HOME/dev/HOL}/bin/Holmake"
+# Parallel Holmake deadlocks against its theory cache on many-core boxes;
+# --no-cache keeps parallelism without the hang (see scripts/env.sh).
+# Override SVENVS_HM_FLAGS= to restore caching.
+HM="${SVENVS_HM_FLAGS---no-cache}"
 full=0; [ "${1:-}" = "--full" ] && full=1
 
 say(){ printf '\n=== %s ===\n' "$*"; }
 
 # DAG order: generic core -> the three composable slices -> integration.
 say "1. generic core (system/envelope/safety/sv_weakening/upgrade)"
-( cd "$here" && "$HOL" )
+( cd "$here" && "$HOL" $HM )
 for d in pca specneg selfprover liberty amendment embodiment genealogy; do
   say "2. slice: $d"
-  ( cd "$here/$d" && "$HOL" )
+  ( cd "$here/$d" && "$HOL" $HM )
 done
 say "3. composed tower (integration/)"
 if [ "$full" = 1 ]; then
-  ( cd "$here/kernel" && "$HOL" ) || { echo "kernel slice failed (Tier-2 candle chain absent?)"; exit 1; }
-  ( cd "$here/integration" && "$HOL" )
+  ( cd "$here/kernel" && "$HOL" $HM ) || { echo "kernel slice failed (Tier-2 candle chain absent?)"; exit 1; }
+  ( cd "$here/integration" && "$HOL" $HM )
   crowns="svenvs_tower_unconditional svenvs_tower_at_maximal_liberty svenvs_tower_with_meta_amendment svenvs_tower_with_embodied_disclosure svenvs_tower_disclosure_is_optional svenvs_tower_with_prover_upgrade svenvs_tower_with_kernel_upgrade"
 else
   # build only the pure trunk+prover theory, skip the Tier-2 kernel crown
-  ( cd "$here/integration" && "$HOL" integrationTheory.uo )
+  ( cd "$here/integration" && "$HOL" $HM integrationTheory.uo )
   crowns="svenvs_tower_unconditional svenvs_tower_at_maximal_liberty svenvs_tower_with_meta_amendment svenvs_tower_with_embodied_disclosure svenvs_tower_disclosure_is_optional svenvs_tower_with_prover_upgrade"
 fi
 

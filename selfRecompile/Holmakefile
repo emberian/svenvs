@@ -1,0 +1,5 @@
+# selfRecompile — the BRIDGE: the running candle/self_recompile.ml loop's safety
+# is an instance of the proved genealogy. Pure light HOL4 (Tier 1): the generic
+# core (..) + the genealogy spine (../genealogy). No CakeML.
+INCLUDES = .. ../genealogy
+OPTIONS = QUIT_ON_FAILURE

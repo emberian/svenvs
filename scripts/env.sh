@@ -17,6 +17,14 @@ export HOLREFLDIR="${HOLREFLDIR:-$HOME/dev/hol-reflection}"
 export CANDLE_ROOT="${CANDLE_ROOT:-$HOME/dev/candle}"
 export HOLMAKE="${HOLMAKE:-$HOLDIR/bin/Holmake}"
 
+# HOL4's *parallel* Holmake deadlocks against its own prebuilt-theory cache
+# (~/.cache/HOL) on many-core machines: futex hang, 0% CPU, indefinitely.
+# --no-cache keeps full parallelism without the deadlock; it only disables the
+# cross-clone theory cache, NOT local incremental .uo checks, so re-running
+# stays a fast no-op. Set SVENVS_HM_FLAGS= (empty) to restore caching, e.g.
+# on a 1-2 core box where the deadlock does not bite and cross-clone replay helps.
+export SVENVS_HM_FLAGS="${SVENVS_HM_FLAGS---no-cache}"
+
 # colour only on a tty (logs/pipes stay clean)
 if [ -t 1 ]; then C_HD=$'\033[1;36m'; C_OK=$'\033[1;32m'; C_NO=$'\033[1;31m'
                  C_WN=$'\033[1;33m'; C_Z=$'\033[0m'
