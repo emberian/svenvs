@@ -1,0 +1,27 @@
+--- a/candle/kernel.ml
++++ b/candle/kernel.ml
+@@ -47,7 +47,23 @@
+ let new_axiom = Kernel.new_axiom;;
+ let vsubst = Kernel.vsubst;;
+ let inst = Kernel.inst;;
+-let REFL = Kernel.REFL;;
++(* ---- APEX: the kernel's REFL behind a live, sound-by-construction indirection.
++   The whole prover (loaded after this file) calls THIS `REFL`; it can be
++   SWAPPED in-process via `apex_swap_refl`. Soundness is automatic — any impl
++   must mint its `thm` through the verified `Kernel` (compiled into cake.S),
++   which cannot be forged — so no swap can ever yield a false theorem. The gate
++   enforces behavioural CORRECTNESS: a candidate is adopted only if it returns
++   the same theorem as the genuine `Kernel.REFL` on a battery of checks. ---- *)
++let _apex_refl = ref Kernel.REFL;;
++let _apex_refl_uses = ref 0;;
++let _apex_refl_swaps = ref 0;;
++let REFL tm = (_apex_refl_uses := !_apex_refl_uses + 1; (!_apex_refl) tm);;
++let rec _apex_all f xs =
++  match xs with [] -> true | x :: r -> f x && _apex_all f r;;
++let apex_swap_refl new_impl checks =
++  if _apex_all (fun tm -> concl (new_impl tm) = concl (Kernel.REFL tm)) checks
++  then (_apex_refl := new_impl; _apex_refl_swaps := !_apex_refl_swaps + 1; true)
++  else false;;
+ let TRANS = Kernel.TRANS;;
+ let MK_COMB = Kernel.MK_COMB;;
+ let ABS = Kernel.ABS;;

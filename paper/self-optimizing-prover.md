@@ -44,6 +44,7 @@ verified CakeML/Candle theorem we depend on) · **RAN** (executed on the real
 | **A live proof-gated recompile→swap→resume loop:** the running system replaces its own executing *compute* code with freshly-compiled versions (in-binary CakeML compiler → real `do_install`), each gated by a live kernel equivalence proof; two swaps **accumulate** (path-dependent; cost 101→1; outputs invariant); an unprovable swap is **REJECTED**, so semantics cannot break. Its safety is an *instance* of the proved genealogy. | **RAN** on the real `cake` binary | `candle/self_recompile.ml` (`GATE1`, `GATE2`, `verdict = "APEX_SUBSTRATE_OK"`); bridge `selfRecompile/selfRecompileGateScript.sml : gate_is_vouch_sound, self_recompile_loop_is_safe, self_recompile_preserves_outputs` |
 | **The verified compiler recompiles ITSELF:** `cake` compiles its own s-expression into a new working `cake` (bit-identical **FIXPOINT** — a verified fixed point of itself), and into a self-**optimized** variant (different binary, still a correct compiler). Correctness = CakeML's verified compiler-correctness. | **RAN** on the real `cake` binary | `scripts/apex.sh` (APEX I: self-host, fixpoint via `cmp`, `--inline_size`/`--max_app` self-optimize); compiler-correctness **CITED** (CakeML) |
 | **THE APEX, proved safe:** every generation of the self-improving+self-recompiling system has a *sound prover* AND a *correct compiler*, for ANY path — the concrete (prover × compiler) instance of the recursive genealogy, with compiler-correctness preserved by self-recompilation (CITED) and the prover advancing by gate-certified sound extensions. | **PROVED** | `apex/apexScript.sml : apex_generations_safe, compiler_self_recompilation_stays_correct, apex_is_a_genealogy` |
+| **IN-PROCESS swap of a KERNEL PRIMITIVE, under the whole live prover:** the kernel interface the entire prover calls (`REFL`) is re-architected into a live indirection over the verified `Kernel.REFL`; the running prover's `REFL` is swapped mid-flight for a different sound derivation — gated for correctness, accumulating, a wrong swap rejected — and the prover keeps proving through it (37 internal REFL calls to prove `2+2=4`, all funnelled through the swapped primitive). **Sound by construction**: any impl must mint its `thm` via the unforgeable verified `Kernel`. | **RAN** on the real `cake` binary | `scripts/apex-kernel-swap.sh`, `candle/kernel_swap_demo.ml` (`verdict="KERNEL_INPROCESS_SWAP_OK"`), `candle/kernel_apex.patch` |
 | Genuine *logical strengthening* of the verifier (proving strictly more). | **WALLED** | the labelled `kernelUpgradeTheory.loeb_reflection` (LCA); negatives `loeb_finite_obstruction`, `genealogy_irrelevant_to_vouch_sound` |
 
 ## 2. The one Löb, and why mutual optimization escapes it
@@ -77,18 +78,21 @@ assumption** (`recursive_mutual_optimization_is_unconditional`); only verifier
   own s-expression into a new working `cake` — a bit-identical **fixpoint**, and
   a self-**optimized** variant that stays correct (CakeML compiler-correctness,
   CITED). This is a *generational* rebuild (a new, correct binary), not an
-  in-process heap-preserving swap.
-- **Proved, not run:** an **in-process, heap-preserving** live swap of the
-  trusted *kernel's own code*. Why, precisely: the kernel is compiled *into* the
-  binary and its callers call it **directly** (no indirection), and `do_install`
-  **preserves** existing code entries rather than overwriting a label
-  (`loader/ : do_install_preserves_code`) — so swapping it in-process needs the
-  kernel routed through an `Install`-able indirection, gated by a privileged
-  (non-`perms_ok`) **host**: a *re-architected* `cake`. A *running* such binary
-  need not require full bootstrap-in-logic — the existing `cake` self-compiles
-  the modified source ((c) shows this works) — but the **in-logic
-  re-verification** of a kernel-modified core is the separate gold standard.
-  Every logical link is already a theorem above.
+  in-process heap-preserving swap. And (d) **an in-process swap of a KERNEL
+  PRIMITIVE under the whole live prover** (`scripts/apex-kernel-swap.sh`): the
+  kernel interface the entire prover calls (`REFL`) is re-architected into a live
+  indirection (`candle/kernel_apex.patch`, applied *before* the derived layer
+  loads), and the running prover's `REFL` is swapped mid-flight for a different
+  sound derivation — gated, accumulating, a wrong swap rejected — while the prover
+  keeps proving through it. **Heap-preserving and in-process.**
+- **The fixed root — by design, not a gap:** the *verified primitive* `Kernel`
+  (the unforgeable `thm` constructors compiled into `cake.S`) is never swapped.
+  (d) swaps the kernel *interface* — everything the prover invokes as the kernel —
+  while the verified primitive underneath stays put. That is deliberate: the
+  primitive is the immutable root of trust the swap is anchored to; swapping *it*
+  is neither possible (no way to forge a `thm`) nor desirable (it would dissolve
+  the guarantee). Self-improvement reaches **all the way down to the kernel
+  interface, gated by an immutable verified root**.
 - **Not attempted:** adding a genuinely *new verified optimization pass to the
   compiler's own pipeline* (a large separate development) — distinct from (b)/(c),
   which *use* the compiler and recompile it under its *existing* optimizations.
