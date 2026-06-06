@@ -25,7 +25,7 @@ build_dir(){
   say "Tier 1: $label"
   cd "$dir" || die "missing directory $dir"
   [ "$CLEAN" = 1 ] && { "$HOLMAKE" cleanAll >/dev/null 2>&1 || true; rm -rf .hol; }
-  if ! "$HOLMAKE" 2>&1 | tee "/tmp/svenvs-t1-$tag.log" | tail -n 6; then
+  if ! "$HOLMAKE" $SVENVS_HM_FLAGS 2>&1 | tee "/tmp/svenvs-t1-$tag.log" | tail -n 6; then
     die "Holmake failed in $dir — full log: /tmp/svenvs-t1-$tag.log"
   fi
   local t
@@ -41,6 +41,12 @@ build_dir "core + cartpole (pure HOL4)" "$SVENVS_ROOT" core \
 
 build_dir "adversarial-LLM tool-agent" "$SVENVS_ROOT/agent" agent \
   toolAgent toolAgentRun toolAgentDecide
+
+build_dir "recursive self-improvement capstone (pure HOL4)" "$SVENVS_ROOT/recursive" recursive \
+  recursiveImprovement
+
+build_dir "self-recompile gate — runtime loop <-> proved spine bridge" "$SVENVS_ROOT/selfRecompile" selfrec \
+  selfRecompileGate
 
 if [ "$QUICK" = 0 ]; then
   build_dir "toy verified-inference kernel" "$SVENVS_ROOT/inference" inf \

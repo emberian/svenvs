@@ -46,4 +46,20 @@ for thm in SYM_LEMMA FACT1_SYM FACT1_ROUNDTRIP; do
     && ok "Candle kernel certified $thm (self-extended)" \
     || die "$thm not certified by live Candle"
 done
-say "TIER 3 REPRODUCED — the Place + live self-optimization, certified at runtime by the verified Candle prover"
+# the live PROOF-GATED RECOMPILE -> SWAP -> RESUME loop: the running system
+# replaces its own executing compute code with freshly-compiled versions (in-
+# binary compiler + real do_install), each gated by a live kernel equivalence
+# proof; swaps accumulate (path-dependent); an unprovable swap is REJECTED so
+# semantics can never break. The Apex substrate, running.
+say "Tier 3: submitting the live proof-gated recompile->swap->resume loop"
+"$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/self_recompile.ml" _SVENVS_RECOMPILE_OK
+for thm in GATE1 GATE2; do
+  grep -aE "val $thm = " "$LOG" | tail -1 | grep -q '|-' \
+    && ok "Candle kernel certified swap gate $thm" \
+    || die "$thm not certified by live Candle"
+done
+grep -aqE 'val verdict = "APEX_SUBSTRATE_OK"' "$LOG" \
+  && ok "live recompile-swap-resume: outputs invariant across 2 accumulated swaps, cost 101->1, bad swap REJECTED (APEX_SUBSTRATE_OK)" \
+  || die "self_recompile loop did not reach APEX_SUBSTRATE_OK"
+
+say "TIER 3 REPRODUCED — the Place + live self-optimization + live proof-gated recompile-swap-resume, certified at runtime by the verified Candle prover"

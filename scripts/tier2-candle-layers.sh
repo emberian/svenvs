@@ -36,7 +36,7 @@ for d in embedded kernel; do
     CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" cleanAll >/dev/null 2>&1 || true
     rm -rf .hol
   fi
-  if ! CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" 2>&1 \
+  if ! CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS 2>&1 \
         | tee "/tmp/svenvs-t2-$d.log" | tail -n 6; then
     die "Holmake failed in $d — full log: /tmp/svenvs-t2-$d.log"
   fi
