@@ -91,14 +91,24 @@ and an honest line where execution stops and proof takes over. Full ledger:
   The whole **Apex** — compiler self-recompilation + proof-gated prover
   self-improvement — is run end-to-end by `scripts/apex.sh` (emits **DIAMOND**)
   and **proved safe** in `apex/apexScript.sml` (`apex_generations_safe`: every
-  generation has a sound prover and a correct compiler, for any path).
-- **Proved, not run:** an in-process live swap of the trusted *kernel's own
-  code*. It is compiled into `cake.S` and called directly (perms_ok-protected),
-  and `do_install` *preserves* rather than overwrites code entries — so swapping
-  it needs a *re-architected* `cake` with the kernel behind an `Install`-able
-  indirection, i.e. a proven kernel-modified `cake.S` (in-logic re-verification).
-  Every logical link is already a theorem; the **compiler** self-recompile above
-  is now *run*, the **kernel**-code swap is the one remaining systems step.
+  generation has a sound prover and a correct compiler, for any path). And (5)
+  **an in-process swap of a KERNEL PRIMITIVE under the whole live prover**
+  (`scripts/apex-kernel-swap.sh`, `candle/kernel_swap_demo.ml`): the kernel
+  interface the entire prover calls (`REFL`) is re-architected into a live
+  indirection (`candle/kernel_apex.patch`); the running prover's `REFL` is
+  swapped mid-flight for a different sound derivation — gated, accumulating, a
+  wrong swap rejected — and it keeps proving through the swapped primitive
+  (`verdict = "KERNEL_INPROCESS_SWAP_OK"`). Sound **by construction**: the swap
+  target must still mint its `thm` through the verified `Kernel`, which cannot be
+  forged.
+- **The fixed root (by design, not a gap):** the *verified primitive* `Kernel`
+  (the unforgeable `thm` constructors compiled into `cake.S`) is never swapped —
+  it is the immutable root of trust the in-process kernel swap above is anchored
+  to. Swapping *it* is neither possible (you cannot forge a `thm`) nor desirable
+  (it would dissolve the very guarantee). Self-improvement goes **all the way
+  down to the kernel interface, gated by an immutable verified root** — which is
+  exactly the Apex: improve everything; the root that makes "improve safely"
+  meaningful stays put.
 - **Walled** (honestly): logical *strengthening* of the verifier — the one
   Gödel/Löb seam (`loeb_reflection`, LCA), isolated and labeled.
 
