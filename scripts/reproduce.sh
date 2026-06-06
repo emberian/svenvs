@@ -29,6 +29,7 @@ say "svenvs reproduction  (pins: HOL4 $SVENVS_HOL4_COMMIT, CakeML $SVENVS_CAKEML
 
 bash "$here/tier1-core.sh"          "${ARGS[@]:-}"
 bash "$here/tier2-candle-layers.sh" "${ARGS[@]:-}" || true
+bash "$here/tier2.5-cited-layers.sh" "${ARGS[@]:-}" || true
 bash "$here/tier3-place-candle.sh"  "${ARGS[@]:-}" || true
 
 say "REPRODUCTION SUMMARY"
@@ -36,13 +37,16 @@ yn(){ "$@" >/dev/null 2>&1 && printf yes || printf 'no (skipped — prereq absen
 t1=$(yn built "$SVENVS_ROOT" upgrade)
 t1b=$(yn built "$SVENVS_ROOT/agent" toolAgentRun)
 t2=$(yn built "$SVENVS_ROOT/kernel" kernelUpgrade)
+t25=$(yn built "$SVENVS_ROOT/loader" installLoader)
 t3=no
 grep -aqE 'val WD_HABITAT_SAFE = .*\|-' "${PLACE_LOG:-/tmp/place.log}" 2>/dev/null && t3=yes
 
-printf '  Tier 1  core + cartpole + proof-carrying self-improvement : %s\n' "$t1"
-printf '  Tier 1  adversarial-LLM tool-agent (running episodes)     : %s\n' "$t1b"
-printf '  Tier 2  Candle-kernel-checked + kernel-self-upgrade       : %s\n' "$t2"
-printf '  Tier 3  the Place, live in the running Candle prover      : %s\n' "$t3"
+printf '  Tier 1   core + cartpole + proof-carrying self-improvement : %s\n' "$t1"
+printf '  Tier 1   adversarial-LLM tool-agent (running episodes)     : %s\n' "$t1b"
+printf '  Tier 2   Candle-kernel-checked + kernel-self-upgrade       : %s\n' "$t2"
+printf '  Tier 2.5 cited self-improvement layers (loader/kernelMod/  : %s\n' "$t25"
+printf '           kernelImpl/selfproverConcrete)\n'
+printf '  Tier 3   the Place, live in the running Candle prover      : %s\n' "$t3"
 
 [ "$t1" = yes ] && [ "$t1b" = yes ] \
   || die "Tier 1 MUST reproduce on any machine with HOL4 — see /tmp/svenvs-t1-*.log"
