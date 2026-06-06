@@ -48,6 +48,9 @@ build_dir "recursive self-improvement capstone (pure HOL4)" "$SVENVS_ROOT/recurs
 build_dir "self-recompile gate — runtime loop <-> proved spine bridge" "$SVENVS_ROOT/selfRecompile" selfrec \
   selfRecompileGate
 
+build_dir "APEX — self-improving+self-recompiling system, proved safe" "$SVENVS_ROOT/apex" apex \
+  apex
+
 if [ "$QUICK" = 0 ]; then
   build_dir "toy verified-inference kernel" "$SVENVS_ROOT/inference" inf \
     mlpInference

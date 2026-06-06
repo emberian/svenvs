@@ -1,0 +1,7 @@
+# apex — THE APEX proved safe: every generation of the self-improving,
+# self-recompiling system has a sound prover and a correct compiler. The two
+# self-modifications are EXECUTED by scripts/apex.sh; their safety is proved
+# here as the (prover × compiler) instance of the recursive genealogy. Pure
+# light HOL4 (Tier 1): the generic core (..) + genealogy + recursive capstone.
+INCLUDES = .. ../genealogy ../recursive
+OPTIONS = QUIT_ON_FAILURE

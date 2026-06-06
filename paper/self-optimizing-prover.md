@@ -42,6 +42,8 @@ verified CakeML/Candle theorem we depend on) · **RAN** (executed on the real
 | **The capstone:** recursive *mutual* verifier+compiler self-improvement is a genealogy over `(verifier, compiler)` stages — every stage's verifier sound and compiler correct, unbounded; the seam decomposes into the genealogy (verifier line) and selfprover (compiler line); recompile preserves code at every step. | **PROVED** | `recursive/recursiveImprovementScript.sml : recursive_mutual_self_improvement_is_safe, stage_seam_decomposes, recursive_recompile_preserves_code_throughout, recursive_mutual_optimization_is_unconditional` |
 | A running verified program self-extends its own code with a proven-safe derived rule and uses it. | **RAN** on the real `cake` binary | `candle/selfopt_demo.ml` (`SYM_LEMMA`, `SYM_RULE`, `FACT1_SYM`, `FACT1_ROUNDTRIP`); the SYM rule + a live policy self-optimization also certified in `candle/theplace.ml` (`EQ_SYM_RULE`, `WD_SELF_OPTIMIZED_SAFE`) |
 | **A live proof-gated recompile→swap→resume loop:** the running system replaces its own executing *compute* code with freshly-compiled versions (in-binary CakeML compiler → real `do_install`), each gated by a live kernel equivalence proof; two swaps **accumulate** (path-dependent; cost 101→1; outputs invariant); an unprovable swap is **REJECTED**, so semantics cannot break. Its safety is an *instance* of the proved genealogy. | **RAN** on the real `cake` binary | `candle/self_recompile.ml` (`GATE1`, `GATE2`, `verdict = "APEX_SUBSTRATE_OK"`); bridge `selfRecompile/selfRecompileGateScript.sml : gate_is_vouch_sound, self_recompile_loop_is_safe, self_recompile_preserves_outputs` |
+| **The verified compiler recompiles ITSELF:** `cake` compiles its own s-expression into a new working `cake` (bit-identical **FIXPOINT** — a verified fixed point of itself), and into a self-**optimized** variant (different binary, still a correct compiler). Correctness = CakeML's verified compiler-correctness. | **RAN** on the real `cake` binary | `scripts/apex.sh` (APEX I: self-host, fixpoint via `cmp`, `--inline_size`/`--max_app` self-optimize); compiler-correctness **CITED** (CakeML) |
+| **THE APEX, proved safe:** every generation of the self-improving+self-recompiling system has a *sound prover* AND a *correct compiler*, for ANY path — the concrete (prover × compiler) instance of the recursive genealogy, with compiler-correctness preserved by self-recompilation (CITED) and the prover advancing by gate-certified sound extensions. | **PROVED** | `apex/apexScript.sml : apex_generations_safe, compiler_self_recompilation_stays_correct, apex_is_a_genealogy` |
 | Genuine *logical strengthening* of the verifier (proving strictly more). | **WALLED** | the labelled `kernelUpgradeTheory.loeb_reflection` (LCA); negatives `loeb_finite_obstruction`, `genealogy_irrelevant_to_vouch_sound` |
 
 ## 2. The one Löb, and why mutual optimization escapes it
@@ -70,22 +72,26 @@ assumption** (`recursive_mutual_optimization_is_unconditional`); only verifier
   path-dependently; an unprovable swap is rejected. Candle *proves*
   (`candle_prover`'s `perms_ok`) that REPL code **cannot** touch the trusted
   kernel — so the swapped object is *application/toolkit* code behind a
-  program-controlled indirection, never the *verifier* itself.
-- **Proved, not run:** a live edit of the trusted *kernel* or *compiler's own
-  code*. Why it is not (yet) run, precisely: the kernel/compiler are compiled
-  *into* the binary and their callers call them **directly** (no indirection),
-  and `do_install` **preserves** existing code entries rather than overwriting a
-  label (`loader/ : do_install_preserves_code`) — so swapping them needs the
-  kernel/compiler routed through an `Install`-able indirection, gated by a
-  privileged (non-`perms_ok`) **host**. That means a *re-architected* `cake`
-  binary. A *running* such binary need not require full bootstrap-in-logic: the
-  existing `cake` can self-compile the modified candle source to new native code
-  ("compiled by the verified compiler binary"); the slow **in-logic
-  re-verification** of the modified core is the separate gold standard. Either
-  way, every logical link the host would invoke is already a theorem above.
-- **Not attempted:** verified *optimization of the compiler itself* (a large
-  separate development) — distinct from the loop in (b), which *uses* the
-  compiler to optimize compute code, and does not optimize the compiler.
+  program-controlled indirection, never the *verifier* itself. And (c) **the
+  verified compiler recompiles itself** (`scripts/apex.sh`): `cake` compiles its
+  own s-expression into a new working `cake` — a bit-identical **fixpoint**, and
+  a self-**optimized** variant that stays correct (CakeML compiler-correctness,
+  CITED). This is a *generational* rebuild (a new, correct binary), not an
+  in-process heap-preserving swap.
+- **Proved, not run:** an **in-process, heap-preserving** live swap of the
+  trusted *kernel's own code*. Why, precisely: the kernel is compiled *into* the
+  binary and its callers call it **directly** (no indirection), and `do_install`
+  **preserves** existing code entries rather than overwriting a label
+  (`loader/ : do_install_preserves_code`) — so swapping it in-process needs the
+  kernel routed through an `Install`-able indirection, gated by a privileged
+  (non-`perms_ok`) **host**: a *re-architected* `cake`. A *running* such binary
+  need not require full bootstrap-in-logic — the existing `cake` self-compiles
+  the modified source ((c) shows this works) — but the **in-logic
+  re-verification** of a kernel-modified core is the separate gold standard.
+  Every logical link is already a theorem above.
+- **Not attempted:** adding a genuinely *new verified optimization pass to the
+  compiler's own pipeline* (a large separate development) — distinct from (b)/(c),
+  which *use* the compiler and recompile it under its *existing* optimizations.
 
 ## 4. The discipline holds
 
