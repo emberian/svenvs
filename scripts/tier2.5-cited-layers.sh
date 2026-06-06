@@ -62,4 +62,12 @@ build_and_assert loader \
   "installLoader:do_install_preserves_code" \
   "installLoader:do_install_preserves_FLOOKUP"
 
-say "TIER 2.5 REPRODUCED — every cited self-improvement-layer theorem re-proved against real CakeML/Candle"
+# A genuinely NEW verified compiler optimization (BVL), proven semantics-
+# preserving against the real bvlSem$evaluate and wired as a CONCRETE proved
+# witness into the recursive genealogy's compiler line (CITED -> PROVED).
+build_and_assert compilerOpt \
+  "compilerOpt:optimise_correct" \
+  "compilerOpt:optimise_let_nil_strict" \
+  "compilerOpt:recursive_compiler_line_preserves_bvlSem"
+
+say "TIER 2.5 REPRODUCED — every cited self-improvement-layer theorem re-proved against real CakeML/Candle, plus a new verified BVL optimization pass"

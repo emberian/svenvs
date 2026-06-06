@@ -1,0 +1,29 @@
+# compilerOpt — a genuinely NEW verified BVL optimization pass, proven
+# semantics-preserving against CakeML's REAL `bvlSem$evaluate`, and wired as
+# a CONCRETE proved witness into svenvs's self-improvement genealogy.
+#
+# The pass `optimise : bvl$exp -> bvl$exp` recursively eliminates empty
+# Let-bindings (`Let [] e` ~> `optimise e`). We prove:
+#   * let_nil_correct      — the law, against the real evaluate
+#   * optimise_correct     — FULL congruence: evaluate is preserved on every
+#                            constructor (the canonical CakeML simulation proof)
+#   * optimise_nonincreasing + a strict-improvement witness (real cost win)
+#   * optimise_is_ccorrect / compiler_genealogy_keeps_every_stage_correct —
+#     instantiating genealogyTheory.genealogy_sound at the BVL-compiler judge
+#     type, upgrading the genealogy's compiler line from CITED to PROVED on
+#     real CakeML.
+#
+# Needs the built CakeML backend semantics (bvlSem) + the pure-HOL4 svenvs
+# genealogy and recursive slices.
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+INCLUDES = $(CAKEMLDIR)/misc \
+           $(CAKEMLDIR)/semantics \
+           $(CAKEMLDIR)/compiler/backend \
+           $(CAKEMLDIR)/compiler/backend/semantics \
+           .. ../genealogy ../recursive
+OPTIONS = QUIT_ON_FAILURE
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+endif
