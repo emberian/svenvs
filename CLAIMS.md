@@ -109,6 +109,7 @@ a live demo of the part that is safe to run. Full ledger:
 | An **in-place kernel swap** is safe iff the new kernel is a sound extension — the heap survives, soundness held; the unbounded self-optimization loop stays sound; HOL4 is provably **out of the runtime loop**. | **PROVED** | `kernelMod/inplaceUpdateScript.sml : inplace_update_is_safe`; `kernelMod/selfOptimizeScript.sml : self_optimizing_prover_is_safe`; `kernelMod/genesisRuntimeScript.sml : genesis_certifies_runtime` |
 | **The loader, over CakeML's actual `closSem$do_install`:** runtime code installation preserves every existing code entry — the running kernel and all compiled functions survive the self-modification. | **PROVED** (real CakeML) | `loader/installLoaderScript.sml : do_install_preserves_code, do_install_preserves_FLOOKUP` |
 | **The executable Candle SYM kernel function soundly implements the modified rule** — from `a===b` it yields a valid `\|-` judgment of `b===a` — citing CakeML's own `SYM_thm`/`THM_def`. | **PROVED** (real monadic kernel) | `kernelImpl/kernelImplSymScript.sml : candle_SYM_implements_sym_extension` |
+| **inplaceUpdate's carried `binary_implements` premise, DISCHARGED for SYM against the genuine executable:** the abstract black-box premise of the in-place kernel swap is instantiated by the real CakeML monadic SYM function — strengthening the lemma to expose the computed value and proving the L1⊑L2 (translator/ml_kernel) refinement. Residual: only L0⊑L1 (whole-program compiler-correctness to machine code), pre-existing and scoped. | **PROVED** (real monadic kernel) | `kernelImpl/symBinaryImplementsScript.sml : candle_SYM_computes_sym_extension, sym_produces_implements_sym_kernel` |
 | **The capstone:** recursive *mutual* verifier+compiler self-improvement is a genealogy over `(verifier, compiler)` stages — Löb-free for optimization, walled only for genuine logical strengthening; recompile preserves code at every step. | **PROVED** | `recursive/recursiveImprovementScript.sml : recursive_mutual_self_improvement_is_safe, recursive_mutual_optimization_is_unconditional` |
 | **Live:** a verified program self-extends its own code with a proven-safe derived rule and uses it; both plants self-optimize their policies under the live kernel. | **RAN** | `candle/selfopt_demo.ml`; `candle/theplace.ml` (`EQ_SYM_RULE`, `WD_SELF_OPTIMIZED_SAFE`, `CP_SELF_OPTIMIZED_SAFE`) |
 | **Live, proof-gated recompile→swap→resume:** the running system replaces its own executing *compute* code with freshly-compiled versions (in-binary CakeML compiler → real `do_install`), each gated by a live kernel equivalence proof; two swaps accumulate (path-dependent; cost 101→1; outputs invariant); an unprovable swap is rejected so semantics cannot break. Boundary: the swapped object is compute code behind a program-controlled indirection, **not** the trusted kernel's own dispatch (that needs an indirection-architected host binary — see `paper/self-optimizing-prover.md` §3). | **RAN** + **PROVED** (bridge) | `candle/self_recompile.ml` (`GATE1`, `GATE2`, `verdict="APEX_SUBSTRATE_OK"`); bridge `selfRecompile/selfRecompileGateScript.sml : gate_is_vouch_sound, self_recompile_loop_is_safe, self_recompile_preserves_outputs` |
@@ -138,6 +139,7 @@ mirror.
 |-------|--------|----------|
 | The firewall's soundness (a safe allowlist ⇒ an admitted action is within the absolute unsafe spec) and shield-safety, re-derived and **certified live** by the running Candle kernel. | **RAN** | `agent/closedloop/obligation_template.ml : ADMIT_SOUND, SHIELD_SAFE` (the HOL-Light re-derivation of `agent/toolAgentScript.sml : tool_pol_sound`) |
 | Per-action: gemma emits a tool call → a `prove(...)` obligation is shipped to the persistent Candle server → the world step is gated on the kernel verdict. | **RAN** (trusted residue: ~10-line num-encoding) | `agent/closedloop/closed_loop.py` over `scripts/place-server.sh` |
+| **The encoding residue is now itself proof-backed:** the num-dialect the live kernel checks is proved FAITHFUL to the string-based absolute unsafe spec of `toolAgentScript` — so a too-permissive/buggy encoding cannot slip an unsafe tool past the gate (`unsafe_never_certified`: a truly-unsafe call always encodes to a num-unsafe one the kernel rejects). Shrinks the trust to a finite, eyeball-checkable table + the transcription of that table into the .py/.ml. | **PROVED** | `agent/closedloop/encFaithScript.sml : enc_truly_unsafe_faithful, candle_safe_transfers, unsafe_never_certified` |
 
 ## 7. The Place, live in Candle — RAN (Tier 3)
 
@@ -191,6 +193,17 @@ failure, not faked. The proved negative `loeb_finite_obstruction` shows
 finiteness cannot shortcut it. The other two historically-named seams are
 **discharged**: `encodes_obligation` for the shipped finite watchdog (§4),
 `frozen_checker_sound` for the real Candle build (§5).
+
+**The seam is now a machine-checked *reduction*, not a bare assumption.**
+`kernel/loebReduction/loebReductionScript.sml : loeb_reflection_from_lca`
+*derives* the exact svenvs `loeb_reflection mem candle_kernel K' sound_stmt`
+from a single named, cited ingredient — `lca_reflects_soundness` (the
+model-existence + internal→external decoding content the `hol-reflection/lca`
+Fallenstein–Kumar construction supplies) — routing internal provability →
+`proves_sound` → `termsem = True` in the LCA model → decode → external
+`kernel_sound`. Cheat-free, `axioms = []` (built on persvati). So the residue
+is now precisely *the LCA itself* (the CPU/RAM-walled `lcaProof` construction),
+with everything above it discharged in-logic.
 
 ## This ledger is itself mechanically checked
 

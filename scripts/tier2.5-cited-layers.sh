@@ -30,14 +30,15 @@ fi
 # dir : "Theory:theorem ..." assertions (the headline cited theorems)
 build_and_assert(){
   local d="$1"; shift
+  local tag="${d//\//_}"   # sanitize nested dirs (kernel/loebReduction) for the log path
   say "Tier 2.5: $d"
   cd "$SVENVS_ROOT/$d" || die "missing $SVENVS_ROOT/$d"
   if [ "$CLEAN" = 1 ]; then
     CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" cleanAll >/dev/null 2>&1 || true; rm -rf .hol
   fi
   if ! CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS 2>&1 \
-        | tee "/tmp/svenvs-t25-$d.log" | tail -n 6; then
-    die "Holmake failed in $d — full log: /tmp/svenvs-t25-$d.log"
+        | tee "/tmp/svenvs-t25-$tag.log" | tail -n 6; then
+    die "Holmake failed in $d — full log: /tmp/svenvs-t25-$tag.log"
   fi
   local spec th nm
   for spec in "$@"; do
@@ -57,7 +58,9 @@ build_and_assert kernelMod \
   "selfOptimize:self_optimizing_prover_is_safe" \
   "genesisRuntime:genesis_certifies_runtime"
 build_and_assert kernelImpl \
-  "kernelImplSym:candle_SYM_implements_sym_extension"
+  "kernelImplSym:candle_SYM_implements_sym_extension" \
+  "symBinaryImplements:sym_produces_implements_sym_kernel" \
+  "symBinaryImplements:candle_SYM_computes_sym_extension"
 build_and_assert loader \
   "installLoader:do_install_preserves_code" \
   "installLoader:do_install_preserves_FLOOKUP"
@@ -70,4 +73,10 @@ build_and_assert compilerOpt \
   "compilerOpt:optimise_let_nil_strict" \
   "compilerOpt:recursive_compiler_line_preserves_bvlSem"
 
-say "TIER 2.5 REPRODUCED — every cited self-improvement-layer theorem re-proved against real CakeML/Candle, plus a new verified BVL optimization pass"
+# The open assumption loeb_reflection, REDUCED in-logic to the cited LCA
+# (Fallenstein-Kumar via hol-reflection) — no longer a bare assumption.
+build_and_assert kernel/loebReduction \
+  "loebReduction:loeb_reflection_from_lca" \
+  "loebReduction:kernel_proves_satisfied"
+
+say "TIER 2.5 REPRODUCED — every cited self-improvement-layer theorem re-proved against real CakeML/Candle, plus a new verified BVL optimization pass, the SYM binary-implements discharge, and the loeb_reflection->LCA reduction"

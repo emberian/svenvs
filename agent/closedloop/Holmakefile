@@ -1,0 +1,6 @@
+# encFaith — proves the closed-loop num-encoding FAITHFUL to the string-based
+# absolute spec of toolAgentScript: a too-permissive/buggy encoding cannot slip
+# an unsafe tool past the live Candle kernel. Pure HOL4: agent/ (toolAgent) +
+# svenvs core (..). No CakeML/candle.
+INCLUDES = .. ../..
+OPTIONS = QUIT_ON_FAILURE
