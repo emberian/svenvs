@@ -77,15 +77,28 @@ and an honest line where execution stops and proof takes over. Full ledger:
   self-improvement is a genealogy over `(verifier, compiler)` stages**
   (`recursive/`) — Löb-free for optimization, walled only for genuine
   logical *strengthening*.
-- **Ran live** on the real `cake` binary (Tier 3): a verified program
+- **Ran live** on the real `cake` binary (Tier 3): (1) a verified program
   self-extends its own code with a proven-safe derived rule and uses it
-  (`candle/selfopt_demo.ml`), and the polecart + watchdog self-optimize their
-  own policies under the live kernel (`candle/theplace.ml`).
-- **Proved, not run:** a live edit of the *trusted kernel or compiler*.
-  Candle *proves* (`candle_prover`) that REPL code cannot touch the kernel —
-  so the live self-edit is of the *toolkit*, never the verifier; executing a
-  real kernel swap needs a host program driving the recompile-relocate-resume
-  loop, every link of which is already a theorem.
+  (`candle/selfopt_demo.ml`); (2) the polecart + watchdog self-optimize their
+  own policies under the live kernel (`candle/theplace.ml`); (3) a **proof-gated
+  recompile→swap→resume loop** (`candle/self_recompile.ml`) replaces a running
+  routine's compiled code at runtime — each swap gated by a live kernel
+  equivalence proof, swaps accumulating path-dependently, an unprovable swap
+  rejected (`verdict = "APEX_SUBSTRATE_OK"`); and (4) **the verified compiler
+  recompiles itself** — `cake` compiles its own s-expression into a new working
+  `cake` (bit-identical **FIXPOINT**) and into a self-**optimized** variant that
+  is still a correct compiler (correctness = CakeML's compiler-correctness).
+  The whole **Apex** — compiler self-recompilation + proof-gated prover
+  self-improvement — is run end-to-end by `scripts/apex.sh` (emits **DIAMOND**)
+  and **proved safe** in `apex/apexScript.sml` (`apex_generations_safe`: every
+  generation has a sound prover and a correct compiler, for any path).
+- **Proved, not run:** an in-process live swap of the trusted *kernel's own
+  code*. It is compiled into `cake.S` and called directly (perms_ok-protected),
+  and `do_install` *preserves* rather than overwrites code entries — so swapping
+  it needs a *re-architected* `cake` with the kernel behind an `Install`-able
+  indirection, i.e. a proven kernel-modified `cake.S` (in-logic re-verification).
+  Every logical link is already a theorem; the **compiler** self-recompile above
+  is now *run*, the **kernel**-code swap is the one remaining systems step.
 - **Walled** (honestly): logical *strengthening* of the verifier — the one
   Gödel/Löb seam (`loeb_reflection`, LCA), isolated and labeled.
 

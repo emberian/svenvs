@@ -112,12 +112,17 @@ a live demo of the part that is safe to run. Full ledger:
 | **The capstone:** recursive *mutual* verifier+compiler self-improvement is a genealogy over `(verifier, compiler)` stages — Löb-free for optimization, walled only for genuine logical strengthening; recompile preserves code at every step. | **PROVED** | `recursive/recursiveImprovementScript.sml : recursive_mutual_self_improvement_is_safe, recursive_mutual_optimization_is_unconditional` |
 | **Live:** a verified program self-extends its own code with a proven-safe derived rule and uses it; both plants self-optimize their policies under the live kernel. | **RAN** | `candle/selfopt_demo.ml`; `candle/theplace.ml` (`EQ_SYM_RULE`, `WD_SELF_OPTIMIZED_SAFE`, `CP_SELF_OPTIMIZED_SAFE`) |
 | **Live, proof-gated recompile→swap→resume:** the running system replaces its own executing *compute* code with freshly-compiled versions (in-binary CakeML compiler → real `do_install`), each gated by a live kernel equivalence proof; two swaps accumulate (path-dependent; cost 101→1; outputs invariant); an unprovable swap is rejected so semantics cannot break. Boundary: the swapped object is compute code behind a program-controlled indirection, **not** the trusted kernel's own dispatch (that needs an indirection-architected host binary — see `paper/self-optimizing-prover.md` §3). | **RAN** + **PROVED** (bridge) | `candle/self_recompile.ml` (`GATE1`, `GATE2`, `verdict="APEX_SUBSTRATE_OK"`); bridge `selfRecompile/selfRecompileGateScript.sml : gate_is_vouch_sound, self_recompile_loop_is_safe, self_recompile_preserves_outputs` |
+| **The verified compiler recompiles ITSELF:** `cake` compiles its own s-expression into a new working `cake` — a bit-identical **FIXPOINT** (a verified fixed point of itself) and a self-**optimized** variant (different binary, still a correct compiler). A *generational* rebuild, not an in-process swap; correctness = CakeML compiler-correctness (CITED). | **RAN** | `scripts/apex.sh` (APEX I) |
+| **THE APEX — proved safe:** every generation of the self-improving + self-recompiling system has a *sound prover* AND a *correct compiler*, for ANY path — the concrete (prover × compiler) instance of the recursive genealogy (compiler-correctness preserved by self-recompilation, CITED; prover advancing by gate-certified sound extensions). Run end-to-end (`scripts/apex.sh` → **DIAMOND**). | **PROVED** + **RAN** | `apex/apexScript.sml : apex_generations_safe, compiler_self_recompilation_stays_correct, apex_is_a_genealogy`; `scripts/apex.sh` |
 
-> Honest boundary: a live edit of the *trusted kernel or compiler* is
-> **proved, not run** — Candle *proves* (`candle_prover`) that REPL code
-> cannot touch the kernel, so the live self-edit is of the toolkit; executing
-> a real kernel swap needs a host program driving the recompile-relocate-
-> resume loop, every link of which is a theorem above.
+> Honest boundary: the **compiler** now recompiles/optimizes *itself*, run live
+> (a generational rebuild; correctness = CakeML compiler-correctness, CITED).
+> The one remaining step is an **in-process, heap-preserving** swap of the
+> trusted **kernel's own code** — it is compiled into `cake.S` and called
+> directly (perms_ok-protected), and `do_install` preserves rather than
+> overwrites, so swapping it in-process needs a re-architected `cake` with the
+> kernel behind an indirection (a proven kernel-modified `cake.S`; in-logic
+> re-verification). Every logical link is already a theorem above.
 
 ## 6. The closed-loop runtime — the gate IS the live prover — RAN
 
