@@ -43,13 +43,37 @@ keep this dir dependency-light. Meaning: upgrading to any well-formed `ci'`
 keeps eval sound — for the *reset* (checkpoint-restart) model, for free from
 parametricity.
 
-## Remaining for full in-place upgrade
+## End-to-end (`selfUpgradeEndToEndScript.sml`)
 
-Generalise `s_rel` to carry the per-generation compiler map (instead of one
-pinned `ci`) and re-derive the `do_eval`/`evaluate_decs` simulation lemmas in
-`source_evalProof` against it (reusing `es_forward`/`es_stack_forward`), then
-discharge the swap's side-condition (recorded entries predate the bumped
-generation) from the generation-counter monotonicity in `es_forward`. The
-preservation lemma above is the new fact that work threads through; plus the
-runtime: exposing the swap in the verified `Repl` and re-bootstrapping a root
-that has it.
+Generalises `s_rel` to `s_rel_gen` (a per-generation compiler map) and composes
+the step + swap into the keystone:
+
+- `s_rel_gen` / `s_rel_gen_const` — the per-generation generalisation of `s_rel`,
+  collapsing to `s_rel ci` when the map is constant (strict generalisation).
+- `s_rel_gen_step` — within a generation, `evaluate_decs` simulates and
+  re-establishes `s_rel_gen` (reduces to the existing `eval_simulation`).
+- `s_rel_gen_swap` — installing a new compiler for a fresh generation keeps
+  `s_rel_gen` (via `swap_preserves_recorded_orac_wf_gen`).
+- **`selfupgrade_eval_simulation_step`** — the keystone: a swap to `ci'` at a
+  fresh generation followed by `evaluate_decs` preserves `s_rel_gen` end to end
+  and preserves the observable result relation.
+- `selfupgrade_collapses_to_eval_simulation` — conservativity (no-swap recovers
+  the original guarantee); `selfupgrade_no_new_typeerror` — no new type error.
+
+Structural finding: in real `EvalDecs`, `dec_s.compiler` is one fixed function and
+`add_decs_generation` bumps the generation without touching it — so a swap lives
+at the level of the oracle *history* invariant (`recorded_orac_wf_gen`), exactly
+the altitude these theorems work at.
+
+## Remaining for the full running self-upgrade
+
+1. **Verify (multi-swap lift):** iterate the one-generation keystone into a
+   whole-program `semantics_prog`/`oracle_semantics_prog` induction over
+   arbitrarily many swaps (the per-generation pieces are done; this is the
+   inductive lift).
+2. **Implement+expose:** the running binary's eval is `EvalDecs` with the
+   compiler pinned and the `Install` op handled *inside* `cake.S` (no FFI seam).
+   A real in-place swap needs a new core eval op (`do_eval_upgrade`, replacing
+   `eval_state.compiler`) whose correctness is the keystone above — a core
+   semantics change that re-proves the compiler, exposed via the `Repl` module.
+3. **Re-bootstrap** a root that carries the op.

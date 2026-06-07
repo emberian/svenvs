@@ -83,6 +83,9 @@ build_and_assert kernel/loebReduction \
 # the swap-preservation lemma (a mid-run compiler swap keeps the invariant).
 build_and_assert selfUpgrade \
   "evalUpgradeB:swap_preserves_recorded_orac_wf_gen" \
-  "evalUpgradeB:recorded_orac_wf_gen_const"
+  "evalUpgradeB:recorded_orac_wf_gen_const" \
+  "selfUpgradeEndToEnd:selfupgrade_eval_simulation_step" \
+  "selfUpgradeEndToEnd:s_rel_gen_const" \
+  "selfUpgradeEndToEnd:selfupgrade_collapses_to_eval_simulation"
 
 say "TIER 2.5 REPRODUCED — every cited self-improvement-layer theorem re-proved against real CakeML/Candle, plus a new verified BVL optimization pass, the SYM binary-implements discharge, and the loeb_reflection->LCA reduction"
