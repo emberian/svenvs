@@ -1,0 +1,19 @@
+# selfUpgrade — the in-place, history-preserving compiler self-upgrade result.
+# evalUpgradeB generalises source_evalProof's single-pinned-compiler oracle
+# invariant to a per-generation compiler map and proves the swap-preservation
+# lemma. Depends only on the (prebuilt) source_evalProof + semanticPrimitives.
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+INCLUDES = $(HOLDIR)/examples/machine-code/multiword \
+           $(HOLDIR)/examples/machine-code/hoare-triple \
+           $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/proofs \
+           $(CAKEMLDIR)/compiler/backend $(CAKEMLDIR)/compiler/backend/semantics \
+           $(CAKEMLDIR)/compiler/backend/proofs \
+           $(CAKEMLDIR)/compiler/encoders/asm $(CAKEMLDIR)/compiler/backend/gc \
+           $(CAKEMLDIR)/compiler/backend/reg_alloc $(CAKEMLDIR)/compiler/backend/reg_alloc/proofs \
+           $(HOLDIR)/examples/algorithms
+OPTIONS = QUIT_ON_FAILURE
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+endif
