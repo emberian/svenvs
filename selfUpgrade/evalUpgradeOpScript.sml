@@ -229,3 +229,45 @@ Theorem repl_upgrade_no_op_below:
 Proof
   rw [repl_upgrade_def, install_compiler_def, gen_set_from_def]
 QED
+
+(* ------------------------------------------------------------------------ *)
+(* The running loop's STEP: upgrade, then evaluate in the new generation.   *)
+(* ------------------------------------------------------------------------ *)
+
+(* The operational heart of the running self-upgrade: install ci' for the next
+   generation (update the live custom_do_eval to dispatch the upgraded map),
+   then a REAL do_eval in that fresh generation both (a) preserves the
+   per-generation oracle-wellformedness invariant AND (b) is gated by the NEW
+   compiler ci'.  Composes repl_upgrade_preserves_recorded_orac_wf_gen (the swap
+   keeps the invariant), do_eval_oracle_gen_step_preserves_wf (a real do_eval
+   step with the upgraded op preserves it), and repl_upgrade_uses_new_compiler
+   (the new generation runs ci').  This is one turn of the proof-gated
+   recompile->install->resume loop, at the verified eval semantics. *)
+Theorem repl_upgrade_then_eval_preserves_wf:
+  recorded_orac_wf_gen g2c gen s'.oracle /\
+  (!j. j <= FST (FST (s'.oracle 0)) ==> gen j <= gen_now) /\
+  do_eval [env_id_v; st_v; decs_v; st_v2; bs_v; ws_v]
+    (SOME (EvalOracle (s' with custom_do_eval :=
+       do_eval_record_gen (repl_upgrade ci' gen_now g2c) decode))) =
+    SOME (env, decs, es') /\
+  v_to_env_id env_id_v = SOME env_id /\
+  gen (FST (FST (s'.oracle 0)) + 1) = FST env_id /\
+  gen_now + 1 <= FST env_id ==>
+  recorded_orac_wf_gen (repl_upgrade ci' gen_now g2c) gen (orac_s es').oracle /\
+  repl_upgrade ci' gen_now g2c (FST env_id) = mk_compiler_fun_from_ci ci'
+Proof
+  strip_tac
+  \\ qmatch_asmsub_abbrev_tac `EvalOracle st2`
+  \\ `st2.custom_do_eval =
+        do_eval_record_gen (repl_upgrade ci' gen_now g2c) decode /\
+      st2.oracle = s'.oracle` by simp [Abbr `st2`]
+  \\ `recorded_orac_wf_gen (repl_upgrade ci' gen_now g2c) gen st2.oracle`
+       by (simp []
+           \\ irule repl_upgrade_preserves_recorded_orac_wf_gen \\ simp [])
+  \\ conj_tac
+  >| [
+    irule do_eval_oracle_gen_step_preserves_wf
+    \\ rpt (first_assum (irule_at Any)) \\ simp [],
+    irule repl_upgrade_uses_new_compiler \\ simp []
+  ]
+QED

@@ -99,6 +99,7 @@ build_and_assert selfUpgrade \
   "evalUpgradeOp:do_eval_record_gen_preserves_wf" \
   "evalUpgradeOp:do_eval_oracle_gen_step_preserves_wf" \
   "evalUpgradeOp:repl_upgrade_preserves_recorded_orac_wf_gen" \
+  "evalUpgradeOp:repl_upgrade_then_eval_preserves_wf" \
   "evalUpgradeReset:eval_upgrade_preserves_semantics"
 
 say "TIER 2.5 REPRODUCED — every cited self-improvement-layer theorem re-proved against real CakeML/Candle, plus a new verified BVL optimization pass, the SYM binary-implements discharge, and the loeb_reflection->LCA reduction"

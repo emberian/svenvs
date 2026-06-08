@@ -72,6 +72,11 @@ field `EvalOracle` already carries — no core-semantics edit):
   `repl_upgrade_preserves_recorded_orac_wf_gen` (reduces to evalUpgradeB's swap
   lemma), `repl_upgrade_uses_new_compiler` (new generations run `ci'`), and
   `repl_upgrade_no_op_below` (earlier generations unchanged).
+- **`repl_upgrade_then_eval_preserves_wf`** — the running loop's STEP: install
+  `ci'` for the next generation (update the live `custom_do_eval` to the
+  upgraded map), then a *real* `do_eval` in that fresh generation both preserves
+  the invariant AND is gated by the new `ci'`. One turn of the proof-gated
+  recompile→install→resume loop, at the verified eval semantics.
 
 Honestly bounded: this is the `EvalOracle`-level realisation (the mode the
 compiler proof uses); carrying it as the running `EvalDecs` root is the
