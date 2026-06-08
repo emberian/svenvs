@@ -104,3 +104,24 @@ val _ = TextIO.print ("accepted=" ^ Int.toString (!accepted) ^
 val ok = obs_preserved andalso (!accepted = 5) andalso (!rejected = 1);
 val _ = TextIO.print (if ok then "COMPILER_CELL_UPGRADE_OK\n"
                             else "COMPILER_CELL_UPGRADE_FAIL\n");
+
+(* ARBITRARILY MANY in-place upgrades, RUNNING: install a fresh, path-dependent
+   compiler for each of 64 successive generations, each gated; the observable
+   (eval_src 4 = 17) is invariant throughout.  The verified counterpart is
+   selfUpgrade/selfUpgradeMultiSwapScript.sml : selfupgrade_multi_swap_simulation
+   (arbitrarily many in-place swaps stay sound). *)
+val bulk_ok = Ref True;
+fun bulk n =
+  if n >= 67 then ()
+  else
+    let val cn = (fn st => fn s => (st + 1, s * 2 + n)) in   (* fresh compiler for gen n *)
+      upgrade n cn;
+      if (((!cmap) n) 0 4 = cn 0 4) andalso (eval_src 4 = 17)
+      then bulk (n + 1)
+      else bulk_ok := False
+    end;
+val _ = TextIO.print "BULK: 64 accumulated in-place compiler upgrades, each gated...\n";
+val _ = bulk 3;
+val _ = TextIO.print (if (!bulk_ok)
+  then "BULK_UPGRADES_OK (64 generations, observable invariant)\n"
+  else "BULK_UPGRADES_FAIL\n");
