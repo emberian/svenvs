@@ -32,6 +32,7 @@ bash "$here/tier2-candle-layers.sh" "${ARGS[@]:-}" || true
 bash "$here/tier2.5-cited-layers.sh" "${ARGS[@]:-}" || true
 bash "$here/tier3-place-candle.sh"  "${ARGS[@]:-}" || true
 bash "$here/apex-compiler-cell.sh"  "${ARGS[@]:-}" || true
+bash "$here/apex-compiler-cell-candle.sh" "${ARGS[@]:-}" || true
 
 say "REPRODUCTION SUMMARY"
 yn(){ "$@" >/dev/null 2>&1 && printf yes || printf 'no (skipped — prereq absent)'; }
@@ -43,6 +44,8 @@ t3=no
 grep -aqE 'val WD_HABITAT_SAFE = .*\|-' "${PLACE_LOG:-/tmp/place.log}" 2>/dev/null && t3=yes
 acc=no
 grep -aq COMPILER_CELL_UPGRADE_OK "${TMPDIR:-/tmp}/svenvs-ccu/ccu.out" 2>/dev/null && acc=yes
+accc=no
+grep -aqE 'val verdict = "COMPILER_CELL_CANDLE_OK"' "${PLACE_LOG:-/tmp/place.log}" 2>/dev/null && accc=yes
 
 printf '  Tier 1   core + cartpole + proof-carrying self-improvement : %s\n' "$t1"
 printf '  Tier 1   adversarial-LLM tool-agent (running episodes)     : %s\n' "$t1b"
@@ -52,6 +55,8 @@ printf '           kernelImpl/selfproverConcrete)\n'
 printf '  Tier 3   the Place, live in the running Candle prover      : %s\n' "$t3"
 printf '  Apex     per-generation compiler self-upgrade, RUNNING on  : %s\n' "$acc"
 printf '           native cake (compiler_agrees-gated, in place, accumulating)\n'
+printf '  Apex+    …same upgrade, PROOF-GATED by the live Candle kernel: %s\n' "$accc"
+printf '           (kernel proves each new compiler correct before install)\n'
 
 [ "$t1" = yes ] && [ "$t1b" = yes ] \
   || die "Tier 1 MUST reproduce on any machine with HOL4 — see /tmp/svenvs-t1-*.log"
