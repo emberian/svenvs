@@ -60,5 +60,6 @@ assert 'UPGRADE: install compiler C'                   "second upgrade accumulat
 assert 'observable preserved across upgrades.*: YES'   "OBSERVABLE preserved across every in-place upgrade"
 assert 'accepted=5 rejected=1'                         "5 gated evals accepted, 1 rejected"
 assert 'COMPILER_CELL_UPGRADE_OK'                      "sentinel: the running upgrade loop is sound"
+assert 'BULK_UPGRADES_OK'                              "64 accumulated in-place upgrades RAN soundly (runtime image of selfupgrade_multi_swap_simulation)"
 
 say "APEX COMPILER-CELL RAN — the verified per-generation compiler self-upgrade (repl_upgrade / do_eval_record_gen / compiler_agrees) executes on the real cake binary, in place, gated, accumulating; observable preserved, bad swaps rejected"
