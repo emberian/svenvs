@@ -65,15 +65,46 @@ Structural finding: in real `EvalDecs`, `dec_s.compiler` is one fixed function a
 at the level of the oracle *history* invariant (`recorded_orac_wf_gen`), exactly
 the altitude these theorems work at.
 
+## Multi-swap lift (`selfUpgradeMultiSwapScript.sml`)
+
+Iterates the one-generation keystone into a run over **arbitrarily many**
+in-place compiler swaps, by induction on a swap *schedule* (a list of steps,
+each `(n, ci', gen, decs, env, env')`).
+
+- `multi_run_src` / `multi_run_tgt` thread `evaluate_decs` through the segments
+  on the source and oracle sides (short-circuiting on a non-`Rval`, as
+  `evaluate_decs` itself does).
+- `multi_swap_chain` is the per-step gate proposition asserted at every *live*
+  state reached: `keystone_pre` (post-swap `s_rel ci'`, shared history wf for
+  the old running map, swap point past all recorded generations, fresh
+  generation governed by `ci'`), the segment env-relation, and no segment
+  type-errors.
+- **`selfupgrade_multi_swap_simulation`** — from `s_rel_gen` in and a valid
+  `multi_swap_chain`, the whole N-swap run preserves `s_rel_gen` to the
+  fully-swapped compiler map (`apply_full_swaps`) at the last active compiler
+  (`last_ci`) on the success spine, and preserves the observable `result_rel`
+  of the final segment (a runtime exception just short-circuits, result still
+  related). Proved by induction on the schedule, applying the keystone
+  (`selfupgrade_chain_step`) at each step.
+- **`selfupgrade_oracle_semantics_prog_collapse`** — the conservative
+  whole-program lift: when the per-generation map is pinned to one `ci` (the
+  only thing the *unmodified* `EvalDecs` semantics can carry, since it has one
+  `s.compiler`), the generalised invariant collapses to `s_rel ci`, so
+  `oracle_semantics_prog` applies verbatim. The PART 2 NOTE records the exact
+  remaining goal for a *strictly* multi-compiler `semantics_prog` — it needs a
+  per-generation meta-compiler `do_eval`, a change to CakeML semantics we do
+  not make; the genuinely multi-compiler content lives at the `evaluate_decs`
+  level, where the simulation closes it for arbitrarily many swaps.
+
+Constant-map conservativity is the `g2c := K (mk_compiler_fun_from_ci ci)`
+instance of the simulation (no separate lemma — see the file comment).
+All `DISK_THM`, no oracles/axioms. (Tier-2; built on persvati.)
+
 ## Remaining for the full running self-upgrade
 
-1. **Verify (multi-swap lift):** iterate the one-generation keystone into a
-   whole-program `semantics_prog`/`oracle_semantics_prog` induction over
-   arbitrarily many swaps (the per-generation pieces are done; this is the
-   inductive lift).
-2. **Implement+expose:** the running binary's eval is `EvalDecs` with the
+1. **Implement+expose:** the running binary's eval is `EvalDecs` with the
    compiler pinned and the `Install` op handled *inside* `cake.S` (no FFI seam).
    A real in-place swap needs a new core eval op (`do_eval_upgrade`, replacing
    `eval_state.compiler`) whose correctness is the keystone above — a core
    semantics change that re-proves the compiler, exposed via the `Repl` module.
-3. **Re-bootstrap** a root that carries the op.
+2. **Re-bootstrap** a root that carries the op.
