@@ -80,12 +80,16 @@ build_and_assert kernel/loebReduction \
   "loebReduction:kernel_proves_satisfied"
 
 # Toward a self-upgradable compiler: the per-generation eval-oracle invariant +
-# the swap-preservation lemma (a mid-run compiler swap keeps the invariant).
+# the swap-preservation lemma (a mid-run compiler swap keeps the invariant),
+# the single-swap end-to-end keystone, and the multi-swap lift (the keystone
+# iterated over a schedule of arbitrarily many in-place compiler swaps).
 build_and_assert selfUpgrade \
   "evalUpgradeB:swap_preserves_recorded_orac_wf_gen" \
   "evalUpgradeB:recorded_orac_wf_gen_const" \
   "selfUpgradeEndToEnd:selfupgrade_eval_simulation_step" \
   "selfUpgradeEndToEnd:s_rel_gen_const" \
-  "selfUpgradeEndToEnd:selfupgrade_collapses_to_eval_simulation"
+  "selfUpgradeEndToEnd:selfupgrade_collapses_to_eval_simulation" \
+  "selfUpgradeMultiSwap:selfupgrade_multi_swap_simulation" \
+  "selfUpgradeMultiSwap:selfupgrade_oracle_semantics_prog_collapse"
 
 say "TIER 2.5 REPRODUCED — every cited self-improvement-layer theorem re-proved against real CakeML/Candle, plus a new verified BVL optimization pass, the SYM binary-implements discharge, and the loeb_reflection->LCA reduction"
