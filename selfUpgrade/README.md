@@ -82,6 +82,17 @@ Honestly bounded: this is the `EvalOracle`-level realisation (the mode the
 compiler proof uses); carrying it as the running `EvalDecs` root is the
 re-bootstrap step (still open).
 
+### Runs on the real cake
+
+`candle/compiler_cell_upgrade.cml` + `scripts/apex-compiler-cell.sh` are the
+runnable image of these theorems: the per-generation compiler map (`cmap` = g2c),
+the agreement gate (`agree` = `compiler_agrees`) and the in-place upgrade
+(`upgrade` = `repl_upgrade`) are compiled by the verified `cake` to native
+x86-64, linked, and **executed** — an in-place compiler upgrade keeps the
+observable identical while the compiled output improves, an earlier generation
+keeps its own compiler, a non-agreeing claimed compilation is rejected by the
+gate, and upgrades accumulate. Sentinel `COMPILER_CELL_UPGRADE_OK`.
+
 ## End-to-end (`selfUpgradeEndToEndScript.sml`)
 
 Generalises `s_rel` to `s_rel_gen` (a per-generation compiler map) and composes
