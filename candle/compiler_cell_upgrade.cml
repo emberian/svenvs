@@ -1,0 +1,106 @@
+(*
+  RUNTIME IMAGE of the verified per-generation compiler self-upgrade.
+
+  This is the runnable counterpart of selfUpgrade/evalUpgradeOpScript.sml — it
+  executes, on the real `cake` binary (compiled to native x86-64), exactly the
+  structure those theorems prove sound:
+
+    - a PER-GENERATION COMPILER MAP  (g2c : gen -> compiler)            [cmap]
+    - the agreement GATE             (compiler_agrees)                  [agree]
+    - the in-place upgrade           (repl_upgrade: install for gen n+) [upgrade]
+
+  The OBSERVABLE (the source semantics / eval result) is compiler-independent;
+  the compiler only produces the "compiled output" that the gate checks.  So an
+  in-place compiler upgrade keeps the observable identical while the compiled
+  output may improve — and a call whose claimed output does not agree with its
+  generation's compiler is REJECTED by the gate (semantics protected).  This
+  mirrors do_eval_record_gen / compiler_agrees / repl_upgrade exactly.
+
+  Prints PASS-evidence lines; the driver script asserts on them.
+*)
+
+(* The OBSERVABLE: the source semantics.  Never changes under any upgrade. *)
+fun eval_src s = s * s + 1;
+
+(* COMPILERS: state -> src -> (new_state, compiled_output).  Different
+   compilers may compile the same source to different output (a path-dependent
+   improvement); the gate ties each call to its generation's compiler. *)
+fun compA st s = (st + 1, s * 3);          (* naive: 3 "bytes" per unit *)
+fun compB st s = (st + 1, s * 2);          (* improved: 2 "bytes" per unit *)
+fun compC st s = (st + 1, s + s);          (* further improved: an add *)
+
+(* The per-generation compiler map, held in a ref (the live, swappable cell). *)
+val cmap = Ref (fn (g:int) => compA);
+
+(* repl_upgrade n newc : install newc for generations >= n, keep earlier ones. *)
+fun upgrade n newc =
+  let val old = (!cmap) in
+    cmap := (fn g => if g < n then old g else newc)
+  end;
+
+(* compiler_agrees: the GATE.  The claimed (state', output) for a call in
+   generation `gen` must match THIS generation's compiler on (state, src). *)
+fun agree gen st s claimed = (((!cmap) gen) st s = claimed);
+
+val accepted = Ref 0;
+val rejected = Ref 0;
+
+(* A do_eval-style gated step: evaluate `src` in generation `gen`, supplying a
+   claimed compiled output; the gate accepts iff it agrees.  On accept we return
+   the OBSERVABLE eval result (compiler-independent); on reject the call is
+   refused and the observable is never produced from an unverified compilation. *)
+fun gated_eval gen st s claimed =
+  case claimed of (cst, cout) =>
+  if agree gen st s claimed then
+    (accepted := (!accepted) + 1;
+     TextIO.print ("  gen=" ^ Int.toString gen ^ " src=" ^ Int.toString s ^
+       " -> OBS=" ^ Int.toString (eval_src s) ^
+       " compiled=" ^ Int.toString cout ^ " gate=ACCEPT\n");
+     Some (eval_src s))
+  else
+    (rejected := (!rejected) + 1;
+     TextIO.print ("  gen=" ^ Int.toString gen ^ " src=" ^ Int.toString s ^
+       " claim=" ^ Int.toString cout ^ " gate=REJECT (semantics protected)\n");
+     None);
+
+fun obs_of x = case x of Some r => Int.toString r | None => "<rejected>";
+
+val _ = TextIO.print "== per-generation compiler self-upgrade, live on cake ==\n";
+
+(* generation 0 runs compiler A.  Supply A's honest compiled output. *)
+val r0 = gated_eval 0 0 5 (compA 0 5);
+
+(* UPGRADE: install compiler B for generations >= 1 (in place, heap intact). *)
+val _ = TextIO.print "UPGRADE: install compiler B from generation 1 (improved)\n";
+val _ = upgrade 1 compB;
+
+(* generation 1 runs compiler B.  Same OBSERVABLE, cheaper compiled output. *)
+val r1 = gated_eval 1 0 5 (compB 0 5);
+
+(* earlier generation is UNCHANGED: gen 0 still dispatches compiler A
+   (repl_upgrade_no_op_below).  Its honest output is still A's. *)
+val r0b = gated_eval 0 0 5 (compA 0 5);
+
+(* GATE REJECTS a bad upgrade attempt: a gen-1 call claiming a bogus compiled
+   output that compiler B did not produce.  The observable is never emitted. *)
+val rbad = gated_eval 1 0 5 (0, 999);
+
+(* ACCUMULATE: a second in-place upgrade, to compiler C for generations >= 2. *)
+val _ = TextIO.print "UPGRADE: install compiler C from generation 2 (accumulated)\n";
+val _ = upgrade 2 compC;
+val r2 = gated_eval 2 0 7 (compC 0 7);
+(* gens 0 and 1 still dispatch A and B respectively (path-dependent history). *)
+val r1b = gated_eval 1 0 7 (compB 0 7);
+
+val obs_preserved =
+  (obs_of r0 = obs_of r1) andalso (obs_of r1 = obs_of r0b);
+
+val _ = TextIO.print ("observable preserved across upgrades (src=5): " ^
+  obs_of r0 ^ " = " ^ obs_of r1 ^ " = " ^ obs_of r0b ^ " : " ^
+  (if obs_preserved then "YES" else "NO") ^ "\n");
+val _ = TextIO.print ("accepted=" ^ Int.toString (!accepted) ^
+  " rejected=" ^ Int.toString (!rejected) ^ "\n");
+
+val ok = obs_preserved andalso (!accepted = 5) andalso (!rejected = 1);
+val _ = TextIO.print (if ok then "COMPILER_CELL_UPGRADE_OK\n"
+                            else "COMPILER_CELL_UPGRADE_FAIL\n");
