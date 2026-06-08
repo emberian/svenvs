@@ -33,6 +33,7 @@ bash "$here/tier2.5-cited-layers.sh" "${ARGS[@]:-}" || true
 bash "$here/tier3-place-candle.sh"  "${ARGS[@]:-}" || true
 bash "$here/apex-compiler-cell.sh"  "${ARGS[@]:-}" || true
 bash "$here/apex-compiler-cell-candle.sh" "${ARGS[@]:-}" || true
+bash "$here/apex-selfupgrade-root.sh" "${ARGS[@]:-}" || true
 
 say "REPRODUCTION SUMMARY"
 yn(){ "$@" >/dev/null 2>&1 && printf yes || printf 'no (skipped — prereq absent)'; }
@@ -46,6 +47,9 @@ acc=no
 grep -aq COMPILER_CELL_UPGRADE_OK "${TMPDIR:-/tmp}/svenvs-ccu/ccu.out" 2>/dev/null && acc=yes
 accc=no
 grep -aqE 'val verdict = "COMPILER_CELL_CANDLE_OK"' "${PLACE_LOG:-/tmp/place.log}" 2>/dev/null && accc=yes
+sur=no
+{ grep -aq 'self-upgraded its own compiler IN PLACE' "${TMPDIR:-/tmp}/svenvs-selfupgrade-root/run.out" 2>/dev/null \
+  && grep -aq 'RESULT=99' "${TMPDIR:-/tmp}/svenvs-selfupgrade-root/run.out" 2>/dev/null; } && sur=yes
 
 printf '  Tier 1   core + cartpole + proof-carrying self-improvement : %s\n' "$t1"
 printf '  Tier 1   adversarial-LLM tool-agent (running episodes)     : %s\n' "$t1b"
@@ -57,6 +61,8 @@ printf '  Apex     per-generation compiler self-upgrade, RUNNING on  : %s\n' "$a
 printf '           native cake (compiler_agrees-gated, in place, accumulating)\n'
 printf '  Apex+    …same upgrade, PROOF-GATED by the live Candle kernel: %s\n' "$accc"
 printf '           (kernel proves each new compiler correct before install)\n'
+printf '  ROOT     self-upgradable cake.S: an altered cake whose REPL        : %s\n' "$sur"
+printf '           upgrades its OWN compiler in place at a generation boundary\n'
 
 [ "$t1" = yes ] && [ "$t1b" = yes ] \
   || die "Tier 1 MUST reproduce on any machine with HOL4 — see /tmp/svenvs-t1-*.log"

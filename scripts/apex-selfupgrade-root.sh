@@ -40,6 +40,13 @@ mkdir -p "$WORK"
 
 rebuild=0
 for a in "$@"; do [ "$a" = --rebuild ] && rebuild=1; done
+if [ ! -x "$ALT" ] && [ "$rebuild" = 0 ]; then
+  warn "SKIP apex-selfupgrade-root: the altered self-upgradable cake is not built.
+  Build it (heavy, ~1-2h): scripts/build-selfupgrade-root.sh  (re-translate the
+  patched compiler + regen sexpr), then re-run this with --rebuild. The proof
+  side and the in-cake demos reproduce without the re-bootstrap."
+  exit 0
+fi
 if [ ! -x "$ALT" ] || [ "$rebuild" = 1 ]; then
   [ -f "$SEXPR" ] || die "no altered cake-sexpr-64 at $SEXPR — run scripts/build-selfupgrade-root.sh first (re-translate compiler64ProgTheory with the patch + regen sexpr)"
   say "self-compiling the ALTERED compiler's s-expression with the existing verified cake (~5 min)"
