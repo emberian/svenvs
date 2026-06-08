@@ -81,8 +81,12 @@ build_and_assert kernel/loebReduction \
 
 # Toward a self-upgradable compiler: the per-generation eval-oracle invariant +
 # the swap-preservation lemma (a mid-run compiler swap keeps the invariant),
-# the single-swap end-to-end keystone, and the multi-swap lift (the keystone
-# iterated over a schedule of arbitrarily many in-place compiler swaps).
+# the single-swap end-to-end keystone, the multi-swap lift (the keystone
+# iterated over a schedule of arbitrarily many in-place compiler swaps), the
+# concrete per-generation eval op (do_eval_record_gen) + its exposed upgrade
+# entry point (repl_upgrade), and the heap-preserving reset-model upgrade proven
+# against the real backend (eval_upgrade_preserves_semantics — pulls backendProof,
+# built as part of the Tier-2 cake bootstrap).
 build_and_assert selfUpgrade \
   "evalUpgradeB:swap_preserves_recorded_orac_wf_gen" \
   "evalUpgradeB:recorded_orac_wf_gen_const" \
@@ -90,6 +94,10 @@ build_and_assert selfUpgrade \
   "selfUpgradeEndToEnd:s_rel_gen_const" \
   "selfUpgradeEndToEnd:selfupgrade_collapses_to_eval_simulation" \
   "selfUpgradeMultiSwap:selfupgrade_multi_swap_simulation" \
-  "selfUpgradeMultiSwap:selfupgrade_oracle_semantics_prog_collapse"
+  "selfUpgradeMultiSwap:selfupgrade_oracle_semantics_prog_collapse" \
+  "evalUpgradeOp:do_eval_record_gen_const" \
+  "evalUpgradeOp:do_eval_record_gen_preserves_wf" \
+  "evalUpgradeOp:repl_upgrade_preserves_recorded_orac_wf_gen" \
+  "evalUpgradeReset:eval_upgrade_preserves_semantics"
 
 say "TIER 2.5 REPRODUCED — every cited self-improvement-layer theorem re-proved against real CakeML/Candle, plus a new verified BVL optimization pass, the SYM binary-implements discharge, and the loeb_reflection->LCA reduction"
