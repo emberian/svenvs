@@ -45,7 +45,7 @@ say "apex-compiler-cell: linking with basis_ffi.c"
 cc -o "$WORK/ccu" "$WORK/ccu.S" "$FFI" -lm 2> "$WORK/ccu.lerr" \
   || { cat "$WORK/ccu.lerr" >&2; die "link failed"; }
 
-say "apex-compiler-cell: RUNNING the proof-gated upgrade loop on native cake output"
+say "apex-compiler-cell: RUNNING the compiler_agrees-gated upgrade loop on native cake output"
 "$WORK/ccu" > "$WORK/ccu.out" 2>&1 || die "the demo exited nonzero — see $WORK/ccu.out"
 cat "$WORK/ccu.out"
 
