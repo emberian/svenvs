@@ -31,17 +31,46 @@ Builds against the prebuilt `source_evalProof` (no backendProof dependency), so
 it isolates the genuinely-new content. (Tier-2; needs the CakeML candle/backend
 chain — built on persvati.)
 
-## A — reset model (corollary; statement in `RESET_MODEL.md`)
+## A — reset model (`evalUpgradeResetScript.sml`, machine-checked)
 
 `eval_upgrade ci' s = add_eval_state (SOME ci') s` — re-init the eval state to
-`mk_init_eval_state ci'` (refs/ffi preserved, eval-env history reset).
-`eval_upgrade_preserves_semantics` is then a specialisation of
-`backendProof.source_eval_to_flat_semantics` at `ev := SOME ci'` (proof:
-`rw[eval_upgrade_def] \\ irule source_eval_to_flat_semantics \\ …`). It builds
-against a built `backendProof`; it is not in `selfUpgrade`'s default build to
-keep this dir dependency-light. Meaning: upgrading to any well-formed `ci'`
-keeps eval sound — for the *reset* (checkpoint-restart) model, for free from
-parametricity.
+`mk_init_eval_state ci'` (refs/ffi preserved — the heap survives; eval-env
+history reset). **`eval_upgrade_preserves_semantics`** is a specialisation of
+`backendProof.source_eval_to_flat_semantics` at `ev := SOME ci'`: a program run
+from the upgraded state is governed by eval-correctness **at `ci'`**, against
+the real backend. So upgrading to any well-formed `ci'` keeps eval sound — the
+*reset* (checkpoint-restart, heap-preserving) model, for free from
+parametricity. Plus `eval_upgrade_ffi`/`eval_upgrade_refs` (heap untouched) and
+`eval_upgrade_idem` (successive upgrades compose). Now a checked theory (was
+documentation-only in `RESET_MODEL.md`); ancestors `backendProof`.
+
+## IMPLEMENT+EXPOSE — the concrete op (`evalUpgradeOpScript.sml`)
+
+Makes the history-preserving upgrade a **concrete `custom_do_eval` value** (the
+field `EvalOracle` already carries — no core-semantics edit):
+
+- **`do_eval_record_gen g2c decode`** — identical to source_evalProof's
+  `do_eval_record`, except the agreement gate uses the compiler for *this
+  call's generation* `g2c (FST env_id)` (the generation `FST env_id` is assigned
+  by `add_env_generation`, validated by `lookup_env`). It realises the
+  per-generation map `g2c` operationally.
+- **`do_eval_record_gen_const`** — pinned to one compiler it is *exactly*
+  `do_eval_record ci`: the op strictly generalises CakeML's eval-record
+  semantics.
+- **`do_eval_record_gen_preserves_wf`** — a step of the op PRESERVES
+  `recorded_orac_wf_gen` (given the natural `gen (i+1) = FST env_id`
+  consistency): the concrete operational counterpart of evalUpgradeB's abstract
+  swap lemma. (`_dispatch`/`_records` are the operational read-offs.)
+- **`repl_upgrade ci' gen_now g2c`** — the EXPOSED entry point a self-upgradable
+  root invokes (install `ci'` for generation `gen_now+1`, keeping every earlier
+  generation's compiler), with soundness
+  `repl_upgrade_preserves_recorded_orac_wf_gen` (reduces to evalUpgradeB's swap
+  lemma), `repl_upgrade_uses_new_compiler` (new generations run `ci'`), and
+  `repl_upgrade_no_op_below` (earlier generations unchanged).
+
+Honestly bounded: this is the `EvalOracle`-level realisation (the mode the
+compiler proof uses); carrying it as the running `EvalDecs` root is the
+re-bootstrap step (still open).
 
 ## End-to-end (`selfUpgradeEndToEndScript.sml`)
 
