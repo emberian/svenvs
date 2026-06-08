@@ -1,0 +1,8 @@
+val a = 1 + 1;
+val b = a * 3;
+val c = b + 4;
+val d = c * c;
+val e = d - 1;
+val _ = TextIO.print "RESULT=";
+val _ = TextIO.print (Int.toString e);
+val _ = TextIO.print "\n";
