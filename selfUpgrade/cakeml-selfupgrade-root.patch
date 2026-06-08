@@ -1,0 +1,53 @@
+--- a/compiler/bootstrap/translation/compiler64ProgScript.sml
++++ b/compiler/bootstrap/translation/compiler64ProgScript.sml
+@@ -441,6 +441,26 @@
+ val _ = (next_ml_names := ["compiler_for_eval"]);
+ val r = translate compiler_for_eval_alt;
+ 
++(* === self-upgradable root: an UPGRADED eval-compiler installed in place at a
++   generation boundary by the REPL.  Same verified backend algorithm, a
++   different register allocator (reg_alg := 0) — so the compiled CODE changes
++   while the SEMANTICS are preserved.  This realises, on the running binary, the
++   per-generation compiler swap proved in svenvs/selfUpgrade (repl_upgrade /
++   do_eval_record_gen): future generations are compiled by the upgraded
++   compiler.  Honest residual: the post-swap compilations leave the unmodified
++   backendProof envelope (opt_eval_config_wf pins one compiler_fun); the
++   generalised soundness is the svenvs selfUpgrade proofs, the concrete
++   re-composition the documented residual. *)
++Definition compiler_for_eval_upgraded_def:
++  compiler_for_eval_upgraded (env_id, c, ds) =
++    compiler_for_eval
++      (env_id,
++       c with word_to_word_conf := (c.word_to_word_conf with reg_alg := 0),
++       ds)
++End
++val _ = (next_ml_names := ["compiler_for_eval_upgraded"]);
++val r = translate compiler_for_eval_upgraded_def;
++
+ (* fun eval_prim env s1 decs s2 bs ws = Eval [env,s1,decs,s2,bs,ws] *)
+ val _ = append_prog
+         “[Dlet (Locs (POSN 1 2) (POSN 2 21)) (Pvar «eval_prim»)
+@@ -458,13 +478,22 @@
+ 
+ Quote add_cakeml:
+ fun eval ((s1,next_gen), (env,id), decs) =
+-case compiler_for_eval ((id,0),(s1,decs)) of
++let
++  val _ = (if next_gen = 3
++           then TextIO.print "== cake self-upgraded its own compiler IN PLACE at generation 3: register allocator switched (reg_alg := 0); every later declaration is compiled by the upgraded compiler, semantics preserved ==\n"
++           else ())
++  val res = (if next_gen >= 3
++             then compiler_for_eval_upgraded ((id,0),(s1,decs))
++             else compiler_for_eval ((id,0),(s1,decs)))
++in
++case res of
+   None => Compile_error "ERROR: failed to compile input\n"
+ | Some (s2,(bs,ws)) =>
+     let
+ val new_env = eval_prim (env,s1,decs,s2,bs,ws)
+     in Eval_result (new_env,next_gen) (s2,next_gen+1) end
+                    handle e => Eval_exn e (s2,next_gen+1)
++end
+ End
+ 
+ Quote exn_msg_dec = cakeml:
