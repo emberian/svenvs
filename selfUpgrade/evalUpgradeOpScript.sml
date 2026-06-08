@@ -271,3 +271,39 @@ Proof
     irule repl_upgrade_uses_new_compiler \\ simp []
   ]
 QED
+
+(* ------------------------------------------------------------------------ *)
+(* ARBITRARILY MANY exposed upgrades, all sound.                            *)
+(* ------------------------------------------------------------------------ *)
+
+(* Fold a schedule of in-place upgrades (each (ci, gen_now)) over the map. *)
+Definition apply_repl_upgrades_def:
+  apply_repl_upgrades [] g2c = g2c /\
+  apply_repl_upgrades ((ci,gen_now)::rest) g2c =
+    apply_repl_upgrades rest (repl_upgrade ci gen_now g2c)
+End
+
+(* Arbitrarily many in-place upgrades ALL preserve the per-generation
+   oracle-wellformedness invariant, provided each installs for a fresh
+   generation (every already-recorded entry's generation <= that turn's
+   gen_now).  The inductive lift of repl_upgrade_preserves_recorded_orac_wf_gen
+   -- the verified counterpart of the 64-generation bulk run in
+   candle/compiler_cell_upgrade.cml.  (Evaluation between upgrades is covered by
+   repl_upgrade_then_eval_preserves_wf.) *)
+Theorem apply_repl_upgrades_preserves_wf:
+  !ups g2c.
+    recorded_orac_wf_gen g2c gen orac /\
+    EVERY (\cg. !j. j <= FST (FST (orac 0)) ==> gen j <= SND cg) ups
+    ==>
+    recorded_orac_wf_gen (apply_repl_upgrades ups g2c) gen orac
+Proof
+  Induct
+  >- rw [apply_repl_upgrades_def]
+  \\ rpt strip_tac
+  \\ PairCases_on `h`
+  \\ fs [apply_repl_upgrades_def]
+  \\ first_x_assum irule
+  \\ fs []
+  \\ irule repl_upgrade_preserves_recorded_orac_wf_gen
+  \\ fs []
+QED
