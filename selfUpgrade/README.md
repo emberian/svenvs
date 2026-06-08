@@ -61,6 +61,11 @@ field `EvalOracle` already carries — no core-semantics edit):
   `recorded_orac_wf_gen` (given the natural `gen (i+1) = FST env_id`
   consistency): the concrete operational counterpart of evalUpgradeB's abstract
   swap lemma. (`_dispatch`/`_records` are the operational read-offs.)
+- **`do_eval_oracle_gen_step_preserves_wf`** — the tie-in: an *actual* CakeML
+  `do_eval` step on an EvalOracle state whose `custom_do_eval` IS the op
+  preserves the invariant (`add_env_generation` touches generation/envs but not
+  the oracle, so it reduces to `_preserves_wf`). Connects the op to the eval
+  semantics the running system executes.
 - **`repl_upgrade ci' gen_now g2c`** — the EXPOSED entry point a self-upgradable
   root invokes (install `ci'` for generation `gen_now+1`, keeping every earlier
   generation's compiler), with soundness

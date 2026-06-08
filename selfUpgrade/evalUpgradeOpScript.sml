@@ -144,6 +144,36 @@ Proof
 QED
 
 (* ------------------------------------------------------------------------ *)
+(* TIE-IN: the op drives the REAL do_eval.                                   *)
+(* ------------------------------------------------------------------------ *)
+
+(* An actual CakeML `do_eval` step on an EvalOracle state whose custom_do_eval
+   IS our op preserves the per-generation invariant.  do_eval routes the call
+   through `s'.custom_do_eval vs s'.oracle` and then `add_env_generation`, which
+   touches generation/envs but NOT the oracle -- so the resulting eval-state's
+   oracle is exactly the op's output oracle, and preservation reduces to
+   do_eval_record_gen_preserves_wf.  This connects the concrete op to the eval
+   semantics the running system actually executes. *)
+Theorem do_eval_oracle_gen_step_preserves_wf:
+  s'.custom_do_eval = do_eval_record_gen g2c decode /\
+  do_eval [env_id_v; st_v; decs_v; st_v2; bs_v; ws_v] (SOME (EvalOracle s')) =
+    SOME (env, decs, es') /\
+  recorded_orac_wf_gen g2c gen s'.oracle /\
+  v_to_env_id env_id_v = SOME env_id /\
+  gen (FST (FST (s'.oracle 0)) + 1) = FST env_id ==>
+  recorded_orac_wf_gen g2c gen (orac_s es').oracle
+Proof
+  rw [do_eval_def]
+  \\ gvs [AllCaseEqs()]
+  \\ gvs [orac_s_def, add_env_generation_def]
+  \\ imp_res_tac do_eval_record_gen_dispatch
+  \\ gvs []
+  \\ drule do_eval_record_gen_preserves_wf
+  \\ rpt (disch_then drule)
+  \\ simp []
+QED
+
+(* ------------------------------------------------------------------------ *)
 (* EXPOSE: the upgrade entry point and its soundness.                       *)
 (* ------------------------------------------------------------------------ *)
 

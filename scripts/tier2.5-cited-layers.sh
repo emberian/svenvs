@@ -97,6 +97,7 @@ build_and_assert selfUpgrade \
   "selfUpgradeMultiSwap:selfupgrade_oracle_semantics_prog_collapse" \
   "evalUpgradeOp:do_eval_record_gen_const" \
   "evalUpgradeOp:do_eval_record_gen_preserves_wf" \
+  "evalUpgradeOp:do_eval_oracle_gen_step_preserves_wf" \
   "evalUpgradeOp:repl_upgrade_preserves_recorded_orac_wf_gen" \
   "evalUpgradeReset:eval_upgrade_preserves_semantics"
 
