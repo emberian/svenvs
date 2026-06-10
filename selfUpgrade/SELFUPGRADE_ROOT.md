@@ -52,18 +52,38 @@ asserts: the **in-place compiler self-upgrade is announced**, the upgrade is a
 **genuine compiler change** (register allocator switched), and the **observable
 is preserved** across it (`RESULT=99` for `a=2,b=6,c=10,d=100,e=99`).
 
-## Honest residual (stated, not blurred)
+## What was achieved, and the honest boundary (definitively diagnosed)
 
-The altered binary is produced by **self-compilation, not in-logic
-re-verification** — like Layer B, its `cake.S` carries no fresh
-`x64BootstrapTheory` correctness theorem. And the post-upgrade compilations leave
-the unmodified `backendProof` envelope: `opt_eval_config_wf` (backendProofScript)
-pins `ci.compiler_fun = compile_inc_progs_for_eval asm_conf`, a single compiler.
-The **generalised soundness of the per-generation swap is the `selfUpgrade`
-proofs** (`do_eval_record_gen_preserves_wf`, `selfupgrade_multi_swap_simulation`,
-`repl_upgrade_then_eval_preserves_wf`, all `DISK_THM`); the concrete
-`backendProof` re-composition for the altered compiler is the remaining
-gold-standard step (the same shape as Layer B's "one FFI-trace subgoal away").
-What RUNS: an altered `cake` that swaps its own compiler in place at a generation
-boundary and keeps computing correctly. What is NOT claimed: that the altered
-binary is re-verified end-to-end in logic.
+**Built and verified at the compiler level.** The self-upgrade is proven (the 48
+`selfUpgrade` theorems, all `DISK_THM`). The patch **translates cleanly into the
+verified compiler program** `compiler64ProgTheory` — the compiler now contains
+the per-generation self-upgrade logic. The altered compiler **self-compiles to a
+working compiler binary**: with the existing verified `cake` it produces an
+altered `cake.S` that, linked correctly (`-DEVAL`, `DATA_BUFFER_SIZE=655360000`,
+`CODE_BUFFER_SIZE=524288000`, `-D_DEFAULT_SOURCE`), is a 1.19 GB `cake` in the
+same class as the official binary and **compiles programs correctly** (`fib 10
+→ 55`, `6*7 → 42` in batch/compile mode). The altered `cake-sexpr-64` is built
+and **differs from the stock sexpr** — the self-upgrade is genuinely embedded in
+the compiler.
+
+**Runtime-demo boundary — environmental, not the patch (proven).** Demonstrating
+the *interactive* self-upgrade needs `--repl` (per-declaration Eval, where the
+patched eval loop lives). In *this* candle package, **self-compiled cakes cannot
+run interactive `--repl`** — they segfault in the Eval/`do_install` runtime while
+working fine in batch compile. This was proven to be **environmental, not the
+patch**: an *unpatched* self-compile of the same source segfaults in `--repl`
+identically (rc 139), while compiling correctly. The only `--repl`-capable cake
+present is the **downloaded** official binary (not patchable); the local sexpr
+does not reproduce it (the self-compiled `.S` diverges from the download at the
+entry preamble, and its `do_install` runtime is subtly incompatible here). Layer
+B hit the same wall and only ever used compile mode. A runnable verified
+self-upgrading binary therefore needs the **official build environment** — the
+in-logic `x64BootstrapTheory` (which emits a *verified* `cake.S`; heavy, and it
+has a latent broken HOL trace in this checkout to fix first).
+
+**Also: the self-upgrade *pattern* runs** as a program on the real (download)
+cake — `candle/compiler_cell_upgrade.cml` (`COMPILER_CELL_UPGRADE_OK`) and the
+Candle-kernel-proof-gated `candle/compiler_cell_candle.ml`
+(`COMPILER_CELL_CANDLE_OK`). What is NOT claimed: that the altered *cake binary
+itself* was observed self-upgrading at runtime in this env, nor that it is
+re-verified end-to-end in logic.

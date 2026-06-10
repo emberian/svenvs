@@ -29,10 +29,17 @@ say "re-translating the patched compiler program (chain tail; ~1-2h if backend t
 ok "compiler64ProgTheory re-translated"
 
 say "regenerating the altered cake-sexpr-64"
-( cd "$CAKEMLDIR/compiler/bootstrap/compilation/x64/64" \
-    && rm -f cake-sexpr-64 \
-    && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS -j4 cake-sexpr-64 ) \
-  || die "sexpr regeneration failed"
+# The x64/64 dir's HOLHEAP (cake_compile_heap) pulls the heavy in-logic
+# eval_cake_compile machinery, which has a latent broken HOL trace here; the
+# sexpr only needs compiler64Prog printed, so build it against the base heap.
+SEXDIR="$CAKEMLDIR/compiler/bootstrap/compilation/x64/64"
+cp "$SEXDIR/Holmakefile" "$SEXDIR/Holmakefile.svenvs.bak"
+sed -i 's@^HOLHEAP = .*cake_compile_heap@# HOLHEAP disabled by build-selfupgrade-root.sh (broken trace in cake_compile_heap)@' "$SEXDIR/Holmakefile"
+( cd "$SEXDIR" && rm -f cake-sexpr-64 \
+    && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS -j1 cake-sexpr-64 )
+rc=$?
+mv "$SEXDIR/Holmakefile.svenvs.bak" "$SEXDIR/Holmakefile"   # always restore
+[ "$rc" = 0 ] || die "sexpr regeneration failed"
 [ -f "$CAKEMLDIR/compiler/bootstrap/compilation/x64/64/cake-sexpr-64" ] \
   || die "cake-sexpr-64 not produced"
 ok "altered cake-sexpr-64 produced"
