@@ -1,0 +1,13 @@
+# reflectsem — the REAL CakeML semantics, reflected into the live Candle
+# kernel. fueledSem defines the fueled mirrors (primitive recursion on a
+# fuel argument) of every evaluate-cone function whose recursion HOL Light's
+# define cannot take directly; the exporters print candle script from the
+# defining theorems; the bridge theory pins the mirrors to the originals.
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/ffi
+OPTIONS = QUIT_ON_FAILURE
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+endif
