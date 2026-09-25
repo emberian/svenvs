@@ -247,18 +247,28 @@ that uses it), *UNCONSTRAINED* (the inhabitant — the $forall$-quantified term,
 structured never to depend on it; it may *volunteer* a proof from its own
 substance to earn authority — testimony, never imposed inspection), or
 *ASSUMED* (an explicit, labeled, literature-standard hypothesis appearing
-verbatim in source). After everything above, the irreducible residue is
-*one* open assumption:
+verbatim in source). After everything above, the kernel-upgrade layer
+assumes *no principle*: #seam("loeb_reflection") is derived from the
+certifying kernel's soundness plus an encoding seam of the same kind as
+#seam("encodes_obligation"):
 
 #block(fill: luma(244), inset: 9pt, radius: 3pt, width: 100%)[
-  #seam("loeb_reflection") — #raw("kernel/kernelUpgradeScript.sml") #linebreak()
-  #h(1em)`loeb_reflection mem K K' thy sound_stmt ⇔` #linebreak()
-  #h(2em)`(K thy sound_stmt ⇒ kernel_sound mem K')`
+  #seam("encodes_soundness") — #raw("kernel/kernelUpgradeScript.sml") #linebreak()
+  #h(1em)`encodes_soundness mem thy s K' ⇔ ((thy,[]) |= s ⇒ kernel_sound mem K')` #linebreak()
+  #h(1em)`loeb_reflection mem K K' thy s ⇔ (K thy s ⇒ kernel_sound mem K')` — derived
 ]
 
+With a Candle derivation of `s`, `K'` is sound by plain theorem
+(`candle_lifts_soundness`, `witness_suffices`). Because such a seam holds
+whenever its consequent does, *having* a witness is equivalent to soundness
+(`soundness_witness_iff_sound`): the content is the certificate's provenance.
+What is open is therefore a *construction*: for a strictly stronger `K'`, the
+encoding certificate must come from the hol-reflection route, whose LCA
+ingredient supplies exactly that half (`lca_encodes_soundness`).
+
 A sound kernel cannot certify a *logically stronger* successor for free
-(Gödel/Löb); the principled escape is the stratified large-cardinal route
-(Fallenstein–Kumar). This is the *only* genuinely-open seam, and it bites
+(Gödel/Löb); the principled escape is that stratified large-cardinal route
+(Fallenstein–Kumar). This is the *only* open item, and it bites
 *only* the kernel-replacing-itself-with-something-stronger move. Every other
 self-improvement in this artifact — policy, spec, meta, corrigibility, the
 prover build, a sound *re-engineering or optimization* of the kernel, the
@@ -269,9 +279,9 @@ the order of ten CPU-hours per prerequisite theory), not a logic gap, not a
 porting failure, not faked. The proved negative
 (#cite-thm("kernel/watchdogFiniteScript.sml", "loeb_finite_obstruction"))
 shows finiteness cannot shortcut it: with every watchdog fact in hand and a genuine Candle certificate, a kernel that strictly extends Candle's still fails `loeb_reflection`, because it is unsound.
-The principle is stated for one theory and one statement; an earlier form
-quantified the certificate over every theory, which Candle can never satisfy,
-so the theorems carrying it were vacuous (`old_reflection_antecedent_unsatisfiable`).
+An earlier form of the seam quantified the certificate over every theory,
+which Candle can never satisfy, so the theorems carrying it were vacuous
+(`old_reflection_antecedent_unsatisfiable`).
 Every gate that carries a seam is operational (it installs iff the certifier
 said yes), and each seam has a necessity theorem beside it (`CLAIMS.md` §1, §4, §5).
 

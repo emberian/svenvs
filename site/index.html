@@ -127,8 +127,9 @@
       judge <em>logically stronger than its own entire lineage</em>: by
       G&ouml;del, not by us, no sound system bootstraps trust in a strictly
       stronger one from its own authority. svenvs does not counterfeit a proof
-      there. It marks the spot, names the assumption
-      (<code>loeb_reflection</code>), proves the honest negative
+      there. It marks the spot, names the missing construction (an
+      LCA-produced soundness witness; no principle is assumed), proves the
+      honest negative
       (<code>loeb_finite_obstruction</code>), and stops &mdash; because the one
       place a verified system must trust rather than prove is precisely the
       place it must not pretend. That refusal is the deepest thing here.
@@ -266,8 +267,8 @@
         if this root certified it against a standard it could not weaken. The
         one move no sound root can make &mdash; certify a judge
         <em>logically stronger than its whole lineage</em> &mdash; is exactly
-        the labeled seam (<code>loeb_reflection</code>), G&ouml;del&rsquo;s
-        wall, not ours. This is itself a theorem
+        the one witness not yet constructed (the boundary below),
+        G&ouml;del&rsquo;s wall, not ours. This is itself a theorem
         (<code>genealogy_sound</code>): soundness propagates along any
         forward-certified succession from a sound genesis &mdash;
         &ldquo;frozen forever&rdquo; becomes &ldquo;sound once, certified
@@ -540,10 +541,10 @@
         </ul>
       </div>
       <div class="hcol assumed">
-        <h3>Conditional &mdash; <strong>one</strong> open assumption (the other two discharged)</h3>
-        <p>Each appears verbatim in source as a <code>Definition</code> and a named hypothesis. Stated, never hidden.</p>
+        <h3>Conditional &mdash; <strong>one</strong> witness not yet constructed (no principle assumed; the other two seams discharged)</h3>
+        <p>Each seam appears verbatim in source as a <code>Definition</code> and a named hypothesis. Stated, never hidden.</p>
         <ul>
-          <li><code>loeb_reflection</code> &mdash; the L&ouml;b / Vingean reflection principle; the <strong>one</strong> genuinely-open seam, irreducible for genuine kernel self-<em>strengthening</em>. It bites <em>only</em> strengthening &mdash; every <em>optimization</em> (including the recursive mutual verifier+compiler loop) is L&ouml;b-free. Discharge: the heavy <code>hol-reflection/lca</code> construction &mdash; a diagnosed CPU/RAM wall, not a logic gap, not faked.</li>
+          <li><code>encodes_soundness</code> / <code>loeb_reflection</code> &mdash; no reflection principle is assumed: <code>loeb_reflection</code> is <em>derived</em> from the certifying kernel&rsquo;s soundness plus a faithful-encoding seam, and a Candle derivation of a term encoding &ldquo;K&prime; is sound&rdquo; makes K&prime; sound by theorem. What remains is a <strong>construction</strong>: for a strictly stronger kernel the encoding certificate must come from the <code>hol-reflection/lca</code> route &mdash; a diagnosed CPU/RAM wall, not a logic gap, not faked. It bites <em>only</em> strengthening &mdash; every <em>optimization</em> (including the recursive mutual verifier+compiler loop) is L&ouml;b-free.</li>
           <li><code>encodes_obligation</code> &mdash; <strong>discharged</strong> for the shipped finite watchdog (its consequent is an independently-proved decidable theorem; that instance carries no labeled assumption).</li>
           <li><code>frozen_checker_sound</code> &mdash; <strong>discharged</strong> for the real Candle build, from the real <code>proves_sound</code>. The same trust the whole stack already rests on; <em>zero net new turtles</em>.</li>
         </ul>
@@ -570,8 +571,8 @@
     <div class="caveat">
       <h3>Honest caveats</h3>
       <ul>
-        <li><strong>No <code>cheat</code> anywhere.</strong> The one assumption above is an explicit hypothesis in the literature&rsquo;s framing &mdash; not an unsound shortcut. Zero <code>cheat</code> tactics, zero oracles beyond the benign disk tag, machine-enforced on every run.</li>
-        <li><strong>Kernel <em>strengthening</em> stays conditional.</strong> Making the kernel&rsquo;s logic genuinely stronger rests on <code>loeb_reflection</code> (G&ouml;del/L&ouml;b, the large-cardinal route) &mdash; a diagnosed compute wall, not a logic gap. <em>Optimizing or re-engineering</em> the kernel soundly is L&ouml;b-free and proved; the negative <code>loeb_finite_obstruction</code> bounds what finiteness can do.</li>
+        <li><strong>No <code>cheat</code> anywhere.</strong> The one open item above is a construction, not a hypothesis; every seam is an explicit <code>Definition</code>, never an unsound shortcut. Zero <code>cheat</code> tactics, zero oracles beyond the benign disk tag, machine-enforced on every run.</li>
+        <li><strong>Kernel <em>strengthening</em> stays conditional.</strong> Making the kernel&rsquo;s logic genuinely stronger rests on an LCA-constructed soundness witness (G&ouml;del/L&ouml;b, the large-cardinal route) &mdash; a diagnosed compute wall, not a logic gap; <code>loeb_reflection</code> itself is derived, not assumed. <em>Optimizing or re-engineering</em> the kernel soundly is L&ouml;b-free and proved; the negative <code>loeb_finite_obstruction</code> bounds what finiteness can do.</li>
         <li><strong>The verified kernel primitive is never swapped &mdash; by design.</strong> A kernel-<em>interface</em> primitive (<code>REFL</code>) was swapped in-process under the live prover, gated, on the real binary. The verified <code>Kernel</code> compiled into <code>cake.S</code> stays fixed: Candle itself <em>proves</em> that user REPL code cannot touch it, and every swapped implementation must still mint its theorems through it. That fixed root is the safety, not a gap.</li>
         <li><strong>Verified <em>inference</em> is not claimed.</strong> The model&rsquo;s floating-point compute is unverified by design &mdash; we verify the cage, not the model. A separate research track explores verified inference and is explicitly toy-scale.</li>
         <li><strong>The worlds are small.</strong> Cartpole and the watchdog habitat are deliberately tiny model instances. They demonstrate the architecture; they are not industrial control systems.</li>

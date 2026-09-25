@@ -39,7 +39,7 @@ and the proof-checker itself.
 
 **What "verified" means here — load-bearing, not preface:** exactly the
 cited theorems and their labeled seams — **not** verified selfhood,
-continuity, alignment, welfare, or a safe *inhabitant*. The canonical statement, and the one open assumption, are at the top of
+continuity, alignment, welfare, or a safe *inhabitant*. The canonical statement, and the one construction not yet done, are at the top of
 [`CLAIMS.md`](CLAIMS.md).
 
 CI re-proves **Tier 1 only** on every push: from a clean clone, on a stock
@@ -47,9 +47,9 @@ Ubuntu runner, the HOL4 kernel (pinned commit) re-checks the whole pure-HOL4
 core and a scan asserts zero `cheat` tactics — so the green check is itself a
 continuously-renewed credibility artifact. It does **not** exercise Tiers 2/3
 (the real CakeML/Candle layers — kernel modification, the `do_install` loader,
-the live prover) or discharge the one genuinely-open assumption
-(`loeb_reflection`, the LCA wall; the other two named seams are discharged —
-see `CLAIMS.md`).
+the live prover) or perform the one construction still open (the LCA-produced soundness
+witness for a strictly stronger kernel, `CLAIMS.md` §9; no kernel-upgrade
+principle is assumed, and the other two named seams are discharged).
 
 This is an *engineering artifact*, not a position paper: clone it and check
 the proofs yourself.
@@ -92,8 +92,9 @@ and an honest line where execution stops and proof takes over. Full ledger:
   never swapped; the `REFL` swap above is anchored to it. Self-improvement goes
   **all the way down to the kernel interface, gated by an immutable verified
   root** (the full statement is the boundary note under `CLAIMS.md` §5).
-- **Walled** (honestly): logical *strengthening* of the verifier — the one
-  Gödel/Löb seam (`loeb_reflection`, LCA), isolated and labeled.
+- **Walled** (honestly): logical *strengthening* of the verifier — no
+  principle assumed; the one open construction is the LCA-produced soundness
+  witness (`CLAIMS.md` §9).
 
 Row-by-row citations: [`CLAIMS.md`](CLAIMS.md) §5. These layers reproduce
 only on a host with the built CakeML candle chain (Tier 2) and the `cake`
@@ -134,9 +135,10 @@ by row: [`CLAIMS.md`](CLAIMS.md).
 
 ### What is open
 
-- **`loeb_reflection`** — the one open labeled assumption: a sound kernel
-  certifying a *logically stronger* successor. Reduced in-logic to the LCA
-  construction itself, a diagnosed CPU/RAM wall ([`CLAIMS.md`](CLAIMS.md) §9).
+- **The soundness witness for a strictly stronger kernel** — no principle is
+  assumed (`loeb_reflection` is derived from soundness plus an encoding seam);
+  what is open is constructing the witness by the LCA route, a diagnosed
+  CPU/RAM wall ([`CLAIMS.md`](CLAIMS.md) §9).
 - **The compiler's whole-pipeline re-verification** — the altered compilers
   run and their new parts are proved; the full `compile_correct`
   re-composition and a runnable self-upgrading root binary are the stated

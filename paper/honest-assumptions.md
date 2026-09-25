@@ -166,18 +166,21 @@ itself, on its own terms, or stays silent and loses nothing.
 
 ## 7. Where the irreducible costs are (and only there)
 
-After all of the above, the honest residue is **one** open labelled
-assumption, plus two items named so that count is not misread — none
+After all of the above, the honest residue is **one** construction not yet
+done, plus two items named so that count is not misread — none
 hidden, none new, none dischargeable by cleverness (`CLAIMS.md` §9 is the
 canonical statement):
 
-1. **Logical strengthening of the judge** — `loeb_reflection`, the
-   Löb/large-cardinal seam and the one open assumption; discharged for the
-   finite/non-strengthening cases, irreducible in general (§5), reduced
-   in-logic to the LCA construction itself
-   (`kernel/loebReduction/loebReductionScript.sml :
-   loeb_reflection_from_lca`), genuinely compute-bound (the
-   `hol-reflection/lca` route), and *labelled*, never smuggled.
+1. **Logical strengthening of the judge** — no principle is assumed:
+   `loeb_reflection` is derived from soundness plus the encoding seam
+   `encodes_soundness` (`kernel/kernelUpgradeScript.sml :
+   loeb_reflection_from_soundness, witness_suffices,
+   soundness_witness_iff_sound`). What is open is constructing the soundness
+   witness for a strictly stronger kernel by the LCA route, whose ingredient
+   supplies the encoding half (`kernel/loebReduction/loebReductionScript.sml :
+   lca_encodes_soundness, loeb_reflection_from_lca`); genuinely
+   compute-bound, discharged for the non-strengthening case (§5), and
+   *labelled*, never smuggled.
 2. **Genesis soundness.** Some judge at `n = 0` must be sound, and by
    Gödel a judge cannot prove its own soundness. This is not a labelled
    `Definition`: at the base it is exactly the *built* Candle soundness
