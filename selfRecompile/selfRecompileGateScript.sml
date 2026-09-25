@@ -32,9 +32,10 @@
   real `closSem$do_install` — cited, not re-proved here.
 
   The loop is certifierTheory's general gate driven by the identity
-  certifier on the kernel's boolean verdict: swap = cgate, run_loop =
-  cgate_run I, loop_step = cstep I I (impl_correct spec). Each theorem
-  below is the instance of the general one at judge impl_correct spec.
+  certifier on the kernel's boolean verdict: `swap` IS cgate (an overload,
+  not a second constant), run_loop = cgate_run I, loop_step = cstep I I
+  (impl_correct spec). Each theorem below is the instance of the general
+  one at judge impl_correct spec.
 
   PROVED; pure light HOL4.
 *)
@@ -51,10 +52,15 @@ End
 
 (* ONE GATED SWAP, as the run executes it: `cert` is the kernel's verdict on
    the offered g (GATE1/GATE2 succeeded, or `bad_gate_ok = false`); the loop
-   installs g iff cert, else keeps running f. *)
-Definition swap_def:
-  swap (cert:bool) (f:'a->'b) (g:'a->'b) = if cert then g else f
-End
+   installs g iff cert, else keeps running f. This is certifierTheory's
+   cgate at implementations; swap_def is cgate_def at these names. *)
+Overload swap = “cgate : bool -> ('a -> 'b) -> ('a -> 'b) -> ('a -> 'b)”
+
+Theorem swap_def:
+  ∀cert (f:'a->'b) (g:'a->'b). swap cert f g = if cert then g else f
+Proof
+  rw[cgate_def]
+QED
 
 (* THE LOOP: fold the gated swap over the stream of (verdict, candidate)
    offers, starting from the genesis version. *)
@@ -79,23 +85,18 @@ Definition loop_step_def:
     ∃cert g. (cert ⇒ impl_correct spec g) ∧ f' = swap cert f g
 End
 
-(* The loop's pieces are certifierTheory's general gate, fold and step. *)
-Theorem swap_is_cgate:
-  swap = cgate
-Proof
-  rw[FUN_EQ_THM, swap_def, cgate_def]
-QED
-
+(* The loop's fold and step are certifierTheory's fold and step (the two
+   ties the proofs below rewrite with). *)
 Theorem run_loop_is_cgate_run:
   ∀offers f. run_loop f offers = cgate_run I f offers
 Proof
-  Induct >> simp[run_loop_def, cgate_run_def, FORALL_PROD, swap_is_cgate]
+  Induct >> simp[run_loop_def, cgate_run_def, FORALL_PROD]
 QED
 
 Theorem loop_step_is_cstep:
   loop_step spec = cstep I I (impl_correct spec)
 Proof
-  rw[FUN_EQ_THM, cstep_bool, loop_step_def, swap_is_cgate]
+  rw[FUN_EQ_THM, cstep_bool, loop_step_def]
 QED
 
 (* The GATE is a SOUND vouching for correctness: a certified swap installs a
@@ -105,8 +106,7 @@ QED
 Theorem gate_is_vouch_sound:
   vouch_sound (impl_correct spec) (loop_step spec)
 Proof
-  simp[vouch_sound_is_ratchet, loop_step_is_cstep, cstep_ratchet,
-       identity_sound_certifier]
+  simp[loop_step_is_cstep, cstep_ratchet, identity_sound_certifier]
 QED
 
 Theorem run_loop_append:
@@ -130,7 +130,7 @@ Proof
   strip_tac >>
   ‘loop_version f0 offers = λn. cgate_run I f0 (TAKE n offers)’
     by simp[FUN_EQ_THM, loop_version_def, run_loop_is_cgate_run] >>
-  simp[forward_certified_is_follows, loop_step_is_cstep] >>
+  simp[loop_step_is_cstep] >>
   irule cgate_run_follows >> fs[cert_sound_def]
 QED
 

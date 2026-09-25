@@ -22,9 +22,10 @@
   is reflected in cartpoleProgramScript; the same obligation lifts to
   CakeML-level evaluation via the candle/prover chain later.
 
-  The gate below is certifierTheory's general `cgate` at policies
-  (gate_is_cgate), and its safety theorems are the policy instances of the
-  general certifier theorems (judge := sound_policy step safe).
+  The gate below IS certifierTheory's general `cgate`, at policies (`gate`
+  is an overload, not a second constant), and its safety theorems are the
+  policy instances of the general certifier theorems (judge :=
+  sound_policy step safe).
 *)
 open HolKernel boolLib bossLib BasicProvers listTheory pairTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
@@ -115,16 +116,17 @@ QED
 (*  single unsound "yes" breaches it.                                     *)
 (* ===================================================================== *)
 
-Definition gate_def:
-  gate (cert:bool) (oldp:('s,'a) policy) newp = if cert then newp else oldp
-End
+(* The policy gate IS certifierTheory's general gate, at policies: `gate`
+   is a name for `cgate` at policy type, and `gate_def` is cgate_def there.
+   Every gate theorem below is the policy instance of a general one. *)
+Overload gate = “cgate : bool -> ('s,'a) policy -> ('s,'a) policy ->
+                         ('s,'a) policy”
 
-(* The policy gate IS certifierTheory's general gate, at policies. Every
-   gate theorem below is the policy instance of a general one. *)
-Theorem gate_is_cgate:
-  gate = cgate
+Theorem gate_def:
+  ∀cert oldp newp. gate cert (oldp:('s,'a) policy) newp =
+                   if cert then newp else oldp
 Proof
-  rw[FUN_EQ_THM, gate_def, cgate_def]
+  rw[cgate_def]
 QED
 
 (* `admit` is the gate driven by a perfect (oracle) certifier. *)
@@ -137,13 +139,13 @@ QED
 Theorem gate_installs:
   cert ⇒ gate cert oldp newp = newp
 Proof
-  metis_tac[gate_is_cgate, cgate_installs]
+  metis_tac[cgate_installs]
 QED
 
 Theorem gate_rejects:
   ¬cert ⇒ gate cert oldp newp = oldp
 Proof
-  metis_tac[gate_is_cgate, cgate_rejects]
+  metis_tac[cgate_rejects]
 QED
 
 (* Safety through the operational gate: the ONLY thing asked of the
@@ -153,7 +155,7 @@ Theorem gate_keeps_sound:
   sound_policy step safe oldp ⇒
   sound_policy step safe (gate cert oldp newp)
 Proof
-  metis_tac[gate_is_cgate, cgate_keeps]
+  metis_tac[cgate_keeps]
 QED
 
 (* ...and that is exactly what the gate needs: the verdict is sound for
@@ -208,8 +210,7 @@ End
 Theorem gate_all_is_cgate_run:
   ∀proposals p0. gate_all p0 proposals = cgate_run I p0 proposals
 Proof
-  Induct >> simp[gate_all_def, cgate_run_def, pairTheory.FORALL_PROD,
-                 gate_is_cgate]
+  Induct >> simp[gate_all_def, cgate_run_def, pairTheory.FORALL_PROD]
 QED
 
 Theorem gate_all_keeps_sound:
@@ -337,7 +338,7 @@ Theorem certifier_gate_preserves_safety:
   ∀ctrl. invariant step init
             (enveloped (gate (chk ob) oldp newp) shield ctrl) safe
 Proof
-  rpt strip_tac >> irule safety_preservation >> simp[gate_is_cgate] >>
+  rpt strip_tac >> irule safety_preservation >> simp[] >>
   irule cgate_safe >> fs[admissible_def] >> metis_tac[]
 QED
 

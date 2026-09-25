@@ -298,7 +298,7 @@ Theorem gate_keeps_soundr:
   sound_policyr stepr safe oldp ⇒
   sound_policyr stepr safe (gate cert oldp newp)
 Proof
-  metis_tac[gate_is_cgate, cgate_keeps]
+  metis_tac[cgate_keeps]
 QED
 
 Theorem gate_preserves_safetyr:
@@ -338,7 +338,7 @@ Theorem certifier_gate_preserves_safetyr:
   ∀ctrl. invariantr stepr init
             (enveloped (gate (chk ob) oldp newp) shield ctrl) safe
 Proof
-  rpt strip_tac >> irule safety_preservationr >> simp[gate_is_cgate] >>
+  rpt strip_tac >> irule safety_preservationr >> simp[] >>
   irule cgate_safe >> fs[admissibler_def] >> metis_tac[]
 QED
 
