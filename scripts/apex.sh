@@ -33,7 +33,7 @@ B="$CANDLE_ROOT/candle/build"
 [ -x "$B/cake" ] || die "no cake at $B/cake (build candle first)"
 [ -f "$B/cake-sexpr-64" ] || die "no cake-sexpr-64 at $B (the compiler's own source)"
 export CML_HEAP_SIZE="${CML_HEAP_SIZE:-24000}" CML_STACK_SIZE="${CML_STACK_SIZE:-4000}"
-WORK="${APEX_WORK:-/tmp/apex}"; mkdir -p "$WORK"
+WORK="${APEX_WORK:-$SVENVS_WORK/apex}"; mkdir -p "$WORK"
 
 I_OK=0; FIX_OK=0; OPT_OK=0; PROVER_OK=0
 
@@ -68,15 +68,9 @@ fi
 
 # --- II. prover improves itself, proof-gated -------------------------
 say "APEX II — the prover improves itself, proof-gated (live Candle)"
-FIFO="${PLACE_FIFO:-/tmp/place.fifo}"; LOG="${PLACE_LOG:-/tmp/place.log}"
-export PLACE_FIFO="$FIFO" PLACE_LOG="$LOG"
-if ! { [ -f "${FIFO}.candle.pid" ] && kill -0 "$(cat "${FIFO}.candle.pid")" 2>/dev/null; }; then
-  say "starting Candle server (loads hol.ml once)"
-  CANDLE_ROOT="$CANDLE_ROOT" "$here/place-server.sh"
-  for _ in $(seq 1 600); do grep -q "val _READY = 1" "$LOG" 2>/dev/null && break; sleep 2; done
-  grep -q "val _READY = 1" "$LOG" || die "Candle server did not become ready"
-fi
-"$here/place-submit.sh" "$SVENVS_ROOT/candle/self_recompile.ml" _SVENVS_APEX_RECOMPILE
+LOG="$PLACE_LOG"
+place_ensure_server
+"$here/place-submit.sh" "$SVENVS_ROOT/candle/self_recompile.ml" _SVENVS_APEX_RECOMPILE >/dev/null
 for thm in GATE1 GATE2; do
   grep -aE "val $thm = " "$LOG" | tail -1 | grep -q '|-' || die "$thm not certified by live Candle"
 done

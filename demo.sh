@@ -33,14 +33,14 @@ require_hol4
 [ -x "$HOL" ] || die "HOL4 'hol' binary not found at $HOL (set HOL or HOLDIR)."
 have python3 || die "python3 is required for the embodied-LLM segment."
 
-trap 'die "demo aborted (see /tmp/svenvs-t1-*.log for build details)"' ERR
+trap 'die "demo aborted (see $SVENVS_LOGS/t1-*.log for build details)"' ERR
 
 # ----------------------------------------------------------------------
 say "1/5  Machine-checking the Tier-1 proofs (pure HOL4)"
 # --quick here keeps the *build* full (we need inference) but quiet.
-bash "$here/scripts/tier1-core.sh" >/tmp/svenvs-demo-build.log 2>&1 \
-  || { tail -n 20 /tmp/svenvs-demo-build.log >&2
-       die "Tier-1 build failed — full log /tmp/svenvs-demo-build.log"; }
+bash "$here/scripts/tier1-core.sh" >"$SVENVS_LOGS/demo-build.log" 2>&1 \
+  || { tail -n 20 "$SVENVS_LOGS/demo-build.log" >&2
+       die "Tier-1 build failed — full log $SVENVS_LOGS/demo-build.log"; }
 for x in "$SVENVS_ROOT|upgrade" "$SVENVS_ROOT|cartpoleProgram" \
          "$SVENVS_ROOT/agent|toolAgentRun" "$SVENVS_ROOT/inference|mlpInference"; do
   built "${x%|*}" "${x#*|}" || die "expected theory ${x#*|} not built"
@@ -159,7 +159,7 @@ echo "  Precise breakdown, with file:theorem citations:  CLAIMS.md"
 say "5/5  Reproduce / go deeper"
 echo "  scripts/reproduce.sh        full tiered reproduction (Tier 2/3 too)"
 echo "  less CLAIMS.md              skeptic-facing claim ledger"
-echo "  less ARCHITECTURE.md        layers + honest epistemic status"
+echo "  less ARCHITECTURE.md        layers, tower, design reasoning"
 echo
 trap - ERR
 ok "DEMO COMPLETE — the cage is proven; it does not matter what the animal is."

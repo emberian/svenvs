@@ -37,14 +37,14 @@ for d in embedded kernel; do
     rm -rf .hol
   fi
   if ! CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS 2>&1 \
-        | tee "/tmp/svenvs-t2-$d.log" | tail -n 6; then
-    die "Holmake failed in $d — full log: /tmp/svenvs-t2-$d.log"
+        | tee "$SVENVS_LOGS/t2-$d.log" | tail -n 6; then
+    die "Holmake failed in $d — full log: $SVENVS_LOGS/t2-$d.log"
   fi
 done
 
 built "$SVENVS_ROOT/embedded" embeddedGate \
-  || die "embeddedGateTheory not built (see /tmp/svenvs-t2-embedded.log)"
+  || die "embeddedGateTheory not built (see $SVENVS_LOGS/t2-embedded.log)"
 built "$SVENVS_ROOT/kernel" kernelUpgrade \
-  || die "kernelUpgradeTheory not built (see /tmp/svenvs-t2-kernel.log)"
+  || die "kernelUpgradeTheory not built (see $SVENVS_LOGS/t2-kernel.log)"
 ok "embeddedGate + kernelUpgrade machine-checked (Candle-soundness-backed)"
 say "TIER 2 REPRODUCED — obligation discharged by Candle's verified inference system"

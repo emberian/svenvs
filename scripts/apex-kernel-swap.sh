@@ -9,22 +9,33 @@
 #  AT RUNTIME for a different sound derivation — gated, accumulating, with a
 #  wrong swap rejected — and keeps proving through the swapped primitive.
 #
-#  Reversible: applies `candle/kernel_apex.patch` to a backup, runs, restores.
-#  Requires a built `cake` (CANDLE_ROOT). Reloads hol.ml (~minutes).
+#  What it touches, and how that is contained:
+#   * candle/kernel.ml INSIDE YOUR CANDLE CHECKOUT is patched for the run and
+#     restored on exit (any exit). Opt-in (SVENVS_ALLOW_INPLACE=1), and refused
+#     if that file already has local edits, so nothing of yours is clobbered.
+#     Prefer a throwaway CANDLE_ROOT.
+#   * it runs its own private Place (a fresh prover on the patched kernel)
+#     under $SVENVS_WORK/place-apex-kswap and stops it on exit; a server you
+#     have running elsewhere is never touched.
 #
-#  Usage:  CANDLE_ROOT=~/dev/candle scripts/apex-kernel-swap.sh
+#  Usage:  SVENVS_ALLOW_INPLACE=1 CANDLE_ROOT=~/dev/candle scripts/apex-kernel-swap.sh
 # ======================================================================
-set -uo pipefail
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/env.sh"
+place_use_dir "$SVENVS_WORK/place-apex-kswap"
+LOG="$PLACE_LOG"
 
 KSRC="$CANDLE_ROOT/candle/kernel.ml"
 [ -f "$KSRC" ] || die "no candle kernel at $KSRC"
 [ -x "$CANDLE_ROOT/candle/build/cake" ] || die "no cake binary under $CANDLE_ROOT"
-FIFO="${PLACE_FIFO:-/tmp/place-apex.fifo}"; LOG="${PLACE_LOG:-/tmp/place-apex.log}"
-export PLACE_FIFO="$FIFO" PLACE_LOG="$LOG"
+svenvs_confirm_inplace "$CANDLE_ROOT" "candle/kernel.ml" \
+  "the prover must load on the re-architected kernel interface for the duration of the run"
 
-restore(){ [ -f "$KSRC.apexbak" ] && { cp "$KSRC.apexbak" "$KSRC"; rm -f "$KSRC.apexbak"; ok "restored pristine $KSRC"; }; }
+restore(){
+  "$here/place-stop.sh" >/dev/null 2>&1 || true
+  [ -f "$KSRC.apexbak" ] && { cp "$KSRC.apexbak" "$KSRC"; rm -f "$KSRC.apexbak"; ok "restored pristine $KSRC"; }
+  return 0
+}
 trap 'restore' EXIT
 
 say "patching the candle kernel interface (REFL → live sound indirection)"
@@ -33,19 +44,17 @@ cp "$KSRC" "$KSRC.apexbak"
   || die "patch failed (kernel.ml moved upstream? regenerate candle/kernel_apex.patch)"
 
 say "starting a fresh Candle server on the re-architected kernel (loads hol.ml)"
-pkill -f "cake --candle" 2>/dev/null || true; sleep 1; rm -f "$FIFO"* "$LOG"
-CANDLE_ROOT="$CANDLE_ROOT" "$here/place-server.sh"
-for _ in $(seq 1 600); do grep -q "val _READY = 1" "$LOG" 2>/dev/null && break; sleep 2; done
-grep -q "val _READY = 1" "$LOG" || die "Candle server did not become ready"
+"$here/place-server.sh" --restart
+place_wait_ready
 ok "full HOL Light prover loaded on the swappable kernel interface"
 
 say "executing the in-process kernel-primitive swap (candle/kernel_swap_demo.ml)"
-"$here/place-submit.sh" "$SVENVS_ROOT/candle/kernel_swap_demo.ml" _SVENVS_KSWAP_DONE
-grep -aE 'val uses_genesis = ' "$LOG" | tail -1
-grep -aE 'val swap_ok = |val bad_ok = ' "$LOG" | tail -2
+"$here/place-submit.sh" "$SVENVS_ROOT/candle/kernel_swap_demo.ml" _SVENVS_KSWAP_DONE >/dev/null
+grep -aE 'val uses_genesis = ' "$LOG" | tail -1 || true
+grep -aE 'val swap_ok = |val bad_ok = ' "$LOG" | tail -2 || true
 if grep -aqE 'val verdict = "KERNEL_INPROCESS_SWAP_OK"' "$LOG"; then
   ok "KERNEL_INPROCESS_SWAP_OK — a kernel primitive was swapped under the live prover,"
   ok "gated, the prover kept proving through it, and a wrong swap was rejected."
-else die "kernel swap demo did not reach KERNEL_INPROCESS_SWAP_OK"; fi
+else die "kernel swap demo did not reach KERNEL_INPROCESS_SWAP_OK (see $LOG)"; fi
 
 say "APEX kernel-swap COMPLETE — verified core fixed, kernel interface swapped live"

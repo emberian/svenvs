@@ -15,8 +15,7 @@
 . "$(dirname "$0")/env.sh"
 for a in "$@"; do case "$a" in --clean|--quick) : ;; *) die "apex-compiler-cell-candle: unknown arg '$a'";; esac; done
 
-FIFO="${PLACE_FIFO:-/tmp/place.fifo}"; LOG="${PLACE_LOG:-/tmp/place.log}"
-export PLACE_FIFO="$FIFO" PLACE_LOG="$LOG"
+LOG="$PLACE_LOG"
 
 if [ ! -x "$CANDLE_ROOT/candle/build/cake" ]; then
   warn "SKIP apex-compiler-cell-candle: no Candle binary at $CANDLE_ROOT/candle/build/cake.
@@ -26,17 +25,11 @@ if [ ! -x "$CANDLE_ROOT/candle/build/cake" ]; then
   exit 0
 fi
 
-# (re)start the persistent Candle server if not alive
-if ! { [ -f "${FIFO}.candle.pid" ] && kill -0 "$(cat "${FIFO}.candle.pid")" 2>/dev/null; }; then
-  say "starting Candle server (loads hol.ml once, ~minutes)"
-  CANDLE_ROOT="$CANDLE_ROOT" "$(dirname "$0")/place-server.sh"
-  for _ in $(seq 1 600); do grep -qa "val _READY = 1" "$LOG" 2>/dev/null && break; sleep 2; done
-  grep -qa "val _READY = 1" "$LOG" || die "Candle server did not become ready"
-fi
-ok "Candle verification server live (hol.ml loaded)"
+# reuse the persistent server under $PLACE_DIR, or start it (loads hol.ml once)
+place_ensure_server
 
 say "submitting the proof-gated compiler-cell upgrade to the live verified kernel"
-"$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/compiler_cell_candle.ml" _CCC_DONE
+"$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/compiler_cell_candle.ml" _CCC_DONE >/dev/null
 
 # the live kernel must have PROVED each accepted compiler correct, REFUSED the
 # wrong one, and the whole property must hold.

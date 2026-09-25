@@ -7,16 +7,12 @@
 #
 #   ./scripts/tower.sh          # pure-HOL4 tower (trunk + prover crown)
 #   ./scripts/tower.sh --full   # + Tier-2 kernel crown (needs candle)
-set -euo pipefail
-here="$(cd "$(dirname "$0")/.." && pwd)"
-HOL="${HOLDIR:-$HOME/dev/HOL}/bin/Holmake"
-# Parallel Holmake deadlocks against its theory cache on many-core boxes;
-# --no-cache keeps parallelism without the hang (see scripts/env.sh).
-# Override SVENVS_HM_FLAGS= to restore caching.
-HM="${SVENVS_HM_FLAGS---no-cache}"
+. "$(dirname "$0")/env.sh"      # pins, HOLMAKE, --no-cache, say/ok/die
+require_hol4
+here="$SVENVS_ROOT"
+HOL="$HOLMAKE"
+HM="$SVENVS_HM_FLAGS"
 full=0; [ "${1:-}" = "--full" ] && full=1
-
-say(){ printf '\n=== %s ===\n' "$*"; }
 
 # DAG order: generic core -> the three composable slices -> integration.
 say "1. generic core (system/envelope/safety/sv_weakening/upgrade)"
