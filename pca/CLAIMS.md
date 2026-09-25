@@ -94,7 +94,7 @@ claim against the real dynamics (`c = cp_step a u ∧ cp_safe c`) — it does
 | Claim | Status | Citation |
 |-------|--------|----------|
 | **`certifier_sound` is DISCHARGED outright** for this instance — proved by `rw` because the certifier literally recomputes `cp_safe (cp_step a u)`. So for the shipped instance the certifier is trusted for **nothing**: the side-condition is a theorem. | **PROVED** (was the labelled per-instance assumption) | `pcaCartpoleScript.sml : cp_certifier_sound` |
-| The verified degraded sub-policy (`cp_shield`, counter-the-lean) is a safe sub-policy — the one real physics obligation, discharged by reusing `cartpoleScript.sml : cp_safe_shield` (where `intLib.ARITH_TAC` closes it). | **PROVED** | `pcaCartpoleScript.sml : cp_safe_subpolicy` |
+| The verified degraded sub-policy (`cp_shield`, counter-the-lean) is a safe sub-policy — the one real physics obligation, discharged by reusing `cartpoleEnvelopeScript.sml : cp_safe_shield` (where `intLib.ARITH_TAC` closes it). | **PROVED** | `pcaCartpoleScript.sml : cp_safe_subpolicy` |
 | The degraded sub-policy **does real work** (commands a non-zero correction from a leaning state — not constant refuse). | **PROVED** | `pcaCartpoleScript.sml : cp_subpolicy_does_real_work` |
 | **Headline for the instance**: for ANY proof-carrying controller (adversarial / lying certificates included) the enveloped cart stays in the safe box. | **PROVED** | `pcaCartpoleScript.sml : cp_pca_enveloped_safe` |
 | The bare plant under the lying adversary's raw command provably crashes in 5 ticks (the envelope does real work, not decoration). | **PROVED (EVAL)** | `pcaCartpoleScript.sml : liar_bare_plant_crashes` |
