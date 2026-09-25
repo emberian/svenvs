@@ -81,12 +81,17 @@ val (v_to_word64_list_n_def, env13) =
 
 val env_w = env_t @ env12 @ env13;
 
+(* non-recursive, but calls v_to_word8/64_list and concrete_v: infected *)
+val (compiler_agrees_n_def, env_ca) =
+  fueledGenLib.define_fueled "compiler_agrees_n" env_w
+    semanticPrimitivesTheory.compiler_agrees_def;
+
 val (do_app_n_def, env14) =
   fueledGenLib.define_fueled "do_app_n" env_w
     semanticPrimitivesTheory.do_app_def;
 
 val (do_eval_n_def, env15) =
-  fueledGenLib.define_fueled "do_eval_n" env_w
+  fueledGenLib.define_fueled "do_eval_n" (env_w @ env_ca)
     semanticPrimitivesTheory.do_eval_def;
 
 val env_e = env_w @ env14 @ env15;
@@ -101,3 +106,36 @@ val env_all = env_e @ env16;
 val (eval_n_def, env_eval) =
   fueledGenLib.define_fueled "eval_n" env_all
     evaluateTheory.full_evaluate_def;
+
+(* --- no original of any fueled group survives on a generated rhs --- *)
+val fueled_groups = [
+  ("pat_bindings_n_def", astTheory.pat_bindings_def, pat_bindings_n_def),
+  ("every_exp_n_def", astTheory.every_exp_def, every_exp_n_def),
+  ("one_con_check_n_def", semanticPrimitivesTheory.one_con_check_def,
+   one_con_check_n_def),
+  ("do_eq_n_def", semanticPrimitivesTheory.do_eq_def, do_eq_n_def),
+  ("pmatch_n_def", semanticPrimitivesTheory.pmatch_def, pmatch_n_def),
+  ("v_to_list_n_def", semanticPrimitivesTheory.v_to_list_def, v_to_list_n_def),
+  ("v_to_char_list_n_def", semanticPrimitivesTheory.v_to_char_list_def,
+   v_to_char_list_n_def),
+  ("vs_to_string_n_def", semanticPrimitivesTheory.vs_to_string_def,
+   vs_to_string_n_def),
+  ("concrete_v_n_def", semanticPrimitivesTheory.concrete_v_def,
+   concrete_v_n_def),
+  ("can_pmatch_all_n_def", semanticPrimitivesTheory.can_pmatch_all_def,
+   can_pmatch_all_n_def),
+  ("do_test_n_def", semanticPrimitivesTheory.do_test_def, do_test_n_def),
+  ("v_to_word8_list_n_def", semanticPrimitivesTheory.v_to_word8_list_def,
+   v_to_word8_list_n_def),
+  ("v_to_word64_list_n_def", semanticPrimitivesTheory.v_to_word64_list_def,
+   v_to_word64_list_n_def),
+  ("compiler_agrees_n_def", semanticPrimitivesTheory.compiler_agrees_def,
+   compiler_agrees_n_def),
+  ("do_app_n_def", semanticPrimitivesTheory.do_app_def, do_app_n_def),
+  ("do_eval_n_def", semanticPrimitivesTheory.do_eval_def, do_eval_n_def),
+  ("do_eval_res_n_def", evaluateTheory.do_eval_res_def, do_eval_res_n_def),
+  ("eval_n_def", evaluateTheory.full_evaluate_def, eval_n_def)];
+
+val () =
+  if null (fueledGenLib.report_leftovers fueled_groups) then ()
+  else raise Fail "fueledSem: original constants left on generated rhs";
