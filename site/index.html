@@ -346,10 +346,15 @@
             Replace the proof-checker with a stronger one. By G&ouml;del/L&ouml;b
             a sound checker cannot prove its own soundness, so this step rests
             on one explicit, labeled reflection principle
-            (<code>loeb_reflection</code>).
-            <code>self_improving_kernel_is_safe</code> proves: given that
-            principle, kernel self-upgrade still preserves safety for every
-            controller. <em>An assumption, stated &mdash; not a hidden
+            (<code>loeb_reflection</code>). The upgraded kernel <em>is</em> the
+            gate: a proposal installs iff it derived the obligation, so its
+            soundness is what protects safety &mdash; a kernel is sound exactly
+            when the gate it drives is safe
+            (<code>kernel_sound_iff_gate_safe</code>).
+            <code>self_improving_kernel_is_safe</code> proves: given the
+            principle and Candle&rsquo;s certificate, kernel self-upgrade still
+            preserves safety for every controller, and both are proved
+            necessary. <em>An assumption, stated &mdash; not a hidden
             shortcut.</em>
           </p>
         </div>
@@ -362,8 +367,10 @@
           <p>
             The inhabitant may propose to replace Candle / the CakeML compiler
             that produces it. Adopted only if the <em>frozen</em> HOL4 root
-            re-proves its soundness (<code>prover_self_improvement_is_safe</code>).
-            The seam (<code>frozen_checker_sound</code>) needs <em>no</em>
+            re-proves its soundness and the build itself certifies the proposal
+            (<code>prover_self_improvement_is_safe</code>); an unsound checker or
+            an unfaithful vouched build provably breaches. The seam
+            (<code>frozen_checker_sound</code>) needs <em>no</em>
             L&ouml;b &mdash; a fixed root vouching for a different artifact &mdash;
             and is now <strong>discharged</strong> for the real Candle build,
             from the real <code>proves_sound</code>.
@@ -550,9 +557,11 @@
         <em>strengthening</em> unconditional too, dodging the large-cardinal
         proof? The answer is <strong>no</strong>, and rather than move on
         quietly we stated it as a theorem,
-        <code>loeb_finite_obstruction</code>: <code>loeb_reflection</code> has
-        no habitat parameter at all, so no amount of finite-habitat reasoning
-        can bear on it. Genuine kernel self-strengthening
+        <code>loeb_finite_obstruction</code>: with every watchdog fact in hand
+        and a genuine Candle certificate, a kernel that strictly extends
+        Candle&rsquo;s still fails <code>loeb_reflection</code>, because it is
+        unsound &mdash; no finite-habitat reasoning can supply the principle.
+        Genuine kernel self-strengthening
         <em>remains</em> conditional on the large-cardinal route. We do not
         claim otherwise anywhere.
       </p>
@@ -598,13 +607,12 @@
     <h3>The capstone: prover self-improvement, assumption visible (<code>selfprover/selfProverScript.sml</code>)</h3>
     <pre class="code"><code>Theorem prover_self_improvement_is_safe:
   frozen_checker_sound hol4_checks sound &and;   (* labeled assumption *)
-  hol4_checks p' B' &and;
-  build_certifies sound B' step safe oldp newp &and;
+  (bcert &rArr; build_certifies sound B' step safe oldp newp) &and;
   init_safe init safe &and; safe_shield step safe shield &and;
   sound_policy step safe oldp &rArr;
   &forall;ctrl. invariant step init
-            (enveloped (admit step safe oldp newp) shield ctrl) safe</code></pre>
-    <p class="cap">A <em>frozen</em> root vouching for a <em>mutable</em> verified build &mdash; not a system vouching for itself. Needs no L&ouml;b; that argument is §5 of the source file.</p>
+    (enveloped (prover_gate hol4_checks p' B' bcert oldp newp) shield ctrl) safe</code></pre>
+    <p class="cap">The gate installs iff the <em>frozen</em> root accepted the build and the build said yes; the seam carries the proof (<code>unsound_frozen_checker_can_breach</code> shows it cannot be dropped). A frozen root vouching for a <em>mutable</em> verified build &mdash; not a system vouching for itself. Needs no L&ouml;b; that argument is §5 of the source file.</p>
 
     <h3>The verifier improves itself &mdash; against the <em>real</em> CakeML/Candle</h3>
     <pre class="code"><code>(* the seam above, DISCHARGED for the real base Candle build: *)
@@ -628,12 +636,13 @@ Theorem recursive_mutual_self_improvement_is_safe   (* recursive/ *)
 
     <h3>The honest negative, as a theorem (<code>kernel/watchdogFiniteScript.sml</code>)</h3>
     <pre class="code"><code>Theorem watchdog_kernel_is_safe_unconditional:   (* encodes_obligation DISCHARGED here *)
-  &hellip; (* no labeled hypothesis &mdash; the embedded-gate seam is eliminated
-           for the shipped finite watchdog *)
+  &hellip; (* the operational embedded gate: installs iff Candle derived the
+           term; safe on both branches, no labeled hypothesis *)
 
 Theorem loeb_finite_obstruction:                 (* the precise NEGATIVE *)
-  &hellip; (* loeb_reflection has no habitat parameter, so finiteness
-           provably cannot discharge kernel *strengthening* *)</code></pre>
+  &hellip; (* every watchdog fact + a genuine Candle certificate, yet a kernel
+           strictly extending Candle's fails loeb_reflection: finiteness
+           cannot supply kernel *strengthening* *)</code></pre>
     <p class="cap">One seam genuinely removed for the shipped instance; the other proved <em>irreducible</em> there. Both stated, neither spun.</p>
 
     <h3>The jailbroken Gemma, contained</h3>

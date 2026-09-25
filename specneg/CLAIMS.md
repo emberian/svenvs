@@ -87,7 +87,7 @@ verbatim in `specNegScript.sml` §5. Summary:
   *also* the thing the inhabitant re-chooses, with the system using its own
   judgement to vouch for its own next judgement — the shape of
   `kernelUpgradeTheory.loeb_reflection`
-  (`(∀thy. K thy (sound_stmt thy)) ⇒ kernel_sound mem K'`): judge and judged
+  (`K thy sound_stmt ⇒ kernel_sound mem K'`): judge and judged
   are the same kind of object on the same level (genuine self-reference,
   Gödel/Löb, needs the LCA escape — hence the labelled hypothesis *there*).
 

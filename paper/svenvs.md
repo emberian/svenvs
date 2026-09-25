@@ -179,8 +179,8 @@ After everything above, the irreducible residue is **one** open assumption
 (`kernel/kernelUpgradeScript.sml`):
 
 ```
-loeb_reflection mem K K' sound_stmt ⇔
-  ((∀thy. K thy (sound_stmt thy)) ⇒ kernel_sound mem K')
+loeb_reflection mem K K' thy sound_stmt ⇔
+  (K thy sound_stmt ⇒ kernel_sound mem K')
 ```
 
 A sound kernel cannot certify a *logically stronger* successor for free
@@ -192,7 +192,13 @@ the recursive mutual loop — is Löb-free. Its discharge from `lcaTheory.LCA_de
 via `hol-reflection/lca` is a conclusively-diagnosed **CPU/RAM-bound
 computation** (tens of GB resident, ~ten CPU-hours per prerequisite theory),
 not a logic gap, not faked. The proved negative (`watchdogFiniteScript.sml :
-loeb_finite_obstruction`) shows finiteness cannot shortcut it. And the seam is
+loeb_finite_obstruction`) shows finiteness cannot shortcut it: with every watchdog fact in hand and a genuine Candle certificate, a kernel that strictly extends Candle's still fails `loeb_reflection`, because it is unsound.
+The principle is stated for one theory and one statement; an earlier form
+quantified the certificate over every theory, which Candle can never satisfy,
+so the theorems carrying it were vacuous (`kernelUpgradeScript.sml :
+old_reflection_antecedent_unsatisfiable`). Every gate that carries a seam is
+operational (it installs iff the certifier said yes), and each seam has a
+necessity theorem beside it (`CLAIMS.md` §1, §4, §5). And the seam is
 no longer bare: `kernel/loebReduction/loebReductionScript.sml :
 loeb_reflection_from_lca` derives it in-logic from one named ingredient the
 Fallenstein–Kumar LCA construction supplies, so the residue is precisely the

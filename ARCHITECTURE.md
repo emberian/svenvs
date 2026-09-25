@@ -15,14 +15,14 @@ the canonical ledger [`CLAIMS.md`](CLAIMS.md); this file does not restate it.
 
 | Layer | Files | What it proves |
 |-------|-------|----------------|
-| **Core** | `system`,`envelope`,`safety`,`sv_weakening`,`upgrade` | `safety_preservation` (∀ inhabitant, the envelope keeps the invariant); `safe_weakening` + `authority_monotone` (self-improvement that loosens the envelope keeps safety); `self_improvement_is_safe` (no unbounded sequence of self-proposed upgrades ever loses safety; unproven proposals rejected) |
+| **Core** | `system`,`envelope`,`safety`,`sv_weakening`,`upgrade` | `safety_preservation` (∀ inhabitant, the envelope keeps the invariant); `safe_weakening` (loosening the envelope keeps safety *and* takes no authority away; `safe_weakening_needs_weaker` shows the weakening premise is necessary); the operational `gate` (installs iff the certifier said yes; `unsound_certificate_breaches` shows an unsound yes breaches); `self_improvement_is_safe` (no unbounded sequence of self-proposed upgrades ever loses safety; unproven proposals rejected) |
 | **Cartpole** | `cartpole*` | A concrete, *EVAL-runnable* integer plant instance of the whole core; adversarial controller provably contained |
 | **LLM tool-agent** | `agent/toolAgent*` | The inhabitant = an opaque LLM emitting tool calls; firewall vs an *absolute fixed* safety spec; `agent_enveloped_safe` (∀ agent, jailbroken included); runnable adversarial episodes + decidable proof-carrying capability self-expansion (`episode_runs`) |
 | **Embodied (real LLM)** | `agent/embodied/`, `agent/toolAgentDecide*` | A *real* jailbroken `gemma2:2b` (or `--mock` adversary) dropped into the proven envelope. The enforcer is **EVAL-extracted from the proven Definitions** (`toolAgentDecideScript.sml` → proven `decision_table.tsv`); the Python is now a ~10-line lookup harness, not a ~50-line re-implementation. "Verify the cage, not the animal." |
 | **Verified inference (B)** | `inference/mlpInference` | Research track B: a TOY ReLU MLP over ints, forward pass proved correct + EVAL-run. Explicitly *not* Gemma-scale — the seed of verified inference |
 | **Embedded** | `embedded/embeddedGate` | The admission obligation is discharged by **Candle's verified inference system** (`holSoundnessTheory.proves_sound`), not HOL4 metis |
-| **Kernel self-upgrade** | `kernel/kernelUpgrade` | Replace the proof-checker itself; `self_improving_kernel_is_safe` from real Candle soundness + one labeled Löb/LCA hypothesis |
-| **Prover self-improvement** | `selfprover/selfProver`, `selfproverConcrete/` | The verified *prover build itself* (Candle+CakeML) is a mutable turtle the inhabitant may replace, gated by the FROZEN HOL4 root; `prover_self_improvement_is_safe` + composition with the policy/kernel core. Pure light HOL4; the labeled `frozen_checker_sound` seam, NO Löb (fixed root vouches for mutable layer ≠ self-reference). The seam is discharged for the real Candle build in `selfproverConcrete/` |
+| **Kernel self-upgrade** | `kernel/kernelUpgrade` | Replace the proof-checker itself; the upgraded kernel drives the gate (`kgate`), so a kernel is sound exactly when its gate is safe (`kernel_sound_iff_gate_safe`); `self_improving_kernel_is_safe` from real Candle soundness + one labeled Löb/LCA hypothesis, both proved necessary |
+| **Prover self-improvement** | `selfprover/selfProver`, `selfproverConcrete/` | The verified *prover build itself* (Candle+CakeML) is a mutable turtle the inhabitant may replace, gated by the FROZEN HOL4 root: the prover gate installs only what a root-vouched build certified; `prover_self_improvement_is_safe` + composition with the policy/kernel core, with necessity theorems for the checker and the build. Pure light HOL4; the labeled `frozen_checker_sound` seam, NO Löb (fixed root vouches for mutable layer ≠ self-reference). The seam is discharged for the real Candle build in `selfproverConcrete/` |
 | **Spec / meta / root** | `pca/`, `specneg/`, `amendment/`, `genealogy/`, `liberty/`, `integration/` | Proof-carrying actions; the spec negotiable under a fixed meta, the meta amendable over a bedrock, the root a forward-certified genealogy of judges, the least-restrictive envelope; all composed through `invariant_transports_to_meta` into the `svenvs_tower_*` theorems |
 | **Corrigibility** | `corrigibility/` | The non-lock-in floor: decidable, self-improvable, latency-bounded, the tower's negotiable bedrock (own ledger `corrigibility/CLAIMS.md`) |
 | **Testimony** | `embodiment/` | The inhabitant *may* volunteer a proof about its own substance to earn authority; permitted, never required |
@@ -91,8 +91,10 @@ is exactly the alignment-relevant decomposition: you don't need to verify the
   inductive invariant; the controller is free.
 - `sv_weakeningTheory.safe_weakening` — replacing a policy by any *weaker*
   (more permissive) policy that remains `sound_policy` keeps the **same**
-  safety guarantee. This is "the system may loosen its own envelope" — the
-  self-improvement direction, made safe by the soundness side-condition.
+  safety guarantee and takes no authority away. This is "the system may loosen
+  its own envelope" — the self-improvement direction, made safe by the
+  soundness side-condition; `safe_weakening_needs_weaker` shows the weakening
+  premise is what the authority half rests on.
 - `sv_weakeningTheory.authority_monotone` — weakening never increases
   overrides; the controller strictly gains authority. Together with
   `safe_weakening` this is the precise sense in which self-improvement (more

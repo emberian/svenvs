@@ -252,8 +252,8 @@ verbatim in source). After everything above, the irreducible residue is
 
 #block(fill: luma(244), inset: 9pt, radius: 3pt, width: 100%)[
   #seam("loeb_reflection") — #raw("kernel/kernelUpgradeScript.sml") #linebreak()
-  #h(1em)`loeb_reflection mem K K' sound_stmt ⇔` #linebreak()
-  #h(2em)`((∀thy. K thy (sound_stmt thy)) ⇒ kernel_sound mem K')`
+  #h(1em)`loeb_reflection mem K K' thy sound_stmt ⇔` #linebreak()
+  #h(2em)`(K thy sound_stmt ⇒ kernel_sound mem K')`
 ]
 
 A sound kernel cannot certify a *logically stronger* successor for free
@@ -268,8 +268,12 @@ conclusively-diagnosed *CPU/RAM-bound computation* (tens of GB resident, on
 the order of ten CPU-hours per prerequisite theory), not a logic gap, not a
 porting failure, not faked. The proved negative
 (#cite-thm("kernel/watchdogFiniteScript.sml", "loeb_finite_obstruction"))
-shows finiteness cannot shortcut it — the predicate has no habitat parameter,
-so no finite-habitat reasoning can bear on it.
+shows finiteness cannot shortcut it: with every watchdog fact in hand and a genuine Candle certificate, a kernel that strictly extends Candle's still fails `loeb_reflection`, because it is unsound.
+The principle is stated for one theory and one statement; an earlier form
+quantified the certificate over every theory, which Candle can never satisfy,
+so the theorems carrying it were vacuous (`old_reflection_antecedent_unsatisfiable`).
+Every gate that carries a seam is operational (it installs iff the certifier
+said yes), and each seam has a necessity theorem beside it (`CLAIMS.md` §1, §4, §5).
 
 The other two historically-named seams are *discharged*:
 #seam("encodes_obligation") for the shipped finite watchdog, where its
