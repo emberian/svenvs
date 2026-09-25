@@ -12,7 +12,7 @@
   to preserve the eval-env namespace across the swap.  (The history-PRESERVING
   in-place swap is evalUpgradeB / selfUpgradeEndToEnd / selfUpgradeMultiSwap.)
 
-  Was documentation-only (selfUpgrade/RESET_MODEL.md) because it needs the full
+  Was documentation-only (an unbuilt markdown copy, since retired) because it needs the full
   backendProof chain; promoted here to a checked theory (the selfUpgrade
   Holmakefile already carries backendProof on INCLUDES).
 *)

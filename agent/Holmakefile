@@ -5,10 +5,13 @@ OPTIONS = QUIT_ON_FAILURE
 
 # Regenerate the EVAL-extracted enforcer table from the BUILT
 # toolAgentDecideTheory whenever the theory or the generator changes.
-# The .tsv is a deterministic build artifact, never hand-edited.
+# The .tsv is a deterministic build artifact, never hand-edited. It is ALSO
+# committed: CI (.github/workflows/verify.yml) re-derives it on every push and
+# fails if the committed copy differs, so the copy the Python demo reads is
+# always the one the proofs produced.
 all: embodied/decision_table.tsv
 
 embodied/decision_table.tsv: gen_decision_table.sml toolAgentDecideTheory.uo
-	$(protect $(HOLDIR)/bin/hol) < gen_decision_table.sml > /dev/null
+	$(protect $(HOLDIR)/bin/hol) < gen_decision_table.sml | grep -x GEN_DECISION_TABLE_OK > /dev/null
 
 EXTRA_CLEANS = embodied/decision_table.tsv

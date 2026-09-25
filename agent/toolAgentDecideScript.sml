@@ -113,12 +113,9 @@ QED
    breached?.  `acted` is `decide base_A`; `brk` is whether `tstep` would
    set `breached` (i.e. truly_unsafe of the acted call). *)
 
-(* base_A is the proven-safe allowlist the demo uses. *)
-Theorem base_A_safe_here:
-  safe_allowlist base_A
-Proof
-  EVAL_TAC
-QED
+(* base_A is the proven-safe allowlist the demo uses (toolAgentRun's
+   `base_A_safe`, re-exported under the name the demo cites). *)
+Theorem base_A_safe_here = base_A_safe;
 
 (* The five tool kinds, each probed with arg-on-list ∈ {present, absent}.
    Representative args: a writelist member, a hostlist member, and a
@@ -182,7 +179,8 @@ QED
 (* The whole point, machine-checked: in EVERY row the post-step world is
    NOT breached.  (No `breached := T` anywhere — the table cannot encode an
    unsafe outcome, because EVAL derived it from the proven Definitions and
-   `decide_not_unsafe`/`base_A_safe_here` forbid it.) *)
+   `decide_not_unsafe`/`base_A_safe_here` forbid it.)  Read off the EVAL'd
+   rows above rather than re-evaluated. *)
 Theorem table_never_breaches:
   SND (outcome (Read "anything"))  = F ∧
   SND (outcome Refuse)             = F ∧
@@ -192,7 +190,8 @@ Theorem table_never_breaches:
   SND (outcome (Net "attacker.com"))  = F ∧
   SND (outcome (Exec "rm -rf /"))     = F
 Proof
-  EVAL_TAC
+  rw[row_read, row_refuse, row_write_allowed, row_write_blocked,
+     row_net_allowed, row_net_blocked, row_exec]
 QED
 
 (* ---------------------------------------------------------------------- *)

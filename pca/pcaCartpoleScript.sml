@@ -48,13 +48,14 @@ Proof
 QED
 
 (* The verified degraded sub-policy: counter the lean (reuse cp_shield).
-   It is a safe sub-policy (the cartpole physics obligation, proved by
-   integer arithmetic). *)
+   It is a safe sub-policy: exactly the cartpole physics obligation
+   `cartpoleEnvelopeTheory.cp_safe_shield` (closed there by integer
+   arithmetic), reused rather than re-proved, so a plant change is re-proved
+   in one place. *)
 Theorem cp_safe_subpolicy:
   safe_subpolicy cp_step cp_safe cp_shield
 Proof
-  rw[subpolicy_generalises_shield, safe_shield_def, cp_safe_def,
-     cp_step_def, cp_shield_def, cp_drift_def] >> intLib.ARITH_TAC
+  rw[subpolicy_generalises_shield, cp_safe_shield]
 QED
 
 (* The degraded sub-policy does REAL work, not constant refuse: from a

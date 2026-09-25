@@ -39,45 +39,19 @@
   to the cited LCA model-existence-and-decoding theorem". The residual is
   exactly ingredient (2), supplied by the heavy hol-reflection/lca build.
 
-  The svenvs definitions (kernel_sound, candle_kernel, loeb_reflection) are
-  RESTATED VERBATIM from kernel/kernelUpgradeScript.sml so this theory is
-  self-contained and depends only on the (built) candle semantic theories.
+  The svenvs definitions (kernel_sound, candle_kernel, loeb_reflection) and
+  the base-kernel soundness `candle_kernel_sound` are kernelUpgradeTheory's
+  OWN constants, opened below — not restated copies — so the reduction is
+  about the very `loeb_reflection` the kernel-self-upgrade tower carries.
 *)
 open HolKernel boolLib bossLib BasicProvers
      holSyntaxTheory holSemanticsTheory holSemanticsExtraTheory
-     holSoundnessTheory;
+     holSoundnessTheory kernelUpgradeTheory;
 
 val _ = new_theory "loebReduction";
 
 val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U->bool``;
-
-(* ----------------------------------------------------------------------
-   svenvs kernelUpgradeTheory definitions, restated verbatim.
-   ---------------------------------------------------------------------- *)
-
-Type kernel = ``:thy -> term -> bool``
-
-Definition kernel_sound_def:
-  kernel_sound (^mem) (K:kernel) ⇔
-    ∀thy obl. K thy obl ⇒ (thy,[]) |= obl
-End
-
-Definition candle_kernel_def:
-  candle_kernel (thy:thy) obl ⇔ (thy,[]) |- obl
-End
-
-Definition loeb_reflection_def:
-  loeb_reflection (^mem) (K:kernel) (K':kernel) (sound_stmt:thy->term) ⇔
-    ((∀thy. K thy (sound_stmt thy)) ⇒ kernel_sound ^mem K')
-End
-
-(* Base kernel soundness — this IS proves_sound, no assumption. *)
-Theorem candle_kernel_sound:
-  is_set_theory ^mem ⇒ kernel_sound ^mem candle_kernel
-Proof
-  rw[kernel_sound_def, candle_kernel_def] >> metis_tac[proves_sound]
-QED
 
 (* ----------------------------------------------------------------------
    Ingredient (1): the Candle kernel's certificates are semantically valid.

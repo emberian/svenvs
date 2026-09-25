@@ -17,7 +17,8 @@
       cp_step a u  =  a + cp_drift a - 2*u
 
   This is the classic double-bang pole model, quantised. Cart position is a
-  documented future upgrade axis (see cartpoleUpgradesScript / DESIGN.md).
+  documented future upgrade axis (see cartpoleUpgradesScript /
+  ARCHITECTURE.md § Design reasoning).
 *)
 open HolKernel boolLib bossLib BasicProvers intLib integerTheory;
 
