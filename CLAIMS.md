@@ -11,7 +11,7 @@ labels and a `file : theorem` citation checked against the built sources by
 | **RAN** | Executed on the real verified `cake` binary (Tier 3, persvati): the running kernel echoed `\|- …`. |
 | **TRUSTED-GLUE** | Small, bounded, auditable non-proof code, named in the row that uses it (e.g. the ~10-line lookup harness in `agent/embodied/`, the closed-loop num-encoding transcription in §6). It sits outside every theorem, yet the running system's match to the theorem depends on it, so it is kept small enough to read by eye. |
 | **UNCONSTRAINED** | The inhabitant (the LLM). The `∀`-quantified term; every theorem is *structured* so it can never depend on a fact about it (mechanically checkable). Adversarial/jailbroken is one covered case. The inhabitant may, conversely, *volunteer* a proof from its own substance to earn authority — testimony, never imposed inspection. |
-| **ASSUMED** | An explicit, labeled, literature-standard hypothesis appearing verbatim in source as a `Definition` and a named antecedent — **not** a `cheat`. Exactly one such assumption is genuinely open today: `loeb_reflection` (the LCA wall, §9). The other two named seams — `encodes_obligation`, `frozen_checker_sound` — are **discharged** (§4, §5). Every gate that carries one of these seams is *operational* (it installs iff the certifier said yes), so each seam is load-bearing, and each has a machine-checked necessity theorem showing the conclusion fails without it (§1, §4, §5, §9). An opt-in fourth, `attestation_faithful`, is carried only by the testimony channel, never by the floor (§9). |
+| **ASSUMED** | An explicit, labeled, literature-standard hypothesis appearing verbatim in source as a `Definition` and a named antecedent — **not** a `cheat`. No kernel-upgrade *principle* is assumed: `loeb_reflection` is a derived notion, a consequence of the certifying kernel's soundness plus the encoding seam `encodes_soundness`. What remains open is one **witness not yet constructed** — a Candle derivation together with an LCA-produced `encodes_soundness` certificate for a strictly stronger kernel — beside the theorem that says it suffices (§9). The other two named seams — `encodes_obligation`, `frozen_checker_sound` — are **discharged** (§4, §5). Every gate that carries one of these seams is *operational* (it installs iff the certifier said yes), so each seam is load-bearing, and each has a machine-checked necessity theorem showing the conclusion fails without it (§1, §4, §5, §9). An opt-in fourth, `attestation_faithful`, is carried only by the testimony channel, never by the floor (§9). |
 
 There are **zero `cheat` tactics** anywhere in the repository, zero
 `new_axiom`/`mk_thm`/`mk_oracle_thm`, and zero oracle tags beyond the benign
@@ -34,7 +34,7 @@ end-to-end `svenvs_tower_*` theorems in `integration/`. Build it all with
 > **What "verified" means here.** Exactly the cited theorems and their labeled
 > seams. **Not** verified selfhood, continuity, alignment, welfare, or a safe
 > *inhabitant*. Only the *envelope* is proved sound, modulo the labeled
-> assumptions, of which exactly one (`loeb_reflection`, §9) is open. If "svenvs runs verified" begins to carry more than that, the
+> assumptions, and one soundness witness not yet constructed (§9). If "svenvs runs verified" begins to carry more than that, the
 > extra meaning is the reader's, not the artifact's.
 
 ---
@@ -98,9 +98,10 @@ The obligation is discharged by Candle's **verified inference system** (`|-` =
 |-------|--------|----------|
 | Candle's verified kernel only ever certifies semantically-entailed obligations; the base kernel is sound **unconditionally** (= `proves_sound`). | **PROVED** | `embedded/embeddedGateScript.sml : kernel_admits_is_sound`; `kernel/kernelUpgradeScript.sml : candle_kernel_sound` |
 | The **embedded gate** installs a proposal iff Candle *derived* its obligation term (`kernel_gate`); safety holds for every controller given the faithful encoding, because `proves_sound` makes a derivation valid. Necessity: Candle genuinely derives a term (x = x in the initial context) that does not encode the obligation, and the gate breaches. | **PROVED** | `embedded/embeddedGateScript.sml : embedded_admit_preserves_safety, embedded_admit_installs, embedded_gate_rejects, candle_refl_witness, unfaithful_encoding_can_breach, kernel_admits_sound_certifier, kernel_sound_certifier_iff_gate_safe` |
-| A policy upgrade decided by an **upgraded kernel** `K'` (`kgate`) is safe iff `K'` is sound: a kernel is sound exactly when the gate it drives is safe for every faithfully-encoded proposal; any certificate of a non-valid obligation breaches. | **PROVED** | `kernel/kernelUpgradeScript.sml : upgraded_kernel_preserves_safety, upgraded_kernel_installs, kernel_sound_iff_gate_safe, kernel_unsound_certificate_can_breach` |
+| Soundness is exactly transfer: a kernel's yes transfers to every fact the term faithfully encodes. A policy upgrade decided by an **upgraded kernel** `K'` (`kgate`) is safe iff `K'` is sound: a kernel is sound exactly when the gate it drives is safe for every faithfully-encoded proposal; any certificate of a non-valid obligation breaches. | **PROVED** | `kernel/kernelUpgradeScript.sml : kernel_sound_iff_transfers, sound_kernel_certifies_admissible, upgraded_kernel_preserves_safety, upgraded_kernel_installs, kernel_sound_iff_gate_safe, kernel_unsound_certificate_can_breach` |
+| Kernel self-upgrade needs **no principle**: a Candle derivation of a term encoding `K'`'s soundness makes `K'` sound; a soundness witness suffices — and, the trap stated as a theorem, *having* one is equivalent to `K'` being sound, so the content is the encoding certificate's provenance (§9). | **PROVED** | `kernel/kernelUpgradeScript.sml : encodes_soundness, sound_kernel_lifts_soundness, candle_lifts_soundness, loeb_reflection_from_soundness, witness_suffices, soundness_witness_iff_sound, sound_kernel_encoded_by_every_term` |
 | For the shipped finite watchdog, `encodes_obligation` is **DISCHARGED** (a real ASSUMED→PROVED flip): its consequent is a decidable finite-arithmetic theorem, so the operational embedded gate carries **no** labeled hypothesis. Safety holds on both branches because both watchdog policies are sound — so it holds whichever kernel decides, even an unsound one. | **PROVED** (was ASSUMED) | `kernel/watchdogFiniteScript.sml : wd_encodes_obligation, watchdog_kernel_is_safe_unconditional, watchdog_self_improving_kernel_safe_unconditional` |
-| **Honest negative:** habitat finiteness provably cannot dissolve the Löb obstruction for genuine kernel *strengthening*: with every watchdog fact present and a real Candle certificate, a kernel that extends Candle's and is strictly stronger still fails `loeb_reflection`, because it is unsound. | **PROVED (negative)** | `kernel/watchdogFiniteScript.sml : loeb_finite_obstruction` |
+| **Honest negative:** habitat finiteness provably cannot dissolve the Löb obstruction for genuine kernel *strengthening*: with every watchdog fact and a genuine Candle certificate present, a strictly stronger kernel extending Candle's has no soundness witness at all (it is unsound). Finiteness supplies no witness; it does not refute one for a sound `K'`. | **PROVED (negative)** | `kernel/watchdogFiniteScript.sml : loeb_finite_obstruction` |
 
 ## 5. The self-optimizing prover — improving the verifier itself — PROVED + RAN
 
@@ -185,52 +186,62 @@ explicitly **NOT claimed**. Per-directory ledgers: `inference/*/CLAIMS.md`.
 
 ---
 
-## 9. The honest boundary — the one open cost, and only there
+## 9. The honest boundary — the one witness not yet constructed, and only there
 
-After all of the above, the irreducible residue is **one** labeled
-assumption, isolated to one `Definition` and threaded as an explicit
-antecedent of exactly the theorems that need it:
-
-**`loeb_reflection`** — `kernel/kernelUpgradeScript.sml`:
+After all of the above, the kernel-upgrade layer assumes **no principle**.
+The historically-named seam `loeb_reflection` (`kernel/kernelUpgradeScript.sml`)
 
     loeb_reflection mem K K' thy sound_stmt ⇔
       (K thy sound_stmt ⇒ kernel_sound mem K')
 
-It is stated for one theory and one statement. An earlier form quantified the
-certificate over every theory; Candle derives nothing in a theory that is not
-`theory_ok`, so that antecedent was unsatisfiable and every theorem carrying
-it vacuous (`kernel/kernelUpgradeScript.sml : old_reflection_antecedent_unsatisfiable, old_reflection_was_vacuous`).
-The principle is not a consequence of soundness: Candle certifies a true
-statement while the accept-everything kernel is unsound, so the principle fails
-for that pair; and in the self-upgrade theorem both the reflection principle
-and the Candle certificate are necessary (`kernel/kernelUpgradeScript.sml : reflection_is_not_soundness, certificate_without_reflection_can_breach, reflection_without_certificate_can_breach, self_improving_kernel_is_safe`;
+is now a *derived* notion. It follows from the certifying kernel's soundness
+together with an encoding seam of exactly the kind `encodes_obligation` is,
+
+    encodes_soundness mem thy s K' ⇔ ((thy,[]) |= s ⇒ kernel_sound mem K')
+
+and with a Candle derivation of `s` it yields `kernel_sound mem K'` by plain
+theorem (`kernel/kernelUpgradeScript.sml : encodes_soundness, sound_kernel_lifts_soundness, candle_lifts_soundness, loeb_reflection_from_soundness, witness_suffices, self_improving_kernel_is_safe`;
 composed: `integration/integrationKernelScript.sml : svenvs_tower_with_kernel_upgrade`).
+Soundness itself is exactly transfer — a kernel's yes carries every fact the
+term faithfully encodes (`kernel_sound_iff_transfers`).
+
+**The trap, stated as a theorem.** An encoding seam holds whenever its
+consequent does, so *having* a soundness witness (a Candle derivation plus an
+`encodes_soundness` certificate) is **equivalent** to `K'` being sound
+(`kernel/kernelUpgradeScript.sml : soundness_witness_iff_sound, sound_kernel_encoded_by_every_term`).
+The predicate carries no information beyond soundness; the content is the
+**provenance** of the encoding certificate. The hol-reflection translator
+(`termsem_cert`, and for a strictly stronger kernel the Fallenstein–Kumar LCA
+construction) produces `encodes_soundness` theorems *by construction*, without
+already knowing `K'` sound. What remains open is therefore not a predicate but
+a **construction**: for a strictly stronger `K'`, produce the theory, the term,
+the Candle derivation and the encoding certificate by that route.
+`kernel/loebReduction/loebReductionScript.sml : lca_encodes_soundness, loeb_reflection_from_lca, kernel_self_upgrade_sound_from_lca`
+show that the LCA ingredient `lca_reflects_soundness` supplies exactly the
+encoding half; constructing it is the CPU/RAM-walled `lcaProof` computation
+(tens of GB resident, ~ten CPU-hours per prerequisite theory), not a logic gap,
+not a porting failure, not faked.
 
 A sound kernel cannot certify a *logically stronger* successor for free
-(Gödel/Löb); the principled escape is the stratified large-cardinal route
-(Fallenstein–Kumar). This is the **only** genuinely-open seam. It bites
-**only** the kernel-replacing-*itself*-with-something-stronger move; every
-other self-improvement in this artifact — policy, spec, meta, corrigibility,
-the prover build, a sound *re-engineering or optimization* of the kernel, the
-recursive mutual verifier+compiler loop — is Löb-free and carries no labeled
-assumption. Its discharge from `lcaTheory.LCA_def` via `hol-reflection/lca` is
-a conclusively-diagnosed **CPU/RAM-bound computation** (tens of GB resident,
-~ten CPU-hours per prerequisite theory), not a logic gap, not a porting
-failure, not faked. The proved negative `loeb_finite_obstruction` shows
-finiteness cannot shortcut it. The other two historically-named seams are
+(Gödel/Löb); the principled escape is that stratified large-cardinal route. It
+bites **only** the kernel-replacing-*itself*-with-something-stronger move;
+every other self-improvement in this artifact — policy, spec, meta,
+corrigibility, the prover build, a sound *re-engineering or optimization* of
+the kernel, the recursive mutual verifier+compiler loop — is Löb-free and
+carries no labeled assumption. The other two historically-named seams are
 **discharged**: `encodes_obligation` for the shipped finite watchdog (§4),
 `frozen_checker_sound` for the real Candle build (§5).
 
-**The seam is now a machine-checked *reduction*, not a bare assumption.**
-`kernel/loebReduction/loebReductionScript.sml : loeb_reflection_from_lca`
-*derives* the exact svenvs `loeb_reflection mem candle_kernel K' lca_thy sound_stmt`
-from a single named, cited ingredient — `lca_reflects_soundness` (the
-model-existence + internal→external decoding content the `hol-reflection/lca`
-Fallenstein–Kumar construction supplies) — routing internal provability →
-`proves_sound` → `termsem = True` in the LCA model → decode → external
-`kernel_sound`. Cheat-free, `axioms = []` (built on persvati). So the residue
-is now precisely *the LCA itself* (the CPU/RAM-walled `lcaProof` construction),
-with everything above it discharged in-logic.
+An earlier form of `loeb_reflection` quantified the certificate over every
+theory; Candle derives nothing in a theory that is not `theory_ok`, so that
+antecedent was unsatisfiable and every theorem carrying it vacuous
+(`kernel/kernelUpgradeScript.sml : old_reflection_antecedent_unsatisfiable, old_reflection_was_vacuous`).
+A sound certificate of an unrelated true term encodes nothing about `K'`
+(`reflection_is_not_soundness`), and in the self-upgrade theorem both the
+derivation and the encoding certificate are necessary
+(`kernel/kernelUpgradeScript.sml : certificate_without_reflection_can_breach, reflection_without_certificate_can_breach`).
+The proved negative `loeb_finite_obstruction` (§4) shows finiteness supplies no
+witness.
 
 **Two further items, stated so the count of one is not misread.**
 *Genesis soundness* — `genealogy_sound` needs a sound judge at `n = 0` — is

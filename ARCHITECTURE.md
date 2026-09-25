@@ -35,7 +35,8 @@ the canonical ledger [`CLAIMS.md`](CLAIMS.md); this file does not restate it.
 ### The tower of turtles (what is frozen vs verified-in-HOL4-hence-mutable vs assumed)
 
 ```
-  labeled seams ───── loeb_reflection      : (kernel certifies own successor)  [OPEN — CLAIMS §9]
+  labeled seams ───── encodes_soundness    : faithful encoding of "K' is sound"   [WITNESS NOT YET CONSTRUCTED — CLAIMS §9]
+                       loeb_reflection      : derived from soundness + that seam   [no longer assumed — CLAIMS §9]
                        frozen_checker_sound : hol4_checks p B ⇒ sound B          [DISCHARGED, real Candle — CLAIMS §5]
                        encodes_obligation   : faithful syntactic reflection     [DISCHARGED, finite watchdog — CLAIMS §4]
   ────────────────────────────────────────────────────────────────────────────
@@ -48,8 +49,9 @@ the canonical ledger [`CLAIMS.md`](CLAIMS.md); this file does not restate it.
   ROOT (per tenure)  │  HOL4's LCF kernel    The current judge. Fixed *while it judges* (a proof is
   the current judge  │                        meaningful only vs. some fixed calculus); a successor is
                      │                        adopted only if THIS root certified it. The one move no
-                     │                        sound root can make — certify a logically stronger
-                     │                        successor — is the labeled loeb_reflection seam, by Gödel.
+                     │                        sound root can make for free — certify a logically
+                     │                        stronger successor — needs an LCA-built encoding
+                     │                        certificate, by Gödel (CLAIMS §9).
 ```
 
 Every mutable layer self-improves, each gated by the layer below, all
@@ -61,8 +63,8 @@ is replaced by "sound once at genesis, certified forward". The asymmetry that ma
 self-improvement sound: the frozen root vouches for a *different, mutable*
 artifact (its soundness is a HOL4 theorem about that artifact) — that is
 **not** a system vouching for itself, so it needs **no** reflection
-principle. Löb bites **only** the kernel-replacing-*itself* seam (the
-separate, already-labeled `loeb_reflection`), not this one.
+principle. Löb bites **only** the kernel-replacing-*itself* move (the
+soundness witness of CLAIMS §9), not this one.
 
 ## Design reasoning
 
@@ -125,7 +127,8 @@ self-trust / reflection-of-provability results in hol-reflection/lca).
   obligation is embedded provability checked by the Candle kernel, sound by
   the built `holSoundness` (`embedded/`), and kernel self-upgrade is
   `kernel/` — with genuine logical *strengthening* of the kernel resting on
-  the labeled `loeb_reflection` (the `hol-reflection/lca` route). The
+  an LCA-constructed soundness witness (the `hol-reflection/lca` route,
+  CLAIMS §9); `loeb_reflection` itself is derived, not assumed. The
   inhabitant's real language is PureLang (`pure/DESIGN.md`, `pureverified/`).
 
 ## Reproduce / verify
