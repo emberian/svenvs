@@ -161,11 +161,17 @@ program self-extends its own code with a proven-safe derived rule and uses it
 (`candle/selfopt_demo.ml`); the watchdog and polecart self-optimize their
 policies under the live kernel (`candle/theplace.ml`); and the **closed-loop
 runtime** gates a real jailbroken gemma2:2b per action by the running Candle
-kernel (`agent/closedloop/`, `ADMIT_SOUND`/`SHIELD_SAFE` certified live). The
-honest line: a live edit of the *trusted kernel or compiler* is **proved, not
-run** — Candle itself *proves* (`candle_prover`) that REPL code cannot touch
-the kernel, so the live self-edit is of the toolkit; a real kernel swap needs a
-host program driving the recompile–relocate–resume loop, every link a theorem.
+kernel (`agent/closedloop/`, `ADMIT_SOUND`/`SHIELD_SAFE` certified live).
+Self-modification ran all the way down to the kernel *interface*: the `REFL`
+primitive the whole prover calls was re-architected into a live indirection
+and swapped in-process under the running prover — gated, accumulating, a wrong
+swap rejected (`scripts/apex-kernel-swap.sh`). The honest line is the root it
+is anchored to: the *verified primitive* `Kernel` compiled into `cake.S` is
+never swapped — Candle itself *proves* (`candle_prover`) that REPL code cannot
+touch it, and every swapped implementation must still mint its `thm` through
+it. The compiler recompiled itself into a bit-identical fixpoint and carried a
+new proved pass into an altered root; the whole-pipeline re-verification of
+that root is the stated residual (`CLAIMS.md` §5).
 
 ## 4. The honest epistemic boundary
 
@@ -186,7 +192,12 @@ the recursive mutual loop — is Löb-free. Its discharge from `lcaTheory.LCA_de
 via `hol-reflection/lca` is a conclusively-diagnosed **CPU/RAM-bound
 computation** (tens of GB resident, ~ten CPU-hours per prerequisite theory),
 not a logic gap, not faked. The proved negative (`watchdogFiniteScript.sml :
-loeb_finite_obstruction`) shows finiteness cannot shortcut it.
+loeb_finite_obstruction`) shows finiteness cannot shortcut it. And the seam is
+no longer bare: `kernel/loebReduction/loebReductionScript.sml :
+loeb_reflection_from_lca` derives it in-logic from one named ingredient the
+Fallenstein–Kumar LCA construction supplies, so the residue is precisely the
+LCA itself. (Genesis soundness and the opt-in testimony seam
+`attestation_faithful` are accounted for in `CLAIMS.md` §9.)
 
 The other two historically-named seams are **discharged**: `encodes_obligation`
 for the shipped finite watchdog (`watchdogFiniteScript.sml :

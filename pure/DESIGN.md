@@ -30,7 +30,7 @@ that the realisation path is end-to-end verified.
 ## 1. Why PureLang (not gexpr, not bare HOL)
 
 `cartpoleProgramScript`'s `gexpr`/`geval` is, per the project's own
-`DESIGN.md` and the `svenvs-real-embedding-plan` memory, a **spec
+design notes (`../ARCHITECTURE.md` § Design reasoning), a **spec
 skeleton**: a bespoke mini-language in *meta* HOL4 with a hand-written
 evaluator. It exercises the proof-carrying control structure but is *not*
 the artifact and must not be extended.
@@ -42,9 +42,8 @@ PureLang is the natural real inhabitant language because:
   not a re-embedding we maintain.
 - It has a **verified compiler to CakeML** (`~/dev/pure/compiler/`,
   `pure_to_cake_correct`), and CakeML is the verified runtime the Candle
-  prover executes on (see memory `hol-reflection-build-chain`,
-  `candle-arm64-macos-feasible`). So a PureLang inhabitant has a
-  *machine-checked* path from source to the very machine running the
+  prover executes on (pins and build chain: `../scripts/INSTALL.md`).
+  So a PureLang inhabitant has a *machine-checked* path from source to the very machine running the
   self-verifying kernel.
 - Its observable behaviour is an **interaction tree** over FFI/`Act`
   effects (`pure_semantics$itree_of`), which is exactly the right shape
@@ -197,8 +196,7 @@ Reading the arc:
    (`itree_rel`) is produced by the compiled CakeML, and stays
    `safe_itree`. So the behaviour the safety argument talks about is the
    behaviour the verified compiler emits.
-4. **CakeML → metal.** The CakeML verified backend (not built here; see
-   memory `candle-arm64-macos-feasible`) carries the CakeML itree
+4. **CakeML → metal.** The CakeML verified backend (not built here) carries the CakeML itree
    semantics to the actual machine — the same machine the Candle prover
    (which checks the inhabitant's self-improvement proofs) runs on.
 

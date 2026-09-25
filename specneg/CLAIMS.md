@@ -1,8 +1,8 @@
 # specneg/CLAIMS.md — spec-level negotiation, the honest ledger
 
-Skeptic-facing ledger for the `specneg/` layer, using the same four honesty
-labels as the top-level `../CLAIMS.md` (PROVED / TRUSTED-GLUE / UNCONSTRAINED /
-ASSUMED).
+Skeptic-facing ledger for the `specneg/` layer, using the honesty labels
+defined in the top-level `../CLAIMS.md` (PROVED / RAN / TRUSTED-GLUE /
+UNCONSTRAINED / ASSUMED).
 
 **Headline honesty statement for this layer:** every row below is
 **PROVED**, unconditionally, in pure light HOL4, reusing the built generic

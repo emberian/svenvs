@@ -1,6 +1,6 @@
 # CLAIMS — the corrigibility floor (a decidable, non-lock-in spec)
 
-Per-directory ledger; honesty labels (**PROVED** / **TRUSTED-GLUE** /
+Per-directory ledger; honesty labels (**PROVED** / **RAN** / **TRUSTED-GLUE** /
 **UNCONSTRAINED** / **ASSUMED**) are defined in the root `CLAIMS.md`. Every
 `file : theorem` citation below is checked against the built signatures by
 `scripts/verify-claims.sh`. Pure light HOL4 (core + `liberty` only); zero

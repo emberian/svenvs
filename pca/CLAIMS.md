@@ -1,7 +1,8 @@
 # pca/CLAIMS.md — proof-carrying actions: the honest proven/assumed split
 
 A skeptic-facing ledger for the `pca/` layer. Same honesty labels as the
-top-level `CLAIMS.md` (PROVED / TRUSTED-GLUE / UNCONSTRAINED / ASSUMED).
+top-level `../CLAIMS.md` (PROVED / RAN / TRUSTED-GLUE / UNCONSTRAINED /
+ASSUMED).
 
 **Zero `cheat` / `new_axiom` / `mk_thm` / `mk_oracle_thm` / oracle.** Verified
 by the repo cheat-scan pattern on `pca/*.sml` (empty) and by inspecting the
