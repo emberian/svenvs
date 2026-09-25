@@ -1,48 +1,48 @@
 (*
-  loebReduction — reducing svenvs' single open assumption `loeb_reflection`
-  to the NAMED, cited Large-Cardinal reflection theorem of hol-reflection/lca
-  (Fallenstein–Kumar), with the actual semantic chain done in-logic.
+  loebReduction — where a soundness WITNESS for an upgraded kernel K' comes
+  from: the Large-Cardinal reflection construction of hol-reflection/lca
+  (Fallenstein–Kumar), with the semantic chain done in-logic.
+
+  kernelUpgradeTheory reduces kernel self-upgrade to a witness
+    soundness_witness mem K' ⇔
+      ∃thy s. candle_kernel thy s ∧ encodes_soundness mem thy s K'
+  and proves (soundness_witness_iff_sound) that the PREDICATE is equivalent
+  to K' being sound: an encoding seam (|= s ⇒ Q) holds whenever Q already
+  does. So the content is not the predicate but the PROVENANCE of the
+  encoding half. This theory says where that half comes from.
 
   WHAT THIS IS / IS NOT
   ---------------------
-  This theory is PURE candle-semantics HOL4. It does NOT discharge the LCA
-  itself: the discharge is the 137 KB `lcaProofTheory.intermediate_thm` +
-  `lcaLib.build_master_theorem` construction, CPU/RAM-walled (tens of GB
-  resident, ~CPU-hours per prerequisite theory — CLAIMS.md §9), deferred to the
-  dedicated build host and NOT required to exhibit this reduction.
+  PURE candle-semantics HOL4. It does NOT discharge the LCA itself: that is
+  the 137 KB `lcaProofTheory.intermediate_thm` + `lcaLib.build_master_theorem`
+  construction, CPU/RAM-walled (tens of GB resident, ~CPU-hours per
+  prerequisite theory — CLAIMS.md §9), and NOT required for this reduction.
 
-  What it DOES, machine-checked and cheat-free (no cheat / mk_thm / new_axiom):
-  it exhibits the EXACT semantic reduction. The single genuinely-open svenvs
-  assumption `loeb_reflection` is DERIVED from two named, cited ingredients of
-  hol-reflection:
+  What it DOES, machine-checked and cheat-free: the witness splits into
 
-    (1) `provable_imp_eq_true`  (reflectionTheory) — re-proved here as
-        `kernel_proves_satisfied` directly from candle's `proves_sound`: an
-        obligation the base (Candle) kernel certifies is satisfied in EVERY
-        model of the theory;
+    (1) the DERIVATION half, `candle_kernel lca_thy s` — a Candle proof in
+        the LCA theory; its semantic force is `kernel_proves_satisfied`
+        (reflectionTheory.provable_imp_eq_true, re-derived here from
+        candle's `proves_sound`): a certified term holds in EVERY model;
 
-    (2) `lca_decodes_soundness` (the LCA hypothesis) — the LCA-provided model
-        of `lca_ctxt` is one in which the internal soundness statement
-        `sound_stmt`, when it holds (termsem = True), DECODES to the real,
-        external proposition `kernel_sound mem K'`. This is precisely the
-        content `lcaProofTheory.intermediate_thm` + `build_master_theorem`
-        supply (a reflected predicate φ instantiated at the encoding of
-        `kernel_sound mem K'`). Here it is a NAMED HYPOTHESIS, not a cheat.
+    (2) the ENCODING half, `encodes_soundness mem lca_thy s K'`, which
+        `lca_encodes_soundness` DERIVES from the ingredient
+        `lca_reflects_soundness`: a model of lca_thy (intermediate_thm,
+        valid under LCA (SUC l)) in which s being true DECODES to the
+        external `kernel_sound mem K'` (the termsem certificate of
+        build_master_theorem for the reflected predicate φ = the encoding
+        of `kernel_sound mem K'`). The translator produces that decoding by
+        construction, from the syntax of φ, not from knowing K' sound; for
+        a strictly stronger K' the model must come from the LCA.
 
-  The reduction theorem `loeb_reflection_from_lca` then routes:
-       base kernel certifies sound_stmt in lca_thy    (loeb_reflection antecedent)
-    ⇒ sound_stmt is satisfied in the LCA model        (proves_sound, ingredient 1)
-    ⇒ kernel_sound mem K'                             (decoding, ingredient 2 = LCA)
-  giving `kernel_sound mem K'`, i.e. `loeb_reflection`.
+  `kernel_self_upgrade_sound_from_lca` puts the halves together into a
+  witness and soundness of K'. The residue is exactly: CONSTRUCT
+  lca_reflects_soundness (and the derivation) for a strictly stronger K' by
+  the lca route.
 
-  This turns "loeb_reflection is open" into "loeb_reflection reduces, in-logic,
-  to the cited LCA model-existence-and-decoding theorem". The residual is
-  exactly ingredient (2), supplied by the heavy hol-reflection/lca build.
-
-  The svenvs definitions (kernel_sound, candle_kernel, loeb_reflection) and
-  the base-kernel soundness `candle_kernel_sound` are kernelUpgradeTheory's
-  OWN constants, opened below — not restated copies — so the reduction is
-  about the very `loeb_reflection` the kernel-self-upgrade tower carries.
+  The svenvs definitions (kernel_sound, candle_kernel, encodes_soundness,
+  soundness_witness, loeb_reflection) are kernelUpgradeTheory's OWN
+  constants, opened below — not restated copies.
 *)
 open HolKernel boolLib bossLib BasicProvers
      holSyntaxTheory holSemanticsTheory holSemanticsExtraTheory
@@ -79,88 +79,87 @@ QED
 (* ----------------------------------------------------------------------
    Ingredient (2): the LCA reflection-and-decoding hypothesis (CITED).
 
-   This packages exactly what hol-reflection/lca's master theorem provides for
-   the reflected predicate φ = (encoding of) `kernel_sound mem K'`:
+   This packages what hol-reflection/lca's master theorem provides for the
+   reflected predicate φ = (encoding of) `kernel_sound mem K'`:
 
      - there is a model `lca_model` of theory `lca_thy` (from
        `intermediate_thm`, valid under LCA (SUC l)); and
-     - in that model, with valuation `lca_val`, the internal soundness statement
+     - in that model, with valuation `lca_val`, the internal statement
        `sound_stmt` being satisfied DECODES to the external truth
-       `kernel_sound mem K'`  (the termsem-cert / decoding step of
+       `kernel_sound mem K'` (the termsem-cert / decoding step of
        `build_master_theorem`).
 
-   We state it as a predicate so it is a NAMED antecedent, never a cheat. *)
+   Like every encoding seam its last conjunct is met trivially by a K'
+   already known sound (kernelUpgradeTheory.sound_kernel_encoded_by_every_term);
+   its value is that the lca construction PRODUCES it without that
+   knowledge. It is a named antecedent, never a cheat. *)
 
 Definition lca_reflects_soundness_def:
   lca_reflects_soundness (^mem) (K':kernel) (sound_stmt:term)
                          (lca_thy:thy) lca_model lca_val ⇔
-    (* the LCA-provided object IS a model of the LCA theory *)
     lca_model models lca_thy ∧
     is_valuation (tysof (sigof lca_thy)) (tyaof lca_model) lca_val ∧
-    (* and in it, the soundness statement decoding to external soundness:
-       if sound_stmt is satisfied (termsem = True) in this model under this
-       valuation, then K' is really, externally, sound. *)
     (termsem (tmsof (sigof lca_thy)) lca_model lca_val sound_stmt = True
        ⇒ kernel_sound ^mem K')
 End
 
 (* ----------------------------------------------------------------------
-   THE REDUCTION (the real one).
-
-   Given:
-     - is_set_theory mem,
-     - the base kernel certifies sound_stmt in the LCA theory
-       (the antecedent of loeb_reflection at thy = lca_thy),
-     - the LCA reflection-and-decoding hypothesis,
-   we DERIVE kernel_sound mem K' by routing through proves_sound into the LCA
-   model and then decoding. No cheat, real semantic work via termsem.
+   The ENCODING half, derived: a model in which s decodes to K''s soundness
+   makes s encode K''s soundness. If (lca_thy,[]) |= s then s is satisfied
+   in every model of lca_thy, in particular in lca_model at lca_val, so
+   termsem = True there, and the decoding gives kernel_sound mem K'.
    ---------------------------------------------------------------------- *)
 
+Theorem lca_encodes_soundness:
+  lca_reflects_soundness ^mem K' sound_stmt lca_thy lca_model lca_val ⇒
+  encodes_soundness ^mem lca_thy sound_stmt K'
+Proof
+  rw[lca_reflects_soundness_def, encodes_soundness_def] >>
+  `lca_model satisfies (sigof lca_thy,[],sound_stmt)`
+    by fs[entails_def] >>
+  `termsem (tmsof (sigof lca_thy)) lca_model lca_val sound_stmt = True`
+    by (qpat_x_assum `_ satisfies _` mp_tac >>
+        simp[satisfies_def] >> disch_then (qspec_then `lca_val` mp_tac) >>
+        simp[]) >>
+  metis_tac[]
+QED
+
+(* The two halves: the derivation half plus the LCA-derived encoding half
+   give K' sound (via kernelUpgradeTheory.candle_lifts_soundness). *)
 Theorem kernel_sound_from_lca:
   is_set_theory ^mem ∧
   candle_kernel lca_thy sound_stmt ∧
   lca_reflects_soundness ^mem K' sound_stmt lca_thy lca_model lca_val ⇒
   kernel_sound ^mem K'
 Proof
-  rpt strip_tac >>
-  full_simp_tac std_ss [lca_reflects_soundness_def] >>
-  (* (1): the certified soundness statement is satisfied in the LCA model *)
-  `lca_model satisfies (sigof lca_thy,[],sound_stmt)`
-    by metis_tac[kernel_proves_satisfied] >>
-  (* unfold `satisfies` at empty hyps; it gives termsem = True for EVERY
-     valuation; instantiate at lca_val (an is_valuation by hypothesis). *)
-  `termsem (tmsof (sigof lca_thy)) lca_model lca_val sound_stmt = True`
-    by (qpat_x_assum `_ satisfies _` mp_tac >>
-        simp[satisfies_def] >> disch_then (qspec_then `lca_val` mp_tac) >>
-        simp[]) >>
-  (* (2): decode in the LCA model to external soundness *)
-  metis_tac[]
+  metis_tac[lca_encodes_soundness, candle_lifts_soundness]
 QED
 
-(* And the headline: `loeb_reflection` for the base = candle kernel, in the
-   LCA theory, FOLLOWS from the LCA reflection-and-decoding hypothesis.
-   This is svenvs' single open assumption, reduced in-logic to the cited LCA
-   master theorem: the loeb_reflection antecedent (a Candle certificate of
-   sound_stmt in lca_thy) is exactly what kernel_sound_from_lca consumes. *)
+(* The derived reading `loeb_reflection` in the LCA theory, from the LCA
+   ingredient alone: the ingredient yields the encoding half, and the base
+   kernel's soundness (proves_sound) turns any Candle derivation of the
+   term into K''s soundness (kernelUpgradeTheory.loeb_reflection_candle). *)
 Theorem loeb_reflection_from_lca:
   is_set_theory ^mem ∧
   lca_reflects_soundness ^mem K' sound_stmt lca_thy lca_model lca_val ⇒
+  encodes_soundness ^mem lca_thy sound_stmt K' ∧
   loeb_reflection ^mem candle_kernel K' lca_thy sound_stmt
 Proof
-  rw[loeb_reflection_def] >>
-  metis_tac[kernel_sound_from_lca]
+  metis_tac[lca_encodes_soundness, loeb_reflection_candle]
 QED
 
-(* End-to-end into svenvs' upgrade chain: the reflection hypothesis
-   `kernel_self_upgrade_sound` needs is SUPPLIED by the LCA reduction, and a
-   Candle certificate in the LCA theory then yields soundness of K'. *)
+(* End-to-end: the LCA ingredient plus a Candle derivation in the LCA
+   theory are a soundness WITNESS for K', and K' is sound. *)
 Theorem kernel_self_upgrade_sound_from_lca:
   is_set_theory ^mem ∧
   lca_reflects_soundness ^mem K' sound_stmt lca_thy lca_model lca_val ∧
   candle_kernel lca_thy sound_stmt ⇒
-  kernel_sound ^mem K'
+  soundness_witness ^mem K' ∧ kernel_sound ^mem K'
 Proof
-  metis_tac[loeb_reflection_from_lca, kernel_self_upgrade_sound]
+  strip_tac >>
+  ‘soundness_witness ^mem K'’
+    by (rw[soundness_witness_def] >> metis_tac[lca_encodes_soundness]) >>
+  metis_tac[witness_suffices]
 QED
 
 val _ = export_theory ();

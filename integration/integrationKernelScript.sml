@@ -8,9 +8,11 @@
 
   This crown is separated only because its slice pulls the Tier-2 Candle
   set-theoretic semantics (it is NOT pure HOL4 like integrationScript).
-  It carries kernelUpgrade's labelled `loeb_reflection` and
-  `encodes_obligation` hypotheses VERBATIM — the honest gap is in the
-  theorem statement, exactly as in the slice, never hidden.
+  It carries kernelUpgrade's two encoding seams, `encodes_soundness` and
+  `encodes_obligation`, plus the Candle derivation, VERBATIM — the
+  honest gap (the soundness witness for K') is in the theorem statement,
+  exactly as in the slice, never hidden. No reflection principle is
+  assumed.
 *)
 open HolKernel boolLib bossLib BasicProvers
      specNegTheory kernelUpgradeTheory;
@@ -21,19 +23,21 @@ val mem = ``mem:'U->'U->bool``;
 val _ = new_theory "integrationKernel";
 
 (* The kernel-self-upgrade crown reaches the fixed meta-invariant, for
-   any inhabitant, under exactly kernelUpgrade's labelled seams
-   (loeb_reflection + encodes_obligation) — carried verbatim. The policy
-   upgrade is decided by the upgraded kernel K' through the operational
-   gate `kgate`, so every hypothesis is load-bearing: the Candle
-   certificate and loeb_reflection make K' sound
+   any inhabitant, given a soundness witness for K' (a Candle derivation of
+   s in sthy with encodes_soundness) and the obligation encoding — carried
+   verbatim. The policy upgrade is decided by the upgraded kernel K' through
+   the operational gate `kgate`, so every hypothesis is load-bearing: the
+   derivation and the soundness encoding make K' sound
    (kernelUpgradeTheory.certificate_without_reflection_can_breach,
    reflection_without_certificate_can_breach), and K''s soundness plus the
-   encoding make its yes safe (kernel_unsound_certificate_can_breach,
+   obligation encoding make its yes safe
+   (kernel_unsound_certificate_can_breach,
    embeddedGateTheory.unfaithful_encoding_can_breach). *)
 Theorem svenvs_tower_with_kernel_upgrade:
   spec_refines curspec meta /\
-  loeb_reflection ^mem candle_kernel K' sthy sound_stmt /\
-  candle_kernel sthy sound_stmt /\
+  is_set_theory ^mem /\
+  candle_kernel sthy s /\
+  encodes_soundness ^mem sthy s K' /\
   encodes_obligation ^mem thy obl step curspec oldp newp /\
   init_safe init curspec /\
   safe_shield step curspec shield /\
