@@ -32,6 +32,10 @@
        guarantee still holds for every inhabitant: maximal autonomy and
        safety simultaneously, no trade-off.
 
+  How often the envelope overrides a controller (at maxpol: exactly on
+  unsafe actions, never along the run of a controller safe on its own) is
+  measured in transparencyScript.sml.
+
   Pure light HOL4 (core deps only); instance-independent, so it is the
   answer for *every* svenvs instance, not one demo. Zero cheats.
 *)
