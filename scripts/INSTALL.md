@@ -1,13 +1,15 @@
 # Prerequisites (pinned)
 
 svenvs proofs were checked against exact upstream versions. Mismatches may
-still work but are unsupported.
+still work but are unsupported. Every pin is a **full commit SHA** (a tag can
+be moved, a short id can collide); `scripts/env.sh` is the machine-readable
+copy and CI compares the checked-out toolchain against it verbatim.
 
 | Component | Pin | Needed for |
 |-----------|-----|------------|
-| PolyML | `v5.9.2` | HOL4 runtime |
-| HOL4 (`HOL-Theorem-Prover/HOL`) | `2faefbd57` | **Tier 1** (everything) |
-| CakeML (`CakeML/cakeml`) | `ac654a0a3`, with `candle/standard/semantics` built | **Tier 2** |
+| PolyML | tag `v5.9.2` = commit `4557554077078decce4ce5f90da00a713cfc32e4` | HOL4 runtime |
+| HOL4 (`HOL-Theorem-Prover/HOL`) | `2faefbd579453cb5d41f840debaa106d431bcd63` | **Tier 1** (everything) |
+| CakeML (`CakeML/cakeml`) | `ac654a0a33de8eef7b85de46d951b9df344d8076`, with `candle/standard/semantics` built | **Tier 2** |
 | Candle (`CakeML/candle`) `cake` binary | x86_64 Linux, via `build-instructions.sh` | **Tier 3** |
 
 ## Minimum (Tier 1 — anyone)
@@ -15,11 +17,13 @@ still work but are unsupported.
 ```bash
 # PolyML
 git clone https://github.com/polyml/polyml && cd polyml \
-  && git checkout v5.9.2 && ./configure --prefix=$HOME/poly \
+  && git checkout 4557554077078decce4ce5f90da00a713cfc32e4 `# tag v5.9.2` \
+  && ./configure --prefix=$HOME/poly \
   && make && make install && export PATH=$HOME/poly/bin:$PATH
 # HOL4
 git clone https://github.com/HOL-Theorem-Prover/HOL ~/dev/HOL && cd ~/dev/HOL \
-  && git checkout 2faefbd57 && poly < tools/smart-configure.sml && bin/build
+  && git checkout 2faefbd579453cb5d41f840debaa106d431bcd63 \
+  && poly < tools/smart-configure.sml && bin/build
 export HOLDIR=~/dev/HOL
 ```
 Then, from the svenvs clone:
@@ -60,7 +64,7 @@ itself (`bin/build`, ~30–60 min).
 
 ```bash
 git clone https://github.com/CakeML/cakeml ~/dev/CakeML && cd ~/dev/CakeML \
-  && git checkout ac654a0a3
+  && git checkout ac654a0a33de8eef7b85de46d951b9df344d8076
 cd ~/dev/CakeML/candle/standard/semantics && CAKEMLDIR=~/dev/CakeML Holmake  # heavy
 export CAKEMLDIR=~/dev/CakeML
 ```

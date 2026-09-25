@@ -52,7 +52,7 @@ jobs:
     runs-on: ubuntu-latest # x86-64 GitHub-hosted runner
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Build the envelope console (verified CakeML -> x86-64 ELF)
         run: |
@@ -79,7 +79,7 @@ jobs:
           fi
 
       - name: Upload as workflow artifact (always)
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
         with:
           name: envelope_console-x86_64-linux
           path: |
