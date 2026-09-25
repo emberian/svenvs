@@ -82,14 +82,19 @@ QED
    kernel instance of the abstract certifier_sound_iff_transfers; the
    theorems below that turn a kernel's yes into a real fact (a soundness
    lift, an admissible upgrade, a safe gate) are instances of it. *)
+(* kernel_sound IS certifier soundness at meaning := entailment
+   (certifierTheory, via embeddedGateTheory's two-argument form). *)
+Theorem kernel_sound_is_sound_certifier:
+  kernel_sound ^mem K0 ⇔ sound_certifier (UNCURRY K0) (kernel_meaning ^mem)
+Proof
+  rw[kernel_sound_def, kernel_soundness_is_sound_certifier]
+QED
+
 Theorem kernel_sound_iff_transfers:
   kernel_sound ^mem K0 ⇔
   ∀thy t P. K0 thy t ∧ ((thy,[]) |= t ⇒ P) ⇒ P
 Proof
-  rw[kernel_sound_def] >> eq_tac >> rpt strip_tac
-  >- metis_tac[]
-  >- (first_x_assum (qspecl_then [‘thy’, ‘obl’, ‘(thy,[]) |= obl’] mp_tac) >>
-      simp[])
+  rw[kernel_sound_def, kernel_soundness_iff_transfers]
 QED
 
 (* ===================================================================== *)
@@ -363,13 +368,7 @@ Theorem kernel_sound_iff_gate_safe:
     ∀ctrl. invariant step init
               (enveloped (kgate K' thy obl oldp newp) shield ctrl) safe
 Proof
-  eq_tac
-  >- metis_tac[upgraded_kernel_preserves_safety]
-  >- (rpt strip_tac >> simp[kernel_sound_iff_transfers] >> rpt strip_tac >>
-      CCONTR_TAC >>
-      ‘¬((thy,[]) |= t)’ by metis_tac[] >>
-      drule_all kernel_unsound_certificate_can_breach >> strip_tac >>
-      metis_tac[])
+  rw[kernel_sound_def, kgate_def, kernel_sound_certifier_iff_gate_safe]
 QED
 
 (* A Candle certificate of an UNRELATED true term encodes nothing about K'.
