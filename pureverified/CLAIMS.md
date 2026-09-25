@@ -112,7 +112,7 @@ Companions, same structure:
    on this (envelope is controller-agnostic — that is the design's
    whole point). What is *not* yet proven is that `read` faithfully
    realises the Place's reactive protocol over the *resumption*
-   structure of `pure_semantics$interp` across ticks (DESIGN.md §3's
+   structure of `pure_semantics$interp` across ticks (`../pure/DESIGN.md` §3's
    `enc`/`dec`/`first_act` threaded coupling). This is a *fidelity*
    gap, not a *safety* gap: a misbehaving coupling can at worst feed
    the policy/shield a `null_act`, which they still gate.

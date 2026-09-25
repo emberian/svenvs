@@ -177,7 +177,8 @@
         <h3>The ledger argues <em>against</em> the marketing</h3>
         <p>
           <code>CLAIMS.md</code> is a skeptic-facing, per-theorem ledger with
-          four labels &mdash; <span class="tag p">PROVED</span>
+          five labels &mdash; <span class="tag p">PROVED</span>
+          <span class="tag p">RAN</span>
           <span class="tag g">TRUSTED-GLUE</span>
           <span class="tag u">UNCONSTRAINED</span>
           <span class="tag a">ASSUMED</span> &mdash; each claim cited as
@@ -562,7 +563,7 @@
       <ul>
         <li><strong>No <code>cheat</code> anywhere.</strong> The one assumption above is an explicit hypothesis in the literature&rsquo;s framing &mdash; not an unsound shortcut. Zero <code>cheat</code> tactics, zero oracles beyond the benign disk tag, machine-enforced on every run.</li>
         <li><strong>Kernel <em>strengthening</em> stays conditional.</strong> Making the kernel&rsquo;s logic genuinely stronger rests on <code>loeb_reflection</code> (G&ouml;del/L&ouml;b, the large-cardinal route) &mdash; a diagnosed compute wall, not a logic gap. <em>Optimizing or re-engineering</em> the kernel soundly is L&ouml;b-free and proved; the negative <code>loeb_finite_obstruction</code> bounds what finiteness can do.</li>
-        <li><strong>A live edit of the trusted kernel/compiler is <em>proved, not run</em>.</strong> Candle itself <em>proves</em> that user REPL code cannot touch the kernel &mdash; so the live self-edit is of the toolkit. A real kernel swap needs a host program driving recompile&ndash;relocate&ndash;resume; every link is a theorem, the act itself not yet executed.</li>
+        <li><strong>The verified kernel primitive is never swapped &mdash; by design.</strong> A kernel-<em>interface</em> primitive (<code>REFL</code>) was swapped in-process under the live prover, gated, on the real binary. The verified <code>Kernel</code> compiled into <code>cake.S</code> stays fixed: Candle itself <em>proves</em> that user REPL code cannot touch it, and every swapped implementation must still mint its theorems through it. That fixed root is the safety, not a gap.</li>
         <li><strong>Verified <em>inference</em> is not claimed.</strong> The model&rsquo;s floating-point compute is unverified by design &mdash; we verify the cage, not the model. A separate research track explores verified inference and is explicitly toy-scale.</li>
         <li><strong>The worlds are small.</strong> Cartpole and the watchdog habitat are deliberately tiny model instances. They demonstrate the architecture; they are not industrial control systems.</li>
       </ul>
@@ -694,7 +695,7 @@ scripts/reproduce.sh      # full tiered reproduction</code></pre>
     </ul>
     <p>
       The full per-theorem ledger is <a href="https://github.com/emberian/svenvs/blob/main/CLAIMS.md"><code>CLAIMS.md</code></a>;
-      layers and epistemic status are in <code>ARCHITECTURE.md</code>. Nothing
+      the layers and design reasoning are in <code>ARCHITECTURE.md</code>. Nothing
       on this page goes beyond what those documents claim &mdash; if it does,
       that is a bug; file it.
     </p>

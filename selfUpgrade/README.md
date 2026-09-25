@@ -41,8 +41,8 @@ from the upgraded state is governed by eval-correctness **at `ci'`**, against
 the real backend. So upgrading to any well-formed `ci'` keeps eval sound — the
 *reset* (checkpoint-restart, heap-preserving) model, for free from
 parametricity. Plus `eval_upgrade_ffi`/`eval_upgrade_refs` (heap untouched) and
-`eval_upgrade_idem` (successive upgrades compose). Now a checked theory (was
-documentation-only in `RESET_MODEL.md`); ancestors `backendProof`.
+`eval_upgrade_idem` (successive upgrades compose). A checked theory (an
+earlier unbuilt markdown copy has been retired); ancestors `backendProof`.
 
 ## IMPLEMENT+EXPOSE — the concrete op (`evalUpgradeOpScript.sml`)
 
@@ -152,9 +152,14 @@ All `DISK_THM`, no oracles/axioms. (Tier-2; built on persvati.)
 
 ## Remaining for the full running self-upgrade
 
-1. **Implement+expose:** the running binary's eval is `EvalDecs` with the
-   compiler pinned and the `Install` op handled *inside* `cake.S` (no FFI seam).
-   A real in-place swap needs a new core eval op (`do_eval_upgrade`, replacing
-   `eval_state.compiler`) whose correctness is the keystone above — a core
-   semantics change that re-proves the compiler, exposed via the `Repl` module.
-2. **Re-bootstrap** a root that carries the op.
+1. **Implement+expose — done at the `EvalOracle` level** (section above):
+   `do_eval_record_gen` is a concrete `custom_do_eval` and `repl_upgrade` the
+   exposed entry point, with no core-semantics edit. The running binary's
+   eval is `EvalDecs`, with one fixed `dec_s.compiler`; carrying the op
+   there is step 2.
+2. **Re-bootstrap** a root that carries the op — **built**, not yet run as
+   a self-upgrading `--repl` session: the patched bootstrap compiler
+   translates into `compiler64ProgTheory` and self-compiles to a working
+   `cake`, but interactive `--repl` on self-compiled cakes is env-blocked in
+   this candle package, and the altered binary is not re-verified end to end
+   in logic (`SELFUPGRADE_ROOT.md`).

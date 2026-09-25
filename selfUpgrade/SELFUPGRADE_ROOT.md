@@ -54,7 +54,7 @@ is preserved** across it (`RESULT=99` for `a=2,b=6,c=10,d=100,e=99`).
 
 ## What was achieved, and the honest boundary (definitively diagnosed)
 
-**Built and verified at the compiler level.** The self-upgrade is proven (the 48
+**Built and verified at the compiler level.** The self-upgrade is proven (the 34
 `selfUpgrade` theorems, all `DISK_THM`). The patch **translates cleanly into the
 verified compiler program** `compiler64ProgTheory` — the compiler now contains
 the per-generation self-upgrade logic. The altered compiler **self-compiles to a

@@ -35,17 +35,15 @@ available via **Actions → Deploy site to GitHub Pages → Run workflow**.
 To take it down, disable Pages in Settings → Pages, or remove
 `.github/workflows/pages.yml`.
 
-Until step 3 is done by a human, the workflow is inert.
-
 ## Honesty note
 
 The copy mirrors the repository's epistemic status exactly: the core,
 cartpole, LLM-agent, base Candle-kernel soundness, and the live-certified
-Place are stated as unconditional and machine-checked; kernel self-upgrade
-and the reflection seam are stated as conditional on two explicit, labelled
-assumptions (`loeb_reflection`, `encodes_obligation`) that are not yet
-discharged end-to-end. No claim on the page exceeds `ARCHITECTURE.md` /
-`DESIGN.md`. The Gemma transcript is labelled as an illustrative run in the
+Place are stated as unconditional and machine-checked; genuine kernel
+*strengthening* is stated as conditional on the one open labelled
+assumption, `loeb_reflection`, with the other two named seams
+(`encodes_obligation`, `frozen_checker_sound`) shown as discharged. No claim
+on the page exceeds `CLAIMS.md`, the canonical ledger. The Gemma transcript is labelled as an illustrative run in the
 exact format `agent/embodied/embodied_demo.py` produces — wording of the
 model's lines varies per sample; the envelope verdict and
 `breached_ever=False` are what the theorem guarantees.

@@ -66,9 +66,12 @@ retracts.
 
 ## 2. The ledger, and the ledger's ledger
 
-`CLAIMS.md` is a skeptic-facing, per-theorem ledger with four labels:
+`CLAIMS.md` is a skeptic-facing, per-theorem ledger with five labels
+(defined in its opening table):
 
 - **PROVED** — a machine-checked theorem, cited `file : theorem`.
+- **RAN** — executed on the real verified `cake` binary, the running kernel
+  echoing `|- …`.
 - **TRUSTED-GLUE** — small, bounded, auditable non-proof code, named.
 - **UNCONSTRAINED** — the inhabitant: the `∀`-quantified term, the proof
   *structured so it can never depend on a fact about it* (mechanically
@@ -161,20 +164,26 @@ itself, on its own terms, or stays silent and loses nothing.
 
 ## 7. Where the irreducible costs are (and only there)
 
-After all of the above, the honest residue is exactly three things — each
-labelled in the source, none hidden, none new, none dischargeable by
-cleverness:
+After all of the above, the honest residue is **one** open labelled
+assumption, plus two items named so that count is not misread — none
+hidden, none new, none dischargeable by cleverness (`CLAIMS.md` §9 is the
+canonical statement):
 
-1. **Genesis soundness.** Some judge at `n = 0` must be sound, and by
-   Gödel a judge cannot prove its own soundness. This is the single root
-   assumption; it is exactly the *built* Candle soundness theorem
-   (`holSoundnessTheory.proves_sound`) at the base.
-2. **Logical strengthening of the judge** — `loeb_reflection`, the
-   Löb/large-cardinal seam; discharged for the finite/non-strengthening
-   cases, irreducible in general (§5), genuinely compute-bound (the
+1. **Logical strengthening of the judge** — `loeb_reflection`, the
+   Löb/large-cardinal seam and the one open assumption; discharged for the
+   finite/non-strengthening cases, irreducible in general (§5), reduced
+   in-logic to the LCA construction itself
+   (`kernel/loebReduction/loebReductionScript.sml :
+   loeb_reflection_from_lca`), genuinely compute-bound (the
    `hol-reflection/lca` route), and *labelled*, never smuggled.
-3. **Attestation faithfulness** — the §6 seam, opt-in, only ever the
-   price of *extra* authority the inhabitant chose to ask for.
+2. **Genesis soundness.** Some judge at `n = 0` must be sound, and by
+   Gödel a judge cannot prove its own soundness. This is not a labelled
+   `Definition`: at the base it is exactly the *built* Candle soundness
+   theorem (`holSoundnessTheory.proves_sound`), the LCF trust every row
+   already rests on.
+3. **Attestation faithfulness** — the §6 seam, a labelled `Definition` but
+   opt-in: only ever the price of *extra* authority the inhabitant chose to
+   ask for, never an antecedent of the floor.
 
 Everything else is proved outright, Mac-light, with zero `cheat`
 tactics, zero oracle tags beyond the benign disk tag, zero added axioms.
@@ -185,8 +194,10 @@ tactics, zero oracle tags beyond the benign disk tag, zero added axioms.
   labelled assumption + the proved honest negative. The heavy
   `hol-reflection/lca` construction is a compute wall, autonomous, and
   may not complete on available hardware. We do not pretend otherwise.
-- The concrete real-Candle-source replay and the live-Candle closed-loop
-  demo are dedicated-host work, not claimed done here.
+- The concrete real-Candle replay (`selfproverConcrete/`) and the live
+  closed loop (`agent/closedloop/`) are done, but on the dedicated host:
+  they are Tier 2/3 and reproduce only where CakeML/Candle is built
+  (`CLAIMS.md` §5, §6).
 - The verified-inference track is a *separate research axis*; it does not
   compose into `svenvs_tower_*` and is not claimed to.
 
