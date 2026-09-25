@@ -242,7 +242,8 @@ residual (`CLAIMS.md` §5).
 
 The per-theorem ledger (`CLAIMS.md`) classifies every claim as *PROVED* (a
 machine-checked theorem), *RAN* (executed on the real `cake` binary),
-*UNCONSTRAINED* (the inhabitant — the $forall$-quantified term, theorems
+*TRUSTED-GLUE* (small, bounded, auditable non-proof code, named in the row
+that uses it), *UNCONSTRAINED* (the inhabitant — the $forall$-quantified term, theorems
 structured never to depend on it; it may *volunteer* a proof from its own
 substance to earn authority — testimony, never imposed inspection), or
 *ASSUMED* (an explicit, labeled, literature-standard hypothesis appearing
