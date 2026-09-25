@@ -35,7 +35,12 @@ that this is a *reduction* to a faithful `home`, and the runnable plant is a
 This is the legible front door to the larger artifact, which is the same gate
 — *an action is admitted iff it carries a proof the actor cannot forge* —
 instantiated all the way down: policy, spec, meta-invariant, prover build,
-and the proof-checker itself.
+and the proof-checker itself. That sameness is itself a theorem: one
+certifier theory (`certifierScript.sml`) proves soundness ⇔ transfer ⇔
+gate-safety ⇔ stream-safety once, and every layer's gate is an instance of
+it, each with the counterexample that shows its seam is load-bearing; the
+envelope is characterized (viability makes the gate an iff) and transparent
+(at the maximal policy it intervenes exactly on unsafe actions).
 
 **What "verified" means here — load-bearing, not preface:** exactly the
 cited theorems and their labeled seams — **not** verified selfhood,
