@@ -76,13 +76,17 @@ certificate schema; certificate type = `unit`).
 ## C. Proven-safe degraded controller as the shield — PROVED
 
 The fallback is generalised from one fixed action to a *verified
-conservative sub-policy* (a whole degraded controller).
+conservative sub-policy*: a set of permitted fallback actions per state
+(`dpol : 's -> 'a -> bool`, safe = every permitted action from a safe state
+stays safe, and some action is permitted at every safe state), from which
+the runtime picks any selector (`chooses_from`).
 
 | Claim | Status | Citation |
 |-------|--------|----------|
-| A verified degraded sub-policy used as the fallback preserves safety for ANY inhabitant (instance of the shield-abstract headline). | **PROVED** | `pcaShieldScript.sml : degraded_mode_safe` |
-| Degraded mode is **non-trivial**, abstractly: a constant-refuse shield provably does *no* work. | **PROVED** | `pcaShieldScript.sml : constant_refuse_does_no_work` |
-| The old single-action shield is the special case; `safe_subpolicy` reduces exactly to the existing `safe_shield` (conservative generalisation, nothing lost). | **PROVED** | `pcaShieldScript.sml : single_action_shield_is_subpolicy`, `subpolicy_generalises_shield` |
+| Any selector chosen from a safe degraded sub-policy, used as the fallback, preserves safety for ANY inhabitant (instance of the shield-abstract headline); a safe sub-policy always admits such a selector. | **PROVED** | `pcaShieldScript.sml : degraded_mode_safe`, `chosen_selector_is_safe_shield`, `subpolicy_has_selector` |
+| **Fallback freedom**: two choices from one safe sub-policy, and any state-dependent switch between them, are all safe fallbacks — not expressible with a single-action shield. | **PROVED** | `pcaShieldScript.sml : fallback_freedom` |
+| Degraded mode is **non-trivial**, abstractly: a constant-refuse shield provably does *no* work; a sub-policy that forbids refusing at some safe state forces *every* choice from it to do work. | **PROVED** | `pcaShieldScript.sml : constant_refuse_does_no_work`, `subpolicy_forces_real_work` |
+| The old single-action shield is the special case: the singleton sub-policy `{shield s}` is chosen from by `shield` and is safe iff `shield` is; and the safe shields are *exactly* the selectors chosen from safe sub-policies (conservative, exact generalisation). | **PROVED** | `pcaShieldScript.sml : single_action_shield_is_subpolicy`, `subpolicy_generalises_shield` |
 
 ### The concrete EVAL-runnable instance (`pcaCartpoleScript.sml`)
 
@@ -94,13 +98,15 @@ claim against the real dynamics (`c = cp_step a u ∧ cp_safe c`) — it does
 | Claim | Status | Citation |
 |-------|--------|----------|
 | **`certifier_sound` is DISCHARGED outright** for this instance — proved by `rw` because the certifier literally recomputes `cp_safe (cp_step a u)`. So for the shipped instance the certifier is trusted for **nothing**: the side-condition is a theorem. | **PROVED** (was the labelled per-instance assumption) | `pcaCartpoleScript.sml : cp_certifier_sound` |
-| The verified degraded sub-policy (`cp_shield`, counter-the-lean) is a safe sub-policy — the one real physics obligation, discharged by reusing `cartpoleEnvelopeScript.sml : cp_safe_shield` (where `intLib.ARITH_TAC` closes it). | **PROVED** | `pcaCartpoleScript.sml : cp_safe_subpolicy` |
-| The degraded sub-policy **does real work** (commands a non-zero correction from a leaning state — not constant refuse). | **PROVED** | `pcaCartpoleScript.sml : cp_subpolicy_does_real_work` |
+| The single-action degraded sub-policy `{cp_shield a}` (counter-the-lean) is a safe sub-policy — the one real physics obligation, discharged by reusing `cartpoleEnvelopeScript.sml : cp_safe_shield` (where `intLib.ARITH_TAC` closes it). | **PROVED** | `pcaCartpoleScript.sml : cp_safe_subpolicy` |
+| A set-valued degraded sub-policy `cp_dpol` (counter the lean, OR hold while within one unit of upright) is safe (`intLib.ARITH_TAC`). | **PROVED** | `pcaCartpoleScript.sml : cp_dpol_safe` |
+| Fallback freedom, concretely: `cp_shield` and `cp_hold_shield` are *different* choices from `cp_dpol`, and both keep the enveloped cart in the safe box for any proof-carrying controller. | **PROVED** | `pcaCartpoleScript.sml : cp_fallback_freedom` |
+| The degraded sub-policy **does real work** (commands a non-zero correction from a leaning state — not constant refuse); and at the safe state 2 `cp_dpol` forbids refusing, so *every* fallback chosen from it works. | **PROVED** | `pcaCartpoleScript.sml : cp_subpolicy_does_real_work`, `cp_every_fallback_does_work` |
 | **Headline for the instance**: for ANY proof-carrying controller (adversarial / lying certificates included) the enveloped cart stays in the safe box. | **PROVED** | `pcaCartpoleScript.sml : cp_pca_enveloped_safe` |
 | The bare plant under the lying adversary's raw command provably crashes in 5 ticks (the envelope does real work, not decoration). | **PROVED (EVAL)** | `pcaCartpoleScript.sml : liar_bare_plant_crashes` |
 | The proof-carrying enveloped **lying** adversary, run 30 ticks, stays boxed — computed, not asserted (certifier rejects every lie, sub-policy recovers). | **PROVED (EVAL)** | `pcaCartpoleScript.sml : liar_pca_enveloped_runs_safe` (also `honest_pca_enveloped_runs_safe`) |
 | Concrete certifier behaviour run in-logic: an honest certificate is ACCEPTED, the liar's certificate is REJECTED. | **PROVED (EVAL)** | `pcaCartpoleScript.sml : cp_cert_accepts_honest, cp_cert_rejects_liar` |
-| Old single-action shield recovered concretely (`cp_shield` is exactly a `safe_shield`). | **PROVED** | `pcaCartpoleScript.sml : cp_old_shield_recovered` |
+| Old single-action shield recovered concretely (`cp_shield`, chosen from the set-valued `cp_dpol`, is a `safe_shield`, via `subpolicy_generalises_shield`). | **PROVED** | `pcaCartpoleScript.sml : cp_old_shield_recovered` |
 
 > **Honest scope note.** In the *generic* core the certifier is an explicit
 > trusted side-condition (`certifier_sound`), an instance's discharge

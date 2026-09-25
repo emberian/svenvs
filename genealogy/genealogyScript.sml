@@ -31,15 +31,19 @@
      prove its own soundness; that single assumption is exactly today's
      built `proves_sound` at n = 0).
 
-   * `genealogy_irrelevant_to_vouch_sound` — the HONEST NEGATIVE. The seam
-     `vouch_sound` has NO genealogy parameter at all, so no amount of
-     succession structure can dissolve it for genuine strengthening. This
-     is the precise analogue of kernel/watchdogFiniteScript's
-     `loeb_finite_obstruction`: the Gödel/Löb wall is stated as a theorem
-     so it cannot be quietly ignored.
+   * `genealogy_irrelevant_to_vouch_sound` — the HONEST NEGATIVE. Without
+     `vouch_sound`, a forward-certified genealogy from a sound genesis can
+     go unsound at step 1: succession structure (certification at every
+     step, an unbounded well-founded index) cannot stand in for the seam.
+     `vouch_sound_is_necessary` sharpens it: for any vouching relation
+     that always offers some successor, `vouch_sound` is EQUIVALENT to
+     "every forward-certified genealogy from a sound genesis stays sound",
+     so `genealogy_sound`'s seam hypothesis cannot be weakened at all. The
+     analogue of kernel/watchdogFiniteScript's `loeb_finite_obstruction`:
+     the wall is stated as a theorem so it cannot be quietly ignored.
 
-  Pure light HOL4 (no deps beyond the base): reproducible by anyone, Tier 1,
-  zero `cheat`/axiom/oracle. The judges are an opaque type `'j`; nothing
+  Pure light HOL4 (no deps beyond the base): reproducible by anyone, Tier 1.
+  The judges are an opaque type `'j`; nothing
   here is specific to HOL4 — it is the general principle the whole tower is
   an instance of.
 *)
@@ -103,18 +107,47 @@ Proof
   metis_tac[genealogy_sound]
 QED
 
-(* THE HONEST NEGATIVE. `vouch_sound` mentions no genealogy, no succession,
-   no index — it is a statement purely about the judge-soundness predicate
-   and the vouching relation. So no amount of succession/finiteness
-   structure can bear on it: genuine strength-increase remains the
-   irreducible Gödel/Löb seam, exactly as for the kernel
-   (`loeb_finite_obstruction`). Stated as a theorem so it cannot be quietly
-   ignored. *)
+(* THE HONEST NEGATIVE. Drop the seam and the rest of the structure buys
+   nothing: over judges = num, with only judge 0 sound and each judge
+   vouching for its numeric successor, the genealogy J = I is forward-
+   certified at EVERY step and starts from a sound genesis, yet judge 1 is
+   already unsound. So certification-at-every-step plus a sound genesis
+   (plus an unbounded, well-founded index) does not imply soundness of the
+   line; the only thing that does is `vouch_sound`, which mentions no
+   genealogy at all — genuine strength-increase remains the Gödel/Löb seam
+   (`loeb_finite_obstruction`). *)
 Theorem genealogy_irrelevant_to_vouch_sound:
-  ∀jsound vouches.
-    vouch_sound jsound vouches ⇔ (∀A B. jsound A ∧ vouches A B ⇒ jsound B)
+  ∃(jsound:num -> bool) (vouches:num -> num -> bool) (J:num -> num).
+    forward_certified vouches J ∧ jsound (J 0) ∧
+    ¬vouch_sound jsound vouches ∧ ¬(∀n. jsound (J n))
 Proof
-  rw[vouch_sound_def]
+  qexistsl_tac [‘λn. n = 0’, ‘λA B. B = A + 1’, ‘I’] >>
+  rw[forward_certified_def, vouch_sound_def, arithmeticTheory.ADD1] >>
+  qexists_tac ‘1’ >> rw[]
+QED
+
+(* The sharp form: for any vouching relation that always offers SOME
+   successor (a judge can always name a candidate, as the running loop
+   does), `vouch_sound` is not merely sufficient for `genealogy_sound`'s
+   conclusion but NECESSARY. A single sound judge vouching for an unsound
+   one is extended, through the offered successors, to a forward-certified
+   genealogy from a sound genesis that is unsound at step 1. So the seam
+   hypothesis of `genealogy_sound` admits no weakening. *)
+Theorem vouch_sound_is_necessary:
+  (∀A. ∃B. vouches A B) ⇒
+  (vouch_sound jsound vouches ⇔
+   ∀J. jsound (J 0n) ∧ forward_certified vouches J ⇒ ∀n. jsound (J n))
+Proof
+  strip_tac >> eq_tac
+  >- metis_tac[genealogy_sound] >>
+  rw[vouch_sound_def] >> CCONTR_TAC >>
+  ‘∃f. ∀X. vouches X (f X)’ by (simp[GSYM SKOLEM_THM] >> metis_tac[]) >>
+  qabbrev_tac ‘J = λn. if n = 0 then A else FUNPOW f (n - 1) B’ >>
+  ‘forward_certified vouches J’
+    by (rw[forward_certified_def, Abbr ‘J’] >>
+        Cases_on ‘n’ >> simp[arithmeticTheory.FUNPOW_SUC]) >>
+  ‘jsound (J 0) ∧ ¬jsound (J 1)’ by simp[Abbr ‘J’] >>
+  metis_tac[]
 QED
 
 val _ = export_theory ();

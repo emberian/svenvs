@@ -14,9 +14,11 @@
     - what is PROVED for ANY controller / ANY certificate stream: the
       enveloped cart never leaves the safe box (pca_safety_preservation).
 
-  The degraded fallback is the verified counter-the-lean sub-policy
-  (`cp_shield`), shown to do real work (not constant refuse), with the old
-  single-action view recovered.
+  The degraded fallback is chosen from a verified set-valued sub-policy
+  (`cp_dpol`: counter the lean, or hold while nearly upright); two different
+  choices from it (`cp_shield`, `cp_hold_shield`) are both safe fallbacks,
+  every choice from it does real work (not constant refuse), and the old
+  single-action view is recovered.
 
   Everything is run inside the logic with EVAL.
 *)
@@ -47,15 +49,15 @@ Proof
   rw[certifier_sound_def, cp_cert_ok_def]
 QED
 
-(* The verified degraded sub-policy: counter the lean (reuse cp_shield).
-   It is a safe sub-policy: exactly the cartpole physics obligation
-   `cartpoleEnvelopeTheory.cp_safe_shield` (closed there by integer
-   arithmetic), reused rather than re-proved, so a plant change is re-proved
-   in one place. *)
+(* The verified degraded sub-policy, single-action form: counter the lean
+   (the singleton {cp_shield a}). It is a safe sub-policy: exactly the
+   cartpole physics obligation `cartpoleEnvelopeTheory.cp_safe_shield`
+   (closed there by integer arithmetic), reused rather than re-proved, so a
+   plant change is re-proved in one place. *)
 Theorem cp_safe_subpolicy:
-  safe_subpolicy cp_step cp_safe cp_shield
+  safe_subpolicy cp_step cp_safe (λa u. u = cp_shield a)
 Proof
-  rw[subpolicy_generalises_shield, cp_safe_shield]
+  metis_tac[single_action_shield_is_subpolicy, cp_safe_shield]
 QED
 
 (* The degraded sub-policy does REAL work, not constant refuse: from a
@@ -67,6 +69,56 @@ Proof
   rw[cp_shield_def, cp_drift_def]
 QED
 
+(* A genuinely set-valued degraded sub-policy: counter the lean, OR hold
+   (command 0) while the pole is within one unit of upright. *)
+Definition cp_dpol_def:
+  cp_dpol (a:int) (u:int) ⇔ u = cp_drift a ∨ (-1 ≤ a ∧ a ≤ 1 ∧ u = 0)
+End
+
+(* A second, lazier fallback chosen from it: hold when nearly upright. *)
+Definition cp_hold_shield_def:
+  cp_hold_shield (a:int) = if -1 ≤ a ∧ a ≤ 1 then 0 else cp_drift a
+End
+
+Theorem cp_dpol_safe:
+  safe_subpolicy cp_step cp_safe cp_dpol
+Proof
+  rw[safe_subpolicy_def, cp_dpol_def, cp_safe_def, cp_step_def,
+     cp_drift_def] >> intLib.ARITH_TAC
+QED
+
+(* Fallback freedom, concretely: counter-the-lean and hold-when-upright are
+   DIFFERENT choices from the one safe sub-policy, and both are safe
+   fallbacks for any proof-carrying controller. *)
+Theorem cp_fallback_freedom:
+  chooses_from cp_safe cp_dpol cp_shield ∧
+  chooses_from cp_safe cp_dpol cp_hold_shield ∧
+  cp_shield ≠ cp_hold_shield ∧
+  ∀pcc. invariant cp_step cp_init
+          (pca_enveloped cp_cert_ok cp_shield pcc) cp_safe ∧
+        invariant cp_step cp_init
+          (pca_enveloped cp_cert_ok cp_hold_shield pcc) cp_safe
+Proof
+  ‘chooses_from cp_safe cp_dpol cp_shield ∧
+   chooses_from cp_safe cp_dpol cp_hold_shield’
+    by (rw[chooses_from_def, cp_dpol_def, cp_shield_def, cp_hold_shield_def] >>
+        Cases_on ‘-1 ≤ s ∧ s ≤ 1’ >> simp[]) >>
+  ‘cp_shield ≠ cp_hold_shield’
+    by (rw[FUN_EQ_THM] >> qexists_tac ‘1’ >>
+        rw[cp_shield_def, cp_hold_shield_def, cp_drift_def]) >>
+  metis_tac[fallback_freedom, cp_init_safe, cp_certifier_sound, cp_dpol_safe]
+QED
+
+(* Non-triviality at the sub-policy level: at the safe state 2 the
+   sub-policy forbids refusing, so EVERY fallback chosen from it works. *)
+Theorem cp_every_fallback_does_work:
+  chooses_from cp_safe cp_dpol choose ⇒ does_real_work choose 0
+Proof
+  strip_tac >>
+  ‘cp_safe 2 ∧ ¬cp_dpol 2 0’ by rw[cp_dpol_def, cp_safe_def, cp_drift_def] >>
+  metis_tac[subpolicy_forces_real_work]
+QED
+
 (* THE HEADLINE for this instance: for ANY proof-carrying controller (any
    stream of (command,certificate) pairs, adversarial included), the
    enveloped pole cart stays in the safe box. *)
@@ -75,7 +127,7 @@ Theorem cp_pca_enveloped_safe:
           (pca_enveloped cp_cert_ok cp_shield pcc) cp_safe
 Proof
   metis_tac[degraded_mode_safe, cp_init_safe, cp_certifier_sound,
-            cp_safe_subpolicy]
+            cp_safe_subpolicy, single_action_shield_is_subpolicy]
 QED
 
 (* ---------- run it inside the logic ---------- *)
@@ -147,11 +199,11 @@ Proof
 QED
 
 (* Subsumption, concretely: the old single-action shield view is recovered
-   — cp_shield is exactly a safe_shield. *)
+   — cp_shield, chosen from the set-valued sub-policy, is a safe_shield. *)
 Theorem cp_old_shield_recovered:
   safe_shield cp_step cp_safe cp_shield
 Proof
-  metis_tac[cp_safe_subpolicy, subpolicy_generalises_shield]
+  metis_tac[cp_dpol_safe, cp_fallback_freedom, subpolicy_generalises_shield]
 QED
 
 val _ = export_theory ();

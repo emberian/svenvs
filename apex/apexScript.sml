@@ -27,7 +27,7 @@
   trusted *kernel's own code* (compiled into cake.S, perms_ok-protected) — that
   needs a proven kernel-modified cake.S (in-logic re-verification). See CLAIMS.md.
 
-  PROVED; pure light HOL4; no `cheat`.
+  PROVED; pure light HOL4.
 *)
 open HolKernel boolLib bossLib BasicProvers
      genealogyTheory recursiveImprovementTheory;
@@ -48,12 +48,69 @@ Proof
   rpt strip_tac >> Induct_on ‘n’ >> rw[] >> metis_tac[]
 QED
 
+(* ---- THE APEX AS A GENEALOGY ------------------------------------------ *)
+(* A generation is a (prover, compiler) pair. The Apex JUDGE of a generation:
+   its prover is sound and its compiler is correct. The Apex VOUCHING from
+   generation A to B: the prover advanced by a gate-certified step (`vstep`)
+   and the compiler is A's compiler recompiling some source. *)
+Definition apex_sound_def:
+  apex_sound psound cake_correct g ⇔ psound (FST g) ∧ cake_correct (SND g)
+End
+
+Definition apex_vouch_def:
+  apex_vouch vstep compiles A B ⇔
+    vstep (FST A) (FST B) ∧ ∃src. SND B = compiles (SND A) src
+End
+
+(* The Apex's two cited facts (prover steps preserve soundness; CakeML
+   recompilation preserves correctness) are exactly what makes the Apex
+   vouching SOUND for the Apex judge: the genealogy's seam. *)
+Theorem apex_vouch_sound:
+  (∀A B. vstep A B ⇒ (psound A ⇒ psound B)) ∧
+  (∀c src. cake_correct c ⇒ cake_correct (compiles c src)) ⇒
+  vouch_sound (apex_sound psound cake_correct) (apex_vouch vstep compiles)
+Proof
+  rw[vouch_sound_def, apex_sound_def, apex_vouch_def] >> metis_tac[]
+QED
+
+(* The Apex succession (prover line advancing by `vstep`, compiler line by
+   self-recompilation of `csrc n`) is FORWARD-CERTIFIED for the Apex
+   vouching: the genealogy's other condition. *)
+Theorem apex_forward_certified:
+  (∀n. vstep (FST (Gen n)) (FST (Gen (SUC n)))) ∧
+  (∀n. SND (Gen (SUC n)) = compiles (SND (Gen n)) (csrc n)) ⇒
+  forward_certified (apex_vouch vstep compiles) Gen
+Proof
+  rw[forward_certified_def, apex_vouch_def] >> metis_tac[]
+QED
+
+(* The Apex IS a genealogy: under exactly `apex_generations_safe`'s
+   hypotheses, the Apex vouching is sound for the Apex judge, the Apex
+   succession is forward-certified for it, and so (by `genealogy_sound`,
+   genesis = generation 0) every generation is Apex-sound. *)
+Theorem apex_is_a_genealogy:
+  (∀A B. vstep A B ⇒ (psound A ⇒ psound B)) ∧
+  (∀n. vstep (FST (Gen n)) (FST (Gen (SUC n)))) ∧
+  psound (FST (Gen 0n)) ∧
+  (∀c src. cake_correct c ⇒ cake_correct (compiles c src)) ∧
+  (∀n. SND (Gen (SUC n)) = compiles (SND (Gen n)) (csrc n)) ∧
+  cake_correct (SND (Gen 0n)) ⇒
+  vouch_sound (apex_sound psound cake_correct) (apex_vouch vstep compiles) ∧
+  forward_certified (apex_vouch vstep compiles) Gen ∧
+  ∀n. apex_sound psound cake_correct (Gen n)
+Proof
+  strip_tac >>
+  ‘vouch_sound (apex_sound psound cake_correct) (apex_vouch vstep compiles)’
+    by metis_tac[apex_vouch_sound] >>
+  ‘forward_certified (apex_vouch vstep compiles) Gen’
+    by metis_tac[apex_forward_certified] >>
+  ‘apex_sound psound cake_correct (Gen 0)’ by rw[apex_sound_def] >>
+  metis_tac[genealogy_sound]
+QED
+
 (* ---- THE CAPSTONE: every generation is sound prover + correct compiler -- *)
-(* A generation is a (prover, compiler) pair. The prover line advances by
-   gate-certified sound steps (each preserves soundness — the genealogy /
-   selfOptimize discharge, Löb-free for optimization); the compiler line
-   advances by self-recompilation that preserves correctness (CITED). Then the
-   whole unbounded, path-dependent succession keeps BOTH invariants. *)
+(* The whole unbounded, path-dependent succession keeps BOTH invariants:
+   the Apex genealogy's conclusion, unfolded. *)
 Theorem apex_generations_safe:
   (* PROVER line — gate-certified sound steps (CITED: kernelMod sound_extension) *)
   (∀A B. vstep A B ⇒ (psound A ⇒ psound B)) ∧
@@ -66,18 +123,10 @@ Theorem apex_generations_safe:
   (* ⇒ every generation: sound prover AND correct compiler, for ANY path *)
   ∀n. psound (FST (Gen n)) ∧ cake_correct (SND (Gen n))
 Proof
-  rpt strip_tac >> Induct_on ‘n’ >> rw[] >> metis_tac[]
-QED
-
-(* The same conclusion, recognised as an instance of the proved genealogy spine:
-   with the soundness judge "this generation has a sound prover and a correct
-   compiler", the Apex succession is `genealogy_sound`. *)
-Theorem apex_is_a_genealogy:
-  vouch_sound jsound vouches ∧ jsound (Gen 0n) ∧
-  forward_certified vouches Gen ⇒
-  ∀n. jsound (Gen n)
-Proof
-  metis_tac[genealogy_sound]
+  strip_tac >> gen_tac >>
+  ‘apex_sound psound cake_correct (Gen n)’
+    by metis_tac[apex_is_a_genealogy] >>
+  fs[apex_sound_def]
 QED
 
 val _ = export_theory ();
