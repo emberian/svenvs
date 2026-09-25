@@ -3,23 +3,27 @@
 #   build fueledSem/fueledBridge -> check_fueled -> export datatypes +
 #   functions (HOL4 -> HOL Light script) -> private place-server -> load the
 #   45 datatypes -> load the function cone -> gate smoke test (and, with
-#   --ouroboros, one gated self-fed ouroboros generation) -> print the
-#   kernel's verdict lines -> stop the server.
+#   --ouroboros, the gated self-fed multi-generation ouroboros loop of
+#   candle/ouroboros.ml, at most N generations with --generations N) ->
+#   print the kernel's verdict lines -> stop the server.
 #
-#   scripts/reflectsem-live.sh [--ouroboros] [--keep-server]
+#   scripts/reflectsem-live.sh [--ouroboros [--generations N]] [--keep-server]
 #
 # Needs HOL4 + a built CakeML (semantics, semantics/ffi, misc/cakeml-heap,
 # basis/pure) and the Candle binary (scripts/env.sh locations). Every wait
 # is bounded; every failure is loud and stops the run.
 . "$(dirname "$0")/env.sh"
 
-OURO=0; KEEP=0
-for a in "$@"; do
-  case "$a" in
+OURO=0; KEEP=0; GENS=""
+while [ $# -gt 0 ]; do
+  case "$1" in
     --ouroboros) OURO=1 ;;
+    --generations) shift; GENS="${1:-}"
+      case "$GENS" in ''|*[!0-9]*) die "--generations needs a positive integer" ;; esac ;;
     --keep-server) KEEP=1 ;;
-    *) die "reflectsem-live.sh: unknown arg '$a' (--ouroboros | --keep-server)" ;;
+    *) die "reflectsem-live.sh: unknown arg '$1' (--ouroboros [--generations N] | --keep-server)" ;;
   esac
+  shift
 done
 
 require_hol4
@@ -98,22 +102,25 @@ say "kernel verdict lines (smoke, $(( $(tick) - T ))s)"
 awk '/val rs_thm[0-9]* = \|-/{p=1} p{print} /: thm$/{p=0}' "$LOG/smoke.out"
 grep -a 'RS_SMOKE_VERDICT\|val RS_SMOKE_OK' "$LOG/smoke.out"
 
-# ---- 6. optional: one ouroboros generation ---------------------------------------
+# ---- 6. optional: the ouroboros loop ------------------------------------------------
+# The file's last declaration hands the REPL reader to a planner that feeds
+# every generation as self-fed declarations; they all run before the
+# submission's sentinel is read, so submit() returning means the loop is over.
 if [ "$OURO" = 1 ]; then
-  T=$(tick); start=$(wc -c < "$PLACE_LOG")
-  PLACE_SUBMIT_TRIES=900 "$SVENVS_ROOT/scripts/place-submit.sh" "$SVENVS_ROOT/candle/ouroboros.ml" OURO_DONE \
-    > /dev/null || die "ouroboros submission did not complete (see $PLACE_LOG)"
-  # the self-fed declarations run when the REPL next reads: wait for them
-  for _ in $(seq 1 300); do
-    tail -c +$((start + 1)) "$PLACE_LOG" | grep -aq 'val ouro_verdict' && break
-    place_alive || die "the Candle server died during the ouroboros run"
-    sleep 2
-  done
-  tail -c +$((start + 1)) "$PLACE_LOG" | sed 's/\x1b\[[0-9;]*m//g' > "$LOG/ouroboros.out"
-  { grep -a -n -A3 'EXCEPTION\|ERROR:\|Parsing failed' "$LOG/ouroboros.out" || true; } | head -20
+  T=$(tick); OF="$SVENVS_ROOT/candle/ouroboros.ml"
+  if [ -n "$GENS" ]; then
+    OF="$LOG/ouroboros-g$GENS.ml"
+    sed "s/^let ouro_max_gens = [0-9]*;;/let ouro_max_gens = $GENS;;/" "$SVENVS_ROOT/candle/ouroboros.ml" > "$OF"
+    grep -q "^let ouro_max_gens = $GENS;;" "$OF" || die "could not set ouro_max_gens in $OF"
+  fi
+  submit "$OF" OURO_DONE 900 "$LOG/ouroboros.out"
+  ! grep -a -q 'val ouro_plan_failed' "$LOG/ouroboros.out" || die "the ouroboros planner failed (see $LOG/ouroboros.out)"
   say "kernel verdict lines (ouroboros, $(( $(tick) - T ))s)"
-  grep -a 'val ouro_cand_src\|val ouro_bad_src\|val ouro_gate_ok\|val ouro_reject_ok\|val ouro_native_out\|val ouro_verdict' "$LOG/ouroboros.out"
-  grep -a -q 'val ouro_verdict = "OUROBOROS_ONE_GEN_OK' "$LOG/ouroboros.out" || die "no OUROBOROS_ONE_GEN_OK verdict (see $LOG/ouroboros.out)"
+  grep -a 'val ouro_gen_[0-9]*_\(parent_src\|search\|rejections\|ops\|cand_src\|gate_ok\|cost\|native_out\|native_ok\|model\) \|val ouro_improver_[0-9]*_\(proposal\|src\|inv_ok\|gate\|gate_ok\|installed\|rejected\) \|val ouro_costs\|val ouro_final_\|val ouro_verdict' "$LOG/ouroboros.out"
+  say "the last generation's certificate"
+  awk '/val ouro_gen_[0-9]+_thm = \|-/{b=""; p=1} p{b=b $0 "\n"} /: thm$/{if(p)last=b; p=0} END{printf "%s", last}' "$LOG/ouroboros.out"
+  grep -a -q 'val ouro_verdict = "OUROBOROS_OK' "$LOG/ouroboros.out" || die "no OUROBOROS_OK verdict (see $LOG/ouroboros.out)"
+  ok "OUROBOROS_OK ($(( $(tick) - T ))s)"
 fi
 
 ok "reflectsem live run complete ($(( $(tick) - T0 ))s total); logs in $LOG"
