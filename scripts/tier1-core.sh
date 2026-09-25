@@ -37,6 +37,7 @@ build_dir(){
 
 build_dir "core + cartpole (pure HOL4)" "$SVENVS_ROOT" core \
   system envelope safety sv_weakening upgrade certifier viability \
+  relSystem relEnvelope relViability \
   cartpole cartpoleEnvelope cartpoleUpgrades cartpoleProgram
 
 build_dir "adversarial-LLM tool-agent" "$SVENVS_ROOT/agent" agent \
@@ -65,7 +66,6 @@ fi
 # (scope = every directory built above). Comments are stripped first (a
 # `(* ... *)` block becomes blanks, newlines kept), so prose about cheats
 # cannot trip the gate; only a bare `cheat` tactic in CODE does.
-code_only(){ perl -0777 -pe 's/\(\*.*?\*\)/ my $m = $&; $m =~ s#[^\n]# #g; $m /gse' "$1"; }
 cheats="$(for f in "$SVENVS_ROOT"/*.sml "$SVENVS_ROOT"/agent/*.sml \
             "$SVENVS_ROOT"/agent/closedloop/*.sml "$SVENVS_ROOT"/recursive/*.sml \
             "$SVENVS_ROOT"/selfRecompile/*.sml "$SVENVS_ROOT"/apex/*.sml \

@@ -63,6 +63,11 @@ require_hol4(){
 # A theory is "built" iff Holmake produced its .uo object.
 built(){ [ -f "$1/.hol/objs/${2}Theory.uo" ]; }
 
+# The code of an SML/HOL Light file with every (* ... *) comment blanked out
+# (newlines kept, so line numbers survive). The cheat/oracle gates scan this,
+# so prose about cheats can never trip them.
+code_only(){ perl -0777 -pe 's/\(\*.*?\*\)/ my $m = $&; $m =~ s#[^\n]# #g; $m /gse' "$1"; }
+
 # --- the Place: a persistent Candle server fed over a FIFO -------------------
 # scripts/place-server.sh starts it under $PLACE_DIR and records its process
 # group; scripts/place-submit.sh feeds it; scripts/place-stop.sh stops it by
