@@ -11,10 +11,10 @@
 #     <dir>/.hol/objs/<X>Theory.sig. A theory not built in this run is
 #     SKIPPED with a notice (run a tier/tower build first; --strict turns
 #     skips into failures for full CI).
-#  2. LABELED-ASSUMPTION INTEGRITY. The three labeled assumptions
-#     (loeb_reflection, encodes_obligation, frozen_checker_sound) each
-#     still appear verbatim as a `Definition` in source, and CLAIMS.md
-#     still names all three.
+#  2. LABELED-SEAM INTEGRITY. Every seam the ledger carries
+#     (encodes_obligation, encodes_soundness, frozen_checker_sound,
+#     attestation_faithful) still appears verbatim as a `Definition` in
+#     source, and CLAIMS.md still names each one.
 #  3. CHEAT/ORACLE/AXIOM GATE. No cheat tactic / new_axiom / mk_thm /
 #     mk_oracle_thm in any non-inference, non-excluded *Script.sml/*.ml
 #     (prose mentions of the words are excluded).
@@ -86,8 +86,8 @@ for ledger in $ledgers; do
 done
 [ "$fails" = 0 ] && ok "all cited theorems present ($checked checked, $skipped skipped)"
 
-say "2. Labeled-assumption integrity (the three seams: defined + named)"
-for a in loeb_reflection encodes_obligation frozen_checker_sound; do
+say "2. Labeled-seam integrity (every seam the ledger carries: defined + named)"
+for a in encodes_obligation encodes_soundness frozen_checker_sound attestation_faithful; do
   if grep -rqE "Definition[[:space:]]+${a}_def" --include='*Script.sml' . ; then
     ok "Definition ${a}_def present"
   else
@@ -108,7 +108,6 @@ say "3. Cheat / oracle / axiom gate (non-inference sources)"
 # the build-excluded reflection scaffold.
 cheat_re='(^|[[:space:]>(])cheat([[:space:]]|$|\))|new_axiom|mk_thm|mk_oracle_thm'
 prose_re='cheat-free|`cheat`|[Nn][Oo][Tt]? a cheat|[Nn]o cheat|without cheat'
-code_only(){ perl -0777 -pe 's/\(\*.*?\*\)/ my $m = $&; $m =~ s#[^\n]# #g; $m /gse' "$1"; }
 hits=$(find . \( -name '*Script.sml' -o -name '*.ml' \) -not -path '*/.hol/*' \
          -not -path './inference/*' -not -path './reflection/reflectionDemoScript.sml' \
        | sort | while IFS= read -r f; do

@@ -462,13 +462,4 @@ Proof
   fs[theory_ok_def, is_std_sig_def, finite_mapTheory.FLOOKUP_EMPTY]
 QED
 
-(* Consequently the old principle held for EVERY K', sound or not: it could
-   not have carried any information. *)
-Theorem old_reflection_was_vacuous:
-  ∀K' sound_stmt.
-    (∀thy. candle_kernel thy (sound_stmt thy)) ⇒ kernel_sound ^mem K'
-Proof
-  metis_tac[old_reflection_antecedent_unsatisfiable]
-QED
-
 val _ = export_theory ();

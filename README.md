@@ -37,10 +37,7 @@ This is the legible front door to the larger artifact, which is the same gate
 instantiated all the way down: policy, spec, meta-invariant, prover build,
 and the proof-checker itself. That sameness is itself a theorem: one
 certifier theory (`certifierScript.sml`) proves soundness ⇔ transfer ⇔
-gate-safety ⇔ stream-safety once, and every layer's gate is an instance of
-it, each with the counterexample that shows its seam is load-bearing; the
-envelope is characterized (viability makes the gate an iff) and transparent
-(at the maximal policy it intervenes exactly on unsafe actions).
+gate-safety ⇔ stream-safety once, and every layer's gate is an instance.
 
 **What "verified" means here — load-bearing, not preface:** exactly the
 cited theorems and their labeled seams — **not** verified selfhood,

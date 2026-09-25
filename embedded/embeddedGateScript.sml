@@ -69,7 +69,7 @@ End
 
 (* ANY two-argument kernel's soundness (the shape of kernelUpgradeTheory's
    kernel_sound) is certifier soundness of its uncurrying, and is transfer:
-   certifierTheory.sound_certifier_curried / curried_sound_iff_transfers at
+   certifierTheory.sound_certifier_curried / sound_certifier_iff_transfers at
    meaning := entailment. *)
 Theorem kernel_soundness_is_sound_certifier:
   (∀thy obl. kchk thy obl ⇒ (thy,[]) |= obl) ⇔
