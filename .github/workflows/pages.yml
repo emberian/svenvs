@@ -1,9 +1,8 @@
 # Deploy the svenvs static site to GitHub Pages.
 #
-# INTENTIONALLY PREPARED, NOT YET ACTIVE.
-# This workflow only runs once GitHub Pages is enabled for the repository
-# (Settings -> Pages -> Build and deployment -> Source: "GitHub Actions").
-# Until the maintainer explicitly enables Pages and pushes, nothing deploys.
+# LIVE: GitHub Pages is enabled for the repository (Settings -> Pages ->
+# Source: "GitHub Actions"), so every push to main that touches site/
+# redeploys https://emberian.github.io/svenvs .
 #
 # Least-privilege: read the repo, write only the Pages artifact + id-token.
 
@@ -32,13 +31,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: Configure Pages
-        uses: actions/configure-pages@v5
+        uses: actions/configure-pages@983d7736d9b0ae728b81ab479565c72886d7745b # v5.0.0
 
       - name: Upload static site artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa # v3.0.1
         with:
           path: site
 
@@ -51,4 +50,4 @@ jobs:
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e # v4.0.5

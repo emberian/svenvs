@@ -6,18 +6,29 @@
 #   the runnable cartpole, the adversarial-LLM tool-agent (incl. the EVAL'd
 #   running episodes), and the toy verified-inference kernel are BUILT and
 #   machine-checked by the HOL4 kernel at the pinned commit, with zero `cheat`
-#   tactics anywhere in Tier-1 sources.
+#   tactics anywhere in Tier-1 sources; and the committed enforcer table
+#   agent/embodied/decision_table.tsv is exactly the one EVAL re-derives.
 #
 # WHAT THIS DOES NOT PROVE:
 #   Tiers 2/3 (Candle-kernel-checked layers; the Place live in Candle) and the
-#   discharge of the two explicit labeled assumptions (loeb_reflection,
-#   encodes_obligation) are NOT exercised here — they need heavy/dedicated
-#   infra (CakeML candle chain, a Candle binary, hol-reflection/lca). See
-#   CLAIMS.md / ARCHITECTURE.md. The green check is a Tier-1 credibility
-#   artifact, not an end-to-end unconditional claim.
+#   discharge of the open labeled assumption (loeb_reflection) are NOT
+#   exercised here — they need heavy/dedicated infra (CakeML candle chain, a
+#   Candle binary, hol-reflection/lca). See CLAIMS.md / ARCHITECTURE.md. The
+#   green check is a Tier-1 credibility artifact, not an end-to-end
+#   unconditional claim.
 #
-# Pins (kept in lockstep with scripts/env.sh & scripts/INSTALL.md):
-#   PolyML v5.9.2 ; HOL4 HOL-Theorem-Prover/HOL @ 2faefbd57
+# Pins (kept in lockstep with scripts/env.sh & scripts/INSTALL.md), all by
+# FULL commit SHA — a tag can be moved and a short id can collide:
+#   PolyML  polyml/polyml           tag v5.9.2 = 4557554077078decce4ce5f90da00a713cfc32e4
+#   HOL4    HOL-Theorem-Prover/HOL  2faefbd579453cb5d41f840debaa106d431bcd63
+#   Every GitHub Action below is likewise pinned to a commit SHA; the tag it
+#   corresponds to is in the trailing comment.
+#
+# Cache safety: the PolyML+HOL4 build cache is RESTORED on every event but
+# SAVED only from push / manual runs, never from a pull_request run, so PR
+# code can never seed the cache that main restores. (GitHub already scopes a
+# cache written by a PR to that PR's merge ref; the restore/save split makes
+# the property structural instead of a platform detail.)
 
 name: "Verify (Tier 1: re-prove + cheat scan)"
 
@@ -25,14 +36,15 @@ on:
   push:
     paths-ignore:
       - 'site/**'
-      - '**/*.md'
       - '.github/workflows/pages.yml'
   pull_request:
     paths-ignore:
       - 'site/**'
-      - '**/*.md'
       - '.github/workflows/pages.yml'
   workflow_dispatch: {}
+# *.md is deliberately NOT ignored: the CLAIMS.md ledgers are load-bearing and
+# verify-claims.sh checks them, so a docs-only push is still verified (with a
+# warm cache that is a couple of minutes).
 
 # Least privilege: only read the repository.
 permissions:
@@ -44,10 +56,11 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  # Must match scripts/env.sh. The HOL4 build cache key is derived from these,
-  # so bumping a pin automatically invalidates the cache.
+  # Must match scripts/env.sh. The build-cache key is derived from the two
+  # commit SHAs, so bumping a pin automatically invalidates the cache.
   POLYML_VERSION: v5.9.2
-  HOL4_COMMIT: 2faefbd57
+  POLYML_COMMIT: 4557554077078decce4ce5f90da00a713cfc32e4
+  HOL4_COMMIT: 2faefbd579453cb5d41f840debaa106d431bcd63
 
 jobs:
   tier1:
@@ -56,7 +69,7 @@ jobs:
     timeout-minutes: 90
     steps:
       - name: Checkout svenvs
-        uses: actions/checkout@v5
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
 
       - name: System packages (build deps for PolyML/HOL4)
         run: |
@@ -66,15 +79,16 @@ jobs:
 
       # HOL4 lives at ~/dev/HOL because scripts/env.sh defaults HOLDIR there.
       # The cache holds the built PolyML prefix AND the built HOL4 tree, keyed
-      # on both pins: a hit restores in seconds; a pin bump misses cleanly.
+      # on both pinned commits: a hit restores in seconds; a pin bump misses
+      # cleanly. Restore-only here; the save step below is gated on the event.
       - name: Restore PolyML + HOL4 build cache
         id: hol-cache
-        uses: actions/cache@v5
+        uses: actions/cache/restore@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: |
             ~/poly
             ~/dev/HOL
-          key: hol4-${{ runner.os }}-poly-${{ env.POLYML_VERSION }}-hol-${{ env.HOL4_COMMIT }}-v1
+          key: hol4-${{ runner.os }}-poly-${{ env.POLYML_COMMIT }}-hol-${{ env.HOL4_COMMIT }}-v2
 
       - name: Build PolyML (cache miss only)
         if: steps.hol-cache.outputs.cache-hit != 'true'
@@ -83,6 +97,8 @@ jobs:
           git clone --depth 1 --branch "$POLYML_VERSION" \
             https://github.com/polyml/polyml "$HOME/polyml-src"
           cd "$HOME/polyml-src"
+          # the tag must still name the pinned commit
+          test "$(git rev-parse HEAD)" = "$POLYML_COMMIT"
           ./configure --prefix="$HOME/poly"
           make -j"$(nproc)"
           make install
@@ -99,12 +115,21 @@ jobs:
           poly < tools/smart-configure.sml
           bin/build --nograph
 
+      - name: Save PolyML + HOL4 build cache (never from a pull request)
+        if: steps.hol-cache.outputs.cache-hit != 'true' && github.event_name != 'pull_request'
+        uses: actions/cache/save@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
+        with:
+          path: |
+            ~/poly
+            ~/dev/HOL
+          key: ${{ steps.hol-cache.outputs.cache-primary-key }}
+
       - name: Sanity-check the toolchain
         run: |
           set -euxo pipefail
           export PATH="$HOME/poly/bin:$PATH"
           test -x "$HOME/dev/HOL/bin/Holmake"
-          got="$(git -C "$HOME/dev/HOL" rev-parse --short HEAD)"
+          got="$(git -C "$HOME/dev/HOL" rev-parse HEAD)"
           echo "HOL4 at $got (pinned ${HOL4_COMMIT})"
           test "$got" = "$HOL4_COMMIT"
 
@@ -120,20 +145,37 @@ jobs:
           set -euo pipefail
           export PATH="$HOME/poly/bin:$PATH"
           export HOLDIR="$HOME/dev/HOL"
-          bash scripts/tier1-core.sh 2>&1 | tee /tmp/tier1.log
+          bash scripts/tier1-core.sh 2>&1 | tee "$RUNNER_TEMP/tier1.log"
+
+      # The enforcer table the Python demo reads is committed. Building
+      # agent/ just re-derived it from toolAgentDecideTheory with HOL4 EVAL;
+      # the committed copy must be byte-identical, or the demo would be
+      # enforcing rules the proofs did not produce.
+      - name: Committed decision table matches the table EVAL just re-derived
+        run: |
+          set -euo pipefail
+          if ! git diff --exit-code -- agent/embodied/decision_table.tsv; then
+            echo "::error title=STALE DECISION TABLE::agent/embodied/decision_table.tsv differs from the table HOL4 EVAL just derived from toolAgentDecideTheory. Run Holmake in agent/ and commit the regenerated file."
+            exit 1
+          fi
+          echo "agent/embodied/decision_table.tsv is exactly the table re-derived from the proofs this run."
 
       # Defence in depth: re-run the exact cheat-scan logic from
       # scripts/tier1-core.sh as its own loud, standalone gate, so a real
       # `cheat` tactic fails the build unmissably even if the script's wiring
-      # ever regresses. Prose like "no cheats"/"cheat-free" is excluded; only
-      # a bare `cheat` tactic invocation trips it.
+      # ever regresses. Comments are stripped first (a `(* ... *)` block
+      # becomes blanks, newlines kept), so prose about cheats cannot trip it;
+      # only a bare `cheat` tactic in CODE does. Scope = every directory
+      # tier1-core.sh builds.
       - name: Cheat-scan gate (independent, loud)
         run: |
           set -euo pipefail
-          cheats="$(grep -RnE '(^|[^[:alnum:]_])cheat([^[:alnum:]_]|$)' \
-                      *.sml agent/*.sml inference/mlpInferenceScript.sml 2>/dev/null \
-                    | grep -viE 'no cheat|cheat-free|not a .?cheat|without cheat|EXPLICIT|zero .?cheat|never .*cheat' \
-                    || true)"
+          code_only(){ perl -0777 -pe 's/\(\*.*?\*\)/ my $m = $&; $m =~ s#[^\n]# #g; $m /gse' "$1"; }
+          cheats="$(for f in ./*.sml ./agent/*.sml ./agent/closedloop/*.sml ./recursive/*.sml \
+                      ./selfRecompile/*.sml ./apex/*.sml ./inference/mlpInferenceScript.sml; do
+                      [ -f "$f" ] || continue
+                      { code_only "$f" | grep -nE '(^|[^[:alnum:]_])cheat([^[:alnum:]_]|$)' | sed "s|^|$f:|"; } || true
+                    done)"
           if [ -n "$cheats" ]; then
             echo "::error title=CHEAT TACTIC DETECTED::svenvs Tier-1 sources must be cheat-free"
             echo "$cheats"
@@ -149,13 +191,14 @@ jobs:
       # Every `Script.sml : theorem` the ledger cites must exist in the
       # signature Tier-1 just built; the three labeled seams must still be
       # defined + named; no cheat/oracle/axiom token; the framing must be
-      # current (retired labels absent, UNCONSTRAINED in force). Non-strict: Tier-2/3 theories
-      # not built on this runner are skipped (not failed) by design.
+      # current (retired labels absent, UNCONSTRAINED in force). Non-strict:
+      # Tier-2/3 theories not built on this runner are skipped (not failed)
+      # by design.
       - name: Verify CLAIMS ledger (scripts/verify-claims.sh)
         run: |
           set -euo pipefail
-          bash scripts/verify-claims.sh 2>&1 | tee /tmp/verify-claims.log
-          grep -q 'CLAIMS LEDGER VERIFIED' /tmp/verify-claims.log || {
+          bash scripts/verify-claims.sh 2>&1 | tee "$RUNNER_TEMP/verify-claims.log"
+          grep -q 'CLAIMS LEDGER VERIFIED' "$RUNNER_TEMP/verify-claims.log" || {
             echo "::error title=LEDGER DISCREPANCY::CLAIMS.md overclaims or build is stale"
             exit 1
           }
@@ -169,7 +212,7 @@ jobs:
             if [ "${{ job.status }}" = "success" ]; then
               echo "✅ **Tier 1 RE-PROVED, cheat-free**, from a clean clone on a stock"
               echo "Ubuntu runner, by the HOL4 kernel at pinned \`${HOL4_COMMIT}\`"
-              echo "(PolyML \`${POLYML_VERSION}\`)."
+              echo "(PolyML \`${POLYML_VERSION}\` = \`${POLYML_COMMIT}\`)."
             else
               echo "❌ **Tier-1 verification FAILED** — see the failing step's log."
             fi
@@ -178,10 +221,11 @@ jobs:
             echo "- proof-carrying self-improving-envelope core + runnable cartpole"
             echo "- adversarial-LLM tool-agent, incl. the EVAL'd running episodes"
             echo "- toy verified-inference kernel"
+            echo "- **decision table**: the committed enforcer table is the one EVAL re-derived"
             echo "- **cheat-scan gate**: no \`cheat\` tactic anywhere in Tier-1 sources"
             echo
             echo "_Scope: this proves **Tier 1 only**. Tiers 2/3 and the discharge"
-            echo "of the two labeled assumptions (loeb_reflection, encodes_obligation)"
-            echo "need heavy/dedicated infra and are **not** exercised here. See"
-            echo "CLAIMS.md / ARCHITECTURE.md for the honest epistemic status._"
+            echo "of the open labeled assumption (loeb_reflection) need heavy/dedicated"
+            echo "infra and are **not** exercised here. See CLAIMS.md / ARCHITECTURE.md"
+            echo "for the honest epistemic status._"
           } >> "$GITHUB_STEP_SUMMARY"
