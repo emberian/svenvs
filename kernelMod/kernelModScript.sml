@@ -131,22 +131,25 @@ Proof
   metis_tac[sym_kernel_sound]
 QED
 
-(* Prover self-improvement through the MODIFIED, re-verified kernel preserves
-   safety for every controller — unconditional in the seam (no
-   `frozen_checker_sound` hypothesis: discharged for sym_kernel). *)
+(* Prover self-improvement through the MODIFIED, re-verified kernel: the
+   prover gate installs the proposal iff the frozen root accepted the modified
+   build (hol4_checks_mod) and that build said yes (bcert). Safety for every
+   controller then rests on the modified kernel's faithfulness alone — the
+   `frozen_checker_sound` seam is discharged for sym_kernel above, so it is
+   no hypothesis here; the build's yes is what installs, and its soundness
+   (sym_kernel_sound) is what makes an installed policy admissible. *)
 Theorem prover_self_improvement_is_safe_modified:
-  build_certifies (sound_real (^mem)) sym_kernel step safe oldp newp ∧
+  (bcert ⇒ build_certifies (sound_real (^mem)) sym_kernel step safe oldp newp) ∧
   init_safe init safe ∧
   safe_shield step safe shield ∧
   sound_policy step safe oldp ⇒
   ∀ctrl. invariant step init
-            (enveloped (admit step safe oldp newp) shield ctrl) safe
+            (enveloped (prover_gate hol4_checks_mod p sym_kernel bcert oldp newp)
+                       shield ctrl) safe
 Proof
   rpt strip_tac >>
-  `sound_real (^mem) sym_kernel`
-    by (rw[sound_real_def] >> metis_tac[sym_kernel_sound]) >>
-  `admissible step safe oldp newp` by metis_tac[build_certifies_def] >>
-  irule admit_preserves_safety >> fs[]
+  irule prover_self_improvement_is_safe >>
+  metis_tac[frozen_checker_sound_modified]
 QED
 
 val _ = export_theory ();

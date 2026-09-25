@@ -13,8 +13,8 @@
         ((thy,[]) |= obl ⇒ admissible step safe oldp newp)
 
     kernelUpgradeTheory.loeb_reflection_def
-      loeb_reflection mem K K' sound_stmt ⇔
-        ((∀thy. K thy (sound_stmt thy)) ⇒ kernel_sound mem K')
+      loeb_reflection mem K K' thy sound_stmt ⇔
+        (K thy sound_stmt ⇒ kernel_sound mem K')
 
   In FULL GENERALITY both are genuine seams (the second is irreducibly
   large-cardinal: Gödel/Löb says a sound kernel cannot prove a strictly
@@ -43,12 +43,20 @@
        is finite*: the Löb obstruction is at the PROOF-SYSTEM level and is
        wholly independent of habitat finiteness. This is an honest *limited*
        result — a precise negative for the strengthening case, NOT papered
-       over. See `loeb_finite_obstruction` and the comment block in §B.
+       over. See `loeb_finite_obstruction`: with every watchdog fact
+       present, a strictly stronger kernel extending Candle still fails the
+       reflection principle.
+
+   The gates here are the OPERATIONAL ones (kernel_gate / kgate: install
+   iff the kernel said yes). For the watchdog, safety holds on BOTH
+   branches because wd_oldp and wd_newp are both sound: that is the honest
+   content of the "unconditional" theorems -- the finite discharge makes
+   the proposal safe no matter which kernel decides, even an unsound one.
 
   Pure light HOL4 + the already-BUILT candle chain. Zero `cheat`.
 *)
 open HolKernel boolLib bossLib BasicProvers arithmeticTheory
-     holSyntaxTheory holSemanticsTheory holSoundnessTheory
+     holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSoundnessTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
      upgradeTheory embeddedGateTheory kernelUpgradeTheory;
 
@@ -204,23 +212,28 @@ Proof
   rw[admit_def] >> metis_tac[wd_admissible]
 QED
 
-(* End-to-end for the watchdog, *as the embedded gate would state it* but
-   with the `encodes_obligation` seam DISCHARGED: if the Candle kernel
-   admitted any obligation term at all, the post-upgrade watchdog stays
-   safe for every inhabitant AND the genuine weakening is installed.
-   This is `embedded_admit_preserves_safety` ∧ `embedded_admit_installs`
-   specialised to the watchdog with the seam removed. *)
+(* End-to-end for the watchdog, through the OPERATIONAL embedded gate
+   (install iff Candle derived the obligation term), with the
+   `encodes_obligation` seam DISCHARGED (wd_encodes_obligation): whatever
+   Candle did or did not derive, the post-upgrade watchdog stays safe for
+   every inhabitant; and when Candle derived the obligation, the genuine
+   weakening is installed. Safety here needs no hypothesis because BOTH
+   branches of the gate are sound policies (wd_oldp_sound, wd_newp_sound);
+   it is proved through embedded_admit_preserves_safety to show the
+   discharged seam composing with the real gate. *)
 Theorem watchdog_kernel_is_safe_unconditional:
-  kernel_admits ^mem thy obl ⇒
-  (admit wd_step wd_safe wd_oldp wd_newp = wd_newp) ∧
+  (kernel_admits ^mem thy obl ⇒
+     kernel_gate ^mem thy obl wd_oldp wd_newp = wd_newp) ∧
   (∀ctrl.
      invariant wd_step wd_init
-       (enveloped (admit wd_step wd_safe wd_oldp wd_newp) wd_shield ctrl)
+       (enveloped (kernel_gate ^mem thy obl wd_oldp wd_newp) wd_shield ctrl)
        wd_safe)
 Proof
-  strip_tac >>
-  metis_tac[watchdog_upgrade_installs,
-            watchdog_embedded_gate_safe_unconditional]
+  conj_tac
+  >- metis_tac[embedded_admit_installs, wd_encodes_obligation]
+  >- (strip_tac >> irule embedded_admit_preserves_safety >>
+      metis_tac[wd_encodes_obligation, wd_init_safe, wd_safe_shield,
+                wd_oldp_sound])
 QED
 
 (* ===================================================================== *)
@@ -242,63 +255,70 @@ QED
    exhibit a genuinely stronger kernel — see B3.) *)
 Theorem loeb_reflection_identity_kernel:
   is_set_theory ^mem ⇒
-  loeb_reflection ^mem candle_kernel candle_kernel sound_stmt
+  loeb_reflection ^mem candle_kernel candle_kernel thy sound_stmt
 Proof
   rw[loeb_reflection_def] >> metis_tac[candle_kernel_sound]
 QED
 
-(* (B2) Hence the FULL self-improving-kernel statement of
-   kernelUpgradeTheory.self_improving_kernel_is_safe becomes
-   UNCONDITIONAL for the watchdog WHEN the kernel upgrade is the
-   (sound, non-strengthening) identity and the policy weakening is the
-   discharged watchdog one. Both labelled seams are gone here:
-   `loeb_reflection` via (B1), `encodes_obligation` via (A). *)
+(* (B2) Hence the self-improving-kernel statement of
+   kernelUpgradeTheory.self_improving_kernel_is_safe holds for the watchdog
+   through the operational gate kgate: for the identity kernel upgrade the
+   reflection principle is (B1), the encoding is (A), and self_improving_
+   kernel_is_safe applies whenever Candle certifies a statement. The second
+   conjunct is the honest strengthening: because both watchdog policies are
+   sound, the gate is safe whichever kernel K' decides, sound or not. *)
 Theorem watchdog_self_improving_kernel_safe_unconditional:
-  is_set_theory ^mem ∧
-  (∀thy. candle_kernel thy (sound_stmt thy)) ∧
-  candle_kernel thy obl ⇒
-  ∀ctrl.
-    invariant wd_step wd_init
-      (enveloped (admit wd_step wd_safe wd_oldp wd_newp) wd_shield ctrl)
-      wd_safe
+  (is_set_theory ^mem ∧ candle_kernel sthy sound_stmt ⇒
+   ∀ctrl.
+     invariant wd_step wd_init
+       (enveloped (kgate candle_kernel thy obl wd_oldp wd_newp) wd_shield ctrl)
+       wd_safe) ∧
+  (∀K' ctrl.
+     invariant wd_step wd_init
+       (enveloped (kgate K' thy obl wd_oldp wd_newp) wd_shield ctrl)
+       wd_safe)
 Proof
-  rpt strip_tac >>
-  ‘kernel_sound ^mem candle_kernel’
-    by metis_tac[candle_kernel_sound] >>
-  metis_tac[watchdog_embedded_gate_safe_unconditional]
+  conj_tac
+  >- (rpt strip_tac >> irule self_improving_kernel_is_safe >>
+      metis_tac[loeb_reflection_identity_kernel, wd_encodes_obligation,
+                wd_init_safe, wd_safe_shield, wd_oldp_sound])
+  >- (rpt strip_tac >> simp[kgate_def] >> irule gate_preserves_safety >>
+      metis_tac[wd_newp_sound, wd_init_safe, wd_safe_shield, wd_oldp_sound])
 QED
 
-(* (B3) THE HONEST OBSTRUCTION (a precise NEGATIVE result, stated as a
-   theorem so it cannot be quietly ignored).
+(* (B3) THE HONEST OBSTRUCTION, as a genuine negative theorem.
 
-   Read this as: "discharging `loeb_reflection` cannot, in general, be
-   reduced to a property of the finite habitat — the predicate does not
-   even MENTION the habitat (step/safe/init); it is purely about the two
-   kernels K, K' and the embedded soundness statement. Therefore no
-   amount of finite habitat reasoning can discharge the strengthening
-   case; that case is genuinely the Gödel/Löb / large-cardinal one."
-
-   We make this rigorous by exhibiting a CONCRETE strictly-stronger kernel
-   `K'` (candle_kernel ∪ one extra unprovable-but-true-looking obligation)
-   for which `loeb_reflection mem candle_kernel K' sound_stmt` is NOT a
-   HOL4 theorem from the available unconditional facts: its consequent
-   `kernel_sound mem K'` would require `K'` to certify only entailed
-   obligations, which for the *added* obligation is exactly the
-   reflection/consistency fact a sound system cannot prove of a strictly
-   stronger one (Löb). We do not — and soundly cannot — prove it here;
-   instead we record the structural fact that makes the negative precise:
-   `loeb_reflection` is independent of the (finite) habitat. *)
+   Every fact the finite habitat supplies is present in the statement --
+   the watchdog obligation is admissible, its encoding is discharged for
+   every term and theory, both policies are sound -- and a real Candle
+   certificate exists (x = x in the initial context). Yet there is a kernel
+   K' that EXTENDS Candle's (certifies everything Candle certifies) and is
+   STRICTLY stronger (certifies a term Candle never derives) for which the
+   reflection principle from that certificate FAILS, because K' is unsound.
+   So no amount of finite habitat reasoning yields loeb_reflection for a
+   strengthening upgrade: the obstruction is at the proof-system level, and
+   the strengthening case is genuinely the Gödel/Löb / large-cardinal one.
+   Only the non-strengthening case (B1) escapes. *)
 Theorem loeb_finite_obstruction:
-  (* loeb_reflection's truth value does not depend on the habitat at all:
-     for the SAME kernels/sound_stmt it is the very same proposition no
-     matter which (finite or infinite) step/safe/init we plug in — there
-     is literally no habitat parameter. Hence finiteness of the watchdog
-     cannot bear on it; only the non-strengthening case (B1) escapes. *)
-  ∀K K' sound_stmt.
-    loeb_reflection ^mem K K' sound_stmt ⇔
-    ((∀thy. K thy (sound_stmt thy)) ⇒ kernel_sound ^mem K')
+  ∃K' sthy sound_stmt.
+    admissible wd_step wd_safe wd_oldp wd_newp ∧
+    (∀obl thy. encodes_obligation ^mem thy obl wd_step wd_safe wd_oldp wd_newp) ∧
+    sound_policy wd_step wd_safe wd_oldp ∧
+    sound_policy wd_step wd_safe wd_newp ∧
+    (∀thy obl. candle_kernel thy obl ⇒ K' thy obl) ∧
+    (∃thy obl. K' thy obl ∧ ¬candle_kernel thy obl) ∧
+    candle_kernel sthy sound_stmt ∧
+    ¬kernel_sound ^mem K' ∧
+    ¬loeb_reflection ^mem candle_kernel K' sthy sound_stmt
 Proof
-  rw[loeb_reflection_def]
+  qexistsl_tac [‘λthy obl. T’, ‘thyof init_ctxt’,
+                ‘Var x Bool === Var x Bool’] >>
+  simp[wd_admissible, wd_encodes_obligation, wd_oldp_sound, wd_newp_sound,
+       reflection_is_not_soundness] >>
+  qexistsl_tac [‘thyof init_ctxt’, ‘Var y (Tyvar a)’] >>
+  rw[candle_kernel_def] >> strip_tac >>
+  imp_res_tac proves_term_ok >> fs[] >>
+  qpat_x_assum ‘_ has_type _’ mp_tac >> simp[Once has_type_cases]
 QED
 
 val _ = export_theory ();

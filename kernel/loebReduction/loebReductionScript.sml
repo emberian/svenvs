@@ -23,15 +23,15 @@
 
     (2) `lca_decodes_soundness` (the LCA hypothesis) — the LCA-provided model
         of `lca_ctxt` is one in which the internal soundness statement
-        `sound_stmt thy`, when it holds (termsem = True), DECODES to the real,
+        `sound_stmt`, when it holds (termsem = True), DECODES to the real,
         external proposition `kernel_sound mem K'`. This is precisely the
         content `lcaProofTheory.intermediate_thm` + `build_master_theorem`
         supply (a reflected predicate φ instantiated at the encoding of
         `kernel_sound mem K'`). Here it is a NAMED HYPOTHESIS, not a cheat.
 
   The reduction theorem `loeb_reflection_from_lca` then routes:
-       base kernel certifies sound_stmt thy           (loeb_reflection antecedent)
-    ⇒ sound_stmt thy is satisfied in the LCA model    (proves_sound, ingredient 1)
+       base kernel certifies sound_stmt in lca_thy    (loeb_reflection antecedent)
+    ⇒ sound_stmt is satisfied in the LCA model        (proves_sound, ingredient 1)
     ⇒ kernel_sound mem K'                             (decoding, ingredient 2 = LCA)
   giving `kernel_sound mem K'`, i.e. `loeb_reflection`.
 
@@ -57,7 +57,7 @@ val mem = ``mem:'U->'U->bool``;
    Ingredient (1): the Candle kernel's certificates are semantically valid.
    This is `reflectionTheory.provable_imp_eq_true` specialised to empty
    hypotheses, re-derived here directly from `proves_sound` (no cheat). It says:
-   if the base kernel certifies `sound_stmt thy`, then `sound_stmt thy` holds in
+   if the base kernel certifies `sound_stmt` in `thy`, then `sound_stmt` holds in
    EVERY model i of thy, under any valuation.
 
    `satisfies` for a model is the candle notion: (sigof thy, h, c) is satisfied
@@ -85,22 +85,22 @@ QED
      - there is a model `lca_model` of theory `lca_thy` (from
        `intermediate_thm`, valid under LCA (SUC l)); and
      - in that model, with valuation `lca_val`, the internal soundness statement
-       `sound_stmt thy` being satisfied DECODES to the external truth
+       `sound_stmt` being satisfied DECODES to the external truth
        `kernel_sound mem K'`  (the termsem-cert / decoding step of
        `build_master_theorem`).
 
    We state it as a predicate so it is a NAMED antecedent, never a cheat. *)
 
 Definition lca_reflects_soundness_def:
-  lca_reflects_soundness (^mem) (K':kernel) (sound_stmt:thy->term)
+  lca_reflects_soundness (^mem) (K':kernel) (sound_stmt:term)
                          (lca_thy:thy) lca_model lca_val ⇔
     (* the LCA-provided object IS a model of the LCA theory *)
     lca_model models lca_thy ∧
     is_valuation (tysof (sigof lca_thy)) (tyaof lca_model) lca_val ∧
     (* and in it, the soundness statement decoding to external soundness:
-       if sound_stmt lca_thy is satisfied (termsem = True) in this model under
-       this valuation, then K' is really, externally, sound. *)
-    (termsem (tmsof (sigof lca_thy)) lca_model lca_val (sound_stmt lca_thy) = True
+       if sound_stmt is satisfied (termsem = True) in this model under this
+       valuation, then K' is really, externally, sound. *)
+    (termsem (tmsof (sigof lca_thy)) lca_model lca_val sound_stmt = True
        ⇒ kernel_sound ^mem K')
 End
 
@@ -109,9 +109,8 @@ End
 
    Given:
      - is_set_theory mem,
-     - the base kernel certifies sound_stmt at the LCA theory
-       (this is the `(∀thy. candle_kernel thy (sound_stmt thy))` antecedent of
-        loeb_reflection, used at thy = lca_thy),
+     - the base kernel certifies sound_stmt in the LCA theory
+       (the antecedent of loeb_reflection at thy = lca_thy),
      - the LCA reflection-and-decoding hypothesis,
    we DERIVE kernel_sound mem K' by routing through proves_sound into the LCA
    model and then decoding. No cheat, real semantic work via termsem.
@@ -119,18 +118,18 @@ End
 
 Theorem kernel_sound_from_lca:
   is_set_theory ^mem ∧
-  candle_kernel lca_thy (sound_stmt lca_thy) ∧
+  candle_kernel lca_thy sound_stmt ∧
   lca_reflects_soundness ^mem K' sound_stmt lca_thy lca_model lca_val ⇒
   kernel_sound ^mem K'
 Proof
   rpt strip_tac >>
   full_simp_tac std_ss [lca_reflects_soundness_def] >>
   (* (1): the certified soundness statement is satisfied in the LCA model *)
-  `lca_model satisfies (sigof lca_thy,[],sound_stmt lca_thy)`
+  `lca_model satisfies (sigof lca_thy,[],sound_stmt)`
     by metis_tac[kernel_proves_satisfied] >>
   (* unfold `satisfies` at empty hyps; it gives termsem = True for EVERY
      valuation; instantiate at lca_val (an is_valuation by hypothesis). *)
-  `termsem (tmsof (sigof lca_thy)) lca_model lca_val (sound_stmt lca_thy) = True`
+  `termsem (tmsof (sigof lca_thy)) lca_model lca_val sound_stmt = True`
     by (qpat_x_assum `_ satisfies _` mp_tac >>
         simp[satisfies_def] >> disch_then (qspec_then `lca_val` mp_tac) >>
         simp[]) >>
@@ -138,33 +137,30 @@ Proof
   metis_tac[]
 QED
 
-(* And the headline: `loeb_reflection` for the base = candle kernel FOLLOWS from
-   the LCA reflection-and-decoding hypothesis. This is svenvs' single open
-   assumption, reduced in-logic to the cited LCA master theorem. *)
+(* And the headline: `loeb_reflection` for the base = candle kernel, in the
+   LCA theory, FOLLOWS from the LCA reflection-and-decoding hypothesis.
+   This is svenvs' single open assumption, reduced in-logic to the cited LCA
+   master theorem: the loeb_reflection antecedent (a Candle certificate of
+   sound_stmt in lca_thy) is exactly what kernel_sound_from_lca consumes. *)
 Theorem loeb_reflection_from_lca:
   is_set_theory ^mem ∧
   lca_reflects_soundness ^mem K' sound_stmt lca_thy lca_model lca_val ⇒
-  loeb_reflection ^mem candle_kernel K' sound_stmt
+  loeb_reflection ^mem candle_kernel K' lca_thy sound_stmt
 Proof
   rw[loeb_reflection_def] >>
-  (* the loeb_reflection antecedent gives certification at EVERY thy;
-     specialise to lca_thy and feed the real reduction *)
-  `candle_kernel lca_thy (sound_stmt lca_thy)` by fs[] >>
   metis_tac[kernel_sound_from_lca]
 QED
 
-(* End-to-end into svenvs' upgrade chain: the exact antecedent
-   `kernel_self_upgrade_sound` wants is now SUPPLIED by the LCA reduction. *)
+(* End-to-end into svenvs' upgrade chain: the reflection hypothesis
+   `kernel_self_upgrade_sound` needs is SUPPLIED by the LCA reduction, and a
+   Candle certificate in the LCA theory then yields soundness of K'. *)
 Theorem kernel_self_upgrade_sound_from_lca:
   is_set_theory ^mem ∧
   lca_reflects_soundness ^mem K' sound_stmt lca_thy lca_model lca_val ∧
-  (∀thy. candle_kernel thy (sound_stmt thy)) ⇒
+  candle_kernel lca_thy sound_stmt ⇒
   kernel_sound ^mem K'
 Proof
-  rpt strip_tac >>
-  `loeb_reflection ^mem candle_kernel K' sound_stmt`
-    by metis_tac[loeb_reflection_from_lca] >>
-  fs[loeb_reflection_def]
+  metis_tac[loeb_reflection_from_lca, kernel_self_upgrade_sound]
 QED
 
 val _ = export_theory ();
