@@ -81,19 +81,6 @@ Proof
   fs[vouch_sound_def, forward_certified_def] >> metis_tac[]
 QED
 
-(* Spelled-out corollary: ANY judge ever reached along the succession is
-   sound — only the GENESIS soundness was assumed; there is no per-successor
-   assumption anywhere. This is "frozen forever" replaced by "sound once,
-   certified forward". *)
-Theorem any_reached_judge_is_sound:
-  vouch_sound jsound vouches ∧
-  jsound (J 0n) ∧
-  forward_certified vouches J ⇒
-  ∀m. jsound (J m)
-Proof
-  metis_tac[genealogy_sound]
-QED
-
 (* The sound NON-STRENGTHENING case is UNCONDITIONAL. If a "successor" is the
    same judge (a re-engineered build proving the *same* fixed standard — no
    logical strength gained), the forward-step seam is a THEOREM, not an

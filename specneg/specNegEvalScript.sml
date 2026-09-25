@@ -74,9 +74,7 @@ QED
 Theorem relaxed_is_genuine_change:
   genuine_spec_change spec_relaxed meta_box
 Proof
-  rw[genuine_spec_change_def]
-  >- (rw[spec_refines_def, spec_relaxed_def, meta_box_def] >>
-      intLib.ARITH_TAC) >>
+  rw[genuine_spec_change_def, relaxed_refines_meta] >>
   (* spec_relaxed ≠ meta_box : they disagree at a = 5 *)
   simp[FUN_EQ_THM] >> qexists_tac ‘5’ >>
   rw[spec_relaxed_def, meta_box_def]

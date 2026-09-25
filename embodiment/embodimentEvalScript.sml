@@ -174,7 +174,8 @@ Theorem episode_runs:
   EVERY emb_safe (emb_trace emb_oldp 30 0) ∧
   (EVERY emb_safe (emb_bare 1 0) = F)
 Proof
-  rw[attested_disclosure_installs, nondisclosure_inert_here] >> EVAL_TAC
+  REWRITE_TAC[attested_disclosure_installs, nondisclosure_inert_here,
+              disclosed_runs_safe, nondisclosed_runs_safe, bare_plant_crashes]
 QED
 
 val _ = export_theory ();

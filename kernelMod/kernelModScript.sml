@@ -37,7 +37,8 @@ open HolKernel boolLib bossLib BasicProvers
      holSyntaxTheory holSyntaxExtraTheory
      holSemanticsTheory holSemanticsExtraTheory holSoundnessTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
-     upgradeTheory selfProverTheory kernelUpgradeTheory;
+     upgradeTheory selfProverTheory kernelUpgradeTheory
+     selfProverConcreteTheory;
 
 val _ = new_theory "kernelMod";
 
@@ -111,12 +112,10 @@ QED
 (*    `frozen_checker_sound` discharged for the MODIFIED kernel        *)
 (*    (sym_kernel), from its re-verified soundness — and prover        *)
 (*    self-improvement is then safe, UNCONDITIONAL in the seam, for a  *)
-(*    genuinely modified prover build.                                 *)
+(*    genuinely modified prover build.  The soundness obligation is    *)
+(*    selfProverConcreteTheory's `sound_real` — the SAME obligation the *)
+(*    base Candle build discharges there, not a restated copy.         *)
 (* ------------------------------------------------------------------ *)
-Definition sound_real_def:
-  sound_real (^mem) (B:thy->term->bool) ⇔ is_set_theory (^mem) ⇒ kernel_sound (^mem) B
-End
-
 (* The frozen root accepts the MODIFIED build sym_kernel (because we
    re-proved its soundness above). *)
 Definition hol4_checks_mod_def:

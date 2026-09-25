@@ -22,21 +22,19 @@
    (3) DISCHARGE `binary_implements <that concrete produces> sym_kernel` —
        no longer a carried premise but a theorem, against the real executable.
 
-  `binary_implements`, `sym_kernel` are restated locally to match svenvs
-  (inplaceUpdate/kernelMod) verbatim; the point is that the abstract `produces`
-  of inplaceUpdate can be INSTANTIATED by the genuine CakeML monadic SYM and
-  the carried premise then HOLDS as a theorem.
-
-  Build kept LIGHT (syntax + monadic only, exactly kernelImpl's footprint): the
-  discharge is a syntactic/implementation fact and does not need the semantics
-  layer.  (Semantic soundness of the discharged kernel is already
-  inplaceUpdate's `running_binary_sound`, now instantiable here.)
+  `binary_implements` and `sym_kernel` are inplaceUpdateTheory's and
+  kernelModTheory's OWN constants (opened below, not restated copies): the
+  abstract `produces` of inplaceUpdate is INSTANTIATED by the genuine CakeML
+  monadic SYM and the carried premise then HOLDS as a theorem — about the very
+  premise inplaceUpdate carries.  (Semantic soundness of the discharged kernel
+  is inplaceUpdate's `running_binary_sound`, instantiable at `sym_produces`.)
 
   PROVED against the real Candle monadic kernel; no `cheat`, no new_axiom.
 *)
 open HolKernel boolLib bossLib BasicProvers
      holSyntaxTheory holSyntaxExtraTheory
-     holKernelTheory holKernelProofTheory;
+     holKernelTheory holKernelProofTheory
+     kernelModTheory inplaceUpdateTheory;
 
 val _ = new_theory "symBinaryImplements";
 
@@ -76,21 +74,10 @@ Proof
   fs[THM_def]
 QED
 
-(* The svenvs predicates, restated verbatim (see inplaceUpdate / kernelMod).
-   `produces bin thy obl` : the running binary `bin` outputs the obligation
-   `obl` (over theory `thy`).  `sym_kernel` is the modified inference relation
-   (SYM added as a primitive). *)
-Definition binary_implements_def:
-  binary_implements (produces:'bin->thy->term->bool) (bin:'bin)
-                    (K:thy->term->bool) <=>
-    !thy obl. produces bin thy obl ==> K thy obl
-End
-
-Definition sym_kernel_def:
-  sym_kernel thy obl <=>
-    (thy,[]) |- obl \/
-    (?a b. obl = (b === a) /\ (thy,[]) |- (a === b))
-End
+(* The svenvs predicates are inplaceUpdate's `binary_implements`
+   (`produces bin thy obl` : the running binary `bin` outputs the obligation
+   `obl` over theory `thy`) and kernelMod's `sym_kernel` (the modified
+   inference relation, SYM added as a primitive). *)
 
 (* (2) The CONCRETE `produces` relation realised by the running SYM-extended
        kernel, defined against the ACTUAL executable monadic SYM.  The binary

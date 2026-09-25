@@ -176,12 +176,7 @@ QED
 
 (* And the new generation IS governed by newc (threads newc's correctness,
    proven for ci', into the new generation's entries). *)
-Theorem swap_new_generation_compiler:
-  n <= gen j ==>
-  gen_set_from n newc g2c (gen j) = newc
-Proof
-  metis_tac [new_generation_uses_newc]
-QED
+Theorem swap_new_generation_compiler = new_generation_uses_newc;
 
 (* ------------------------------------------------------------------------ *)
 (* 4b. The in-place swap, at the state level.                               *)

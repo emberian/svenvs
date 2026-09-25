@@ -116,16 +116,11 @@ Proof
 QED
 
 (* ------------------------------------------------------------------ *)
-(*  3. The transport keystone, stated standalone so the composition    *)
-(*     principle is itself a citable theorem: ANY layer guaranteeing   *)
-(*     some negotiated spec transports to the fixed meta-invariant.    *)
+(*  3. The transport keystone is specNeg's own                         *)
+(*     `invariant_transports_to_meta` (quoted in the header): ANY layer *)
+(*     guaranteeing some negotiated spec transports to the fixed        *)
+(*     meta-invariant. It is cited directly, not restated here.        *)
 (* ------------------------------------------------------------------ *)
-Theorem any_layer_transports_to_meta:
-  invariant step init sel curspec /\ spec_refines curspec meta ==>
-  invariant step init sel meta
-Proof
-  metis_tac[invariant_transports_to_meta]
-QED
 
 (* ------------------------------------------------------------------ *)
 (*  4. The prison question, answered IN the tower (Pillar A).          *)
