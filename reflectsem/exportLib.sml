@@ -157,6 +157,7 @@ fun builtin (thy,name) =
   | ("bool","ARB") => SOME ("(@arb. T)", false)
   | ("bool","literal_case") => SOME ("cml_literal_case", false)
   | ("num","num_CASE") => SOME ("cml_num_CASE", false)
+  | ("prim_rec","num_CASE") => SOME ("cml_num_CASE", false)
   | ("arithmetic","num_CASE") => SOME ("cml_num_CASE", false)
   | ("arithmetic","PRE") => SOME ("PRE", false)
   | ("arithmetic","FUNPOW") => SOME ("cml_FUNPOW", false)
@@ -181,17 +182,20 @@ fun builtin (thy,name) =
   | ("num","SUC") => SOME ("SUC", false)
   | ("prim_rec","<") => SOME ("<", true)
   (* integers: HOL Light calc_int names *)
-  | ("integer","int_add") => SOME ("+", true)
-  | ("integer","int_sub") => SOME ("-", true)
-  | ("integer","int_mul") => SOME ("*", true)
-  | ("integer","int_lt") => SOME ("<", true)
-  | ("integer","int_le") => SOME ("<=", true)
-  | ("integer","int_gt") => SOME (">", true)
-  | ("integer","int_ge") => SOME (">=", true)
-  | ("integer","int_neg") => SOME ("--", false)
-  | ("integer","int_of_num") => SOME ("&", false)
-  | ("integer","ABS") => SOME ("abs", false)
-  | ("integer","int_ABS") => SOME ("abs", false)
+  (* integers: HOL Light's int constants by NAME, prefix: the overloaded
+     symbols (+, <, &, abs, ...) are resolved by type inference, which
+     guessed real for lambda-bound operands and mistyped whole defines *)
+  | ("integer","int_add") => SOME ("int_add", false)
+  | ("integer","int_sub") => SOME ("int_sub", false)
+  | ("integer","int_mul") => SOME ("int_mul", false)
+  | ("integer","int_lt") => SOME ("int_lt", false)
+  | ("integer","int_le") => SOME ("int_le", false)
+  | ("integer","int_gt") => SOME ("int_gt", false)
+  | ("integer","int_ge") => SOME ("int_ge", false)
+  | ("integer","int_neg") => SOME ("int_neg", false)
+  | ("integer","int_of_num") => SOME ("int_of_num", false)
+  | ("integer","ABS") => SOME ("int_abs", false)
+  | ("integer","int_ABS") => SOME ("int_abs", false)
   (* lists: HOL Light core *)
   | ("list","NIL") => SOME ("[]", false)
   | ("list","CONS") => SOME ("CONS", false)
@@ -223,6 +227,8 @@ fun builtin (thy,name) =
   | ("sum","INL") => SOME ("INL", false)
   | ("sum","INR") => SOME ("INR", false)
   | ("sum","sum_CASE") => SOME ("sum_CASE", false)          (* exported *)
+  | ("sum","OUTL") => SOME ("OUTL", false)
+  | ("sum","OUTR") => SOME ("OUTR", false)
   | ("one","one") => SOME ("one", false)
   | ("combin","o") => SOME ("o", true)
   | ("combin","K") => SOME ("cml_K", false)
@@ -235,7 +241,44 @@ fun builtin (thy,name) =
   | ("string","char_lt") => SOME ("cml_char_lt", false)
   | ("pair","pair_CASE") => SOME ("pair_CASE", false)  (* handled in ptm *)
   | ("pair","CURRY") => SOME ("CURRY", false)
+  | ("list","list_CASE") => SOME ("list_CASE", false)      (* exported *)
+  (* sets: HOL4's MEM is `x IN set l` *)
+  | ("bool","IN") => SOME ("IN", true)
+  | ("list","LIST_TO_SET") => SOME ("set_of_list", false)
+  (* integer ops whose HOL Light namesakes differ (HOL Light int_div is
+     Euclidean, int_mod is a congruence): exported from HOL4's theorems *)
+  | ("integer","Num") => SOME ("cml_Num", false)
+  | ("integer","int_div") => SOME ("cml_int_div", false)
+  | ("integer","int_mod") => SOME ("cml_int_mod", false)
   | _ => NONE;
+
+(* theories whose constants must reach candle through the builtin table
+   (or as opaques): a constant of one of these that falls through to its
+   bare name would be a free variable in candle, so the printer records it
+   and the drivers fail loudly *)
+val builtin_thys =
+  ["min","bool","pair","num","prim_rec","arithmetic","list","rich_list",
+   "alist","option","sum","one","combin","string","integer","pred_set",
+   "while","numeral","marker"];
+val unmapped_seen = ref ([] : (string * string) list);
+(* every cml_* name the printer emitted for a builtin: each must be defined
+   by the driver's scaffolding/prelude, checked at the end of the export *)
+val cml_used = ref ([] : string list);
+fun note_cml s =
+  if String.isPrefix "cml_" s andalso not (Lib.mem s (!cml_used))
+  then cml_used := s :: !cml_used else ();
+
+(* guarded defining equations (!x. c ==> l = r, e.g. integer int_div)
+   become total ones l = if c then r else ARB: the value outside c is
+   unconstrained in HOL4 too, and callers in the cone guard c *)
+fun total_clause cj =
+  let val b = snd (strip_forall cj)
+  in if is_imp_only b then
+       let val (c, eq) = dest_imp b
+           val (l, r) = dest_eq eq
+       in mk_eq (l, mk_cond (c, r, mk_arb (type_of r))) end
+     else b
+  end;
 
 (* opaque constants: word/float leaves -> new_constant names. Polymorphic
    word ops are split per width (w8/w64) by their instance type; every
@@ -282,9 +325,15 @@ fun escape_string s =
 
 val avoid_dollar = String.translate (fn #"$" => "_" | c => str c);
 
+(* when set, variables print with their type: used for record accessor /
+   fupd defines, whose HOL Light inference would otherwise generalise
+   `f : A -> B` and make the fupd type-changing *)
+val annotate_vars = ref false;
+
 fun var_str v =
-  let val (n,_) = dest_var v
-  in rename (avoid_dollar n) end;
+  let val (n,ty) = dest_var v
+      val s = rename (avoid_dollar n)
+  in if !annotate_vars then "(" ^ s ^ ":" ^ pty ty ^ ")" else s end;
 
 fun ptm tm =
   if is_numeral tm then numeral_str tm
@@ -299,6 +348,7 @@ fun ptm tm =
     end
   else if is_forall tm then pbinder "!" (dest_forall tm)
   else if is_exists tm then pbinder "?" (dest_exists tm)
+  else if is_select tm then pbinder "@" (dest_select tm)
   else if is_conj tm then pbin "/\\" (dest_conj tm)
   else if is_disj tm then pbin "\\/" (dest_disj tm)
   else if is_imp_only tm then pbin "==>" (dest_imp tm)
@@ -332,16 +382,25 @@ and plet tm =
 
 and pconst c =
   let val k as (thy,name) = let val {Thy,Name,...} = dest_thy_const c in (Thy,Name) end
-  in case builtin k of
+  in if k = ("bool","ARB") then
+       (* typed: an untyped ARB leaves its type variables free (e.g. the
+          ARB base of a record literal under a type-changing fupd), which
+          new_specification rejects *)
+       "(@arb:" ^ pty (type_of c) ^ ". T)"
+     else case builtin k of
        SOME (s, true) => "(" ^ s ^ ")"     (* infix used curried: parenthesize *)
-     | SOME (s, false) => s
+     | SOME (s, false) => (note_cml s; s)
      | NONE =>
        (case opaque_const_at k (type_of c) of
           SOME s =>
             (if List.exists (fn (s',_) => s' = s) (!opaque_seen) then ()
              else opaque_seen := (s, pty (type_of c)) :: !opaque_seen;
              s)
-        | NONE => rename name)
+        | NONE =>
+            (if Lib.mem thy builtin_thys andalso
+                not (Lib.mem k (!unmapped_seen))
+             then unmapped_seen := k :: !unmapped_seen else ();
+             rename name))
   end
 
 and papp f xs =
@@ -352,11 +411,16 @@ and papp f xs =
         (case builtin (let val {Thy,Name,...} = dest_thy_const f in (Thy,Name) end) of
            SOME (s, true) => SOME s | _ => NONE)
       else NONE
+    val num_ty = mk_thy_type {Thy="num", Tyop="num", Args=[]}
+    fun operand a =
+      if Lib.mem (valOf infix_s) ["+","-","*","<","<=",">",">=","DIV","MOD","EXP"]
+         andalso Type.compare (type_of a, num_ty) = EQUAL
+      then "(" ^ ptm a ^ ":num)" else ptm a
   in
     case (infix_s, xs) of
       (SOME s, [a,b]) =>
         if s = "," then "(" ^ ptm a ^ "," ^ ptm b ^ ")"
-        else "(" ^ ptm a ^ " " ^ s ^ " " ^ ptm b ^ ")"
+        else "(" ^ operand a ^ " " ^ s ^ " " ^ ptm b ^ ")"
     | _ =>
       "(" ^ String.concatWith " " (ptm f :: map ptm xs) ^ ")"
   end;
@@ -483,9 +547,250 @@ fun pdefine clauses =
   "let _ = define `" ^
   String.concatWith " /\\\n   " (map ptm (freshen_clauses clauses)) ^ "`;;";
 
+(* a datatype's case constant, from the recursion theorem <nm>_DT returned
+   by define_type; falls back (loudly) to the generic define *)
+fun pcase_define nm clauses =
+  let val body = String.concatWith " /\\\n   " (map ptm (freshen_clauses clauses))
+  in "let " ^ nm ^ "_CASE_def =\n  try new_recursive_definition (snd " ^ nm ^
+     "_DT) `" ^ body ^ "`\n  with Failure _ -> (warn true \"RS_CASE_FALLBACK " ^
+     nm ^ "\"; define `" ^ body ^ "`);;"
+  end;
+
+(* OCaml binds a capitalised identifier as a CONSTRUCTOR pattern
+   (`let Boolv_def = ...` is "Undefined constructor"): ML names of
+   theorems must start lower-case *)
+fun ml_name n =
+  if n <> "" andalso Char.isUpper (String.sub (n, 0)) then "rs_" ^ n else n;
+
 (* a define with a name binding (for eyeballing) *)
 fun pdefine_named name clauses =
-  "let " ^ name ^ " = define `" ^
+  "let " ^ ml_name name ^ " = define `" ^
   String.concatWith " /\\\n   " (map ptm (freshen_clauses clauses)) ^ "`;;";
+
+(* ---------------- smart definitions ----------------
+   HOL Light's generic `define` re-derives pattern disjointness and
+   termination inside the verified kernel: on a 9-clause nested-pattern
+   function it ground for >15 min, and it cannot prove termination of
+   recursion that passes through case-combinator lambdas (nsLookup,
+   maybe_all_list). So multi-clause definitions go through two cheap,
+   conservative steps instead:
+     1. the constant is introduced by a CASE-TREE: HOL4's own pattern
+        compiler (TypeBase.mk_pattern_fn) turns the clauses' non-recursion
+        arguments into nested case constants; recursive functions are
+        introduced by new_recursive_definition on the recursion theorem of
+        their structural argument (primitive recursion, no termination
+        proof), non-recursive ones by a single-clause define;
+     2. the ORIGINAL clauses (printed, as always, from the HOL4 defining
+        theorem) are then PROVED in the candle kernel from that definition
+        by rewriting with the case constants' definitions.
+   The theorem bound to <name> is the clause theorem of step 2, so what
+   callers rewrite with is exactly the HOL4 text, kernel-checked. *)
+
+fun clause_parts cl =
+  let val (l, r) = dest_eq cl
+      val (f, args) = strip_comb l
+  in (f, args, r) end;
+
+fun is_ctor_pat t =
+  let val (h, _) = strip_comb t
+  in is_const h andalso
+     (Lib.mem (#Name (dest_thy_const h)) ["0","NIL","CONS","SUC"] orelse
+      (TypeBase.is_constructor h handle HOL_ERR _ => false))
+  end handle HOL_ERR _ => false;
+
+(* full applications of f in r (as many args as the clauses' lhs has) *)
+fun calls_of f r = find_terms (fn t => is_const t andalso same_const t f) r;
+fun full_calls f arity r =
+  find_terms (fn t => let val (h, a) = strip_comb t
+                      in is_const h andalso same_const h f andalso
+                         length a = arity end) r;
+(* every occurrence of the constant f in r is the head of a full call *)
+fun only_full_calls f arity r =
+  length (find_terms (fn t => is_const t andalso same_const t f) r) =
+  length (full_calls f arity r);
+
+(* a recursive call's full argument list (calls may be partially applied
+   under a combinator; those have too few args and are rejected) *)
+fun call_args arity t =
+  let val (_, a) = strip_comb t in if length a = arity then SOME a else NONE end;
+
+(* lift a top-level case on a whole-argument variable into clauses *)
+fun lift_clause cl =
+  let val (f, args, r) = clause_parts cl
+  in
+    (let val (_, scrut, rows) = TypeBase.dest_case r
+     in if is_var scrut andalso List.exists (fn a => term_eq a scrut) args
+        then List.concat (map (fn (pat, rhs) =>
+               lift_clause (mk_eq (list_mk_comb (f, map (fn a =>
+                   if term_eq a scrut then pat else a) args),
+                 Term.subst [scrut |-> pat] rhs))) rows)
+        else [cl]
+     end handle HOL_ERR _ => [cl])
+  end;
+
+(* the structural position: every clause has a one-level constructor
+   pattern there, and every recursive call passes, there, a variable bound
+   by that clause's pattern at that position *)
+fun pr_position clauses =
+  let
+    val parts = map clause_parts clauses
+    val (f, args0, _) = hd parts
+    val n = length args0
+    fun ok i =
+      List.all (fn (_, args, r) =>
+        let val p = List.nth (args, i)
+            val (_, cargs) = strip_comb p
+        in is_ctor_pat p andalso List.all is_var cargs andalso
+           only_full_calls f n r andalso
+           List.all (fn c =>
+             case call_args n c of
+               NONE => false
+             | SOME a => let val x = List.nth (a, i)
+                         in is_var x andalso List.exists (fn v => term_eq v x) cargs end)
+             (full_calls f n r)
+        end) parts
+    fun find i = if i >= n then NONE else if ok i then SOME i else find (i+1)
+  in find 0 end;
+
+fun recursion_thm_of ty =
+  let val {Thy, Tyop, ...} = dest_thy_type ty
+  in case (Thy, Tyop) of
+       ("num","num") => "num_RECURSION"
+     | ("list","list") => "list_RECURSION"
+     | ("option","option") => "option_RECURSION"
+     | ("sum","sum") => "sum_RECURSION"
+     | _ => "(snd " ^ rename Tyop ^ "_DT)"
+  end;
+
+(* candle ML name of the defining theorem of a case constant *)
+fun case_def_ml c =
+  let val {Thy, Name, ...} = dest_thy_const c
+  in case (Thy, Name) of
+       ("arithmetic","num_CASE") => SOME "cml_num_CASE_def"
+     | ("prim_rec","num_CASE") => SOME "cml_num_CASE_def"
+     | ("num","num_CASE") => SOME "cml_num_CASE_def"
+     | ("bool","literal_case") => SOME "cml_literal_case_def"
+     | _ => if String.isSuffix "_CASE" Name
+            then SOME (ml_name (rename Name ^ "_def")) else NONE
+  end handle HOL_ERR _ => NONE;
+
+fun fresh_args avoid tys =
+  let fun go _ [] _ = []
+        | go i (ty :: rest) av =
+            let val v = variant av (mk_var ("xa" ^ Int.toString i, ty))
+            in v :: go (i+1) rest (v :: av) end
+  in go 0 tys avoid end;
+
+(* case tree for rows (argument-pattern lists) over the variables xs *)
+fun case_tree xs rows =
+  case rows of
+    [(ps, r)] =>
+      if List.all is_var ps andalso
+         length (Lib.mk_set (map (fst o dest_var) ps)) = length ps
+      then Term.subst (ListPair.map (fn (p, x) => p |-> x) (ps, xs)) r
+      else case_tree' xs rows
+  | _ => case_tree' xs rows
+and case_tree' xs rows =
+  let val tup = pairSyntax.list_mk_pair
+      val fnt = TypeBase.mk_pattern_fn (map (fn (ps, r) => (tup ps, r)) rows)
+  in Term.beta_conv (mk_comb (fnt, tup xs))
+     handle HOL_ERR _ => mk_comb (fnt, tup xs)
+  end;
+
+(* the rewrite list that reduces a case tree: every case constant in it *)
+fun case_defs_in tms =
+  Lib.mk_set (List.mapPartial case_def_ml
+    (List.concat (map (find_terms (fn t => is_const t andalso
+                                    Lib.can case_def_ml t andalso
+                                    isSome (case_def_ml t))) tms)));
+
+val smart_log = ref ([] : (string * string) list);   (* (name, route) *)
+
+(* ML names of clause theorems that are safe as rewrite rules: excluded
+   are recursive functions with an all-variable clause (rewriting with
+   them never stops, e.g. compare_aux) *)
+val rewrite_safe = ref ([] : string list);
+fun note_rewrite recursive clauses nm =
+  if recursive andalso
+     List.exists (fn cl => List.all is_var (#2 (clause_parts cl))) clauses
+  then () else rewrite_safe := nm :: !rewrite_safe;
+
+fun pdefine_smart name clauses0 =
+  let
+    val mlnm = ml_name name
+    val (f, args0, _) = clause_parts (hd clauses0)
+    val n = length args0
+    val recursive = List.exists (fn cl => not (null (calls_of f (#3 (clause_parts cl))))) clauses0
+    val all_var_single =
+      (case clauses0 of [cl] => List.all is_var (#2 (clause_parts cl)) | _ => false)
+    val lifted = recursive andalso not (isSome (pr_position clauses0))
+    val clauses = if lifted then List.concat (map lift_clause clauses0)
+                  else clauses0
+    val avoid = List.concat (map free_vars clauses)
+    val xs = fresh_args avoid (map type_of args0)
+    (* the clause theorem proved: HOL4's clauses; for a lifted recursive
+       function, the per-constructor clauses HOL4's dest_case gives *)
+    val orig_text = String.concatWith " /\\\n   " (map ptm (freshen_clauses clauses))
+    val () = note_rewrite recursive clauses mlnm
+    fun proof_of deftext cases =
+      "let " ^ mlnm ^ " = prove (`" ^ orig_text ^ "`,\n  REWRITE_TAC ["
+      ^ String.concatWith "; " ((mlnm ^ "_tree") ::
+          ["FST", "SND", "NOT_SUC", "PRE"] @ cases) ^ "]);;"
+  in
+    if all_var_single andalso not recursive then
+      (smart_log := (name, "define") :: !smart_log; pdefine_named name clauses0)
+    else if not recursive then
+      if length clauses0 = 1 then
+        (smart_log := (name, "define") :: !smart_log; pdefine_named name clauses0)
+      else
+        let val rows = map (fn cl => let val (_, a, r) = clause_parts cl in (a, r) end) clauses0
+            val tree = case_tree xs rows
+            val tl = mk_eq (list_mk_comb (f, xs), tree)
+            val cases = case_defs_in [tree]
+        in smart_log := (name, "case-tree") :: !smart_log;
+           "let " ^ mlnm ^ "_tree = define `" ^ ptm tl ^ "`;;\n" ^
+           proof_of () cases
+        end
+    else
+      case pr_position clauses of
+        NONE => (smart_log := (name, "define (recursive, no structural arg)") :: !smart_log;
+                 pdefine_named name clauses0)
+      | SOME i =>
+        let
+          val parts = map clause_parts clauses
+          (* group by constructor at i, first-appearance order *)
+          fun ctor_of (_, a, _) = fst (strip_comb (List.nth (a, i)))
+          val ctors = List.foldl (fn (p, acc) =>
+                        if List.exists (fn c => same_const c (ctor_of p)) acc
+                        then acc else acc @ [ctor_of p]) [] parts
+          val others = List.filter (fn j => j <> i) (List.tabulate (n, fn j => j))
+          val oxs = map (fn j => List.nth (xs, j)) others
+          fun group c =
+            let
+              val ps = List.filter (fn p => same_const (ctor_of p) c) parts
+              val (_, a1, _) = hd ps
+              val canon = snd (strip_comb (List.nth (a1, i)))
+              fun norm (_, a, r) =
+                let val cargs = snd (strip_comb (List.nth (a, i)))
+                    val sub = ListPair.map (fn (v, w) => v |-> w) (cargs, canon)
+                in (map (fn j => Term.subst sub (List.nth (a, j))) others,
+                    Term.subst sub r)
+                end
+              val rows = map norm ps
+              val tree = if null others then #2 (hd rows) else case_tree oxs rows
+              val largs = List.tabulate (n, fn j =>
+                            if j = i then List.nth (a1, i) else List.nth (xs, j))
+            in (mk_eq (list_mk_comb (f, largs), tree), tree) end
+          val eqs = map group ctors
+          val cases = case_defs_in (map #2 eqs)
+          val rth = recursion_thm_of (type_of (List.nth (args0, i)))
+        in
+          smart_log := (name, "primitive recursion on arg " ^ Int.toString i ^
+                                (if lifted then " (case-lifted)" else "")) :: !smart_log;
+          "let " ^ mlnm ^ "_tree = new_recursive_definition " ^ rth ^ " `" ^
+          String.concatWith " /\\\n   " (map (ptm o #1) eqs) ^ "`;;\n" ^
+          proof_of () cases
+        end
+  end;
 
 end
