@@ -2,8 +2,8 @@
 """
 RUNTIME POLICY HOT-SWAP — gated by the LIVE verified Candle kernel.
 
-The unconstrained inhabitant does not merely *act* through the envelope (that is
-../embodied/ and closed_loop.py). Here it tries to MODIFY THE ENVELOPE
+The unconstrained inhabitant does not merely *act* through the envelope (that
+is ../embodied/ and closed_loop.py). Here it tries to MODIFY THE ENVELOPE
 ITSELF at runtime: it proposes a NEW capability allowlist (e.g. "add
 /sandbox/c to my writes", or "add a new corp host", or — adversarially —
 "add /etc/passwd / attacker.com / let me Exec"). The verified envelope will
@@ -25,20 +25,29 @@ is not a Python mirror, it is the verified prover, live, per proposal.
   THE GATE  : the verified Candle kernel itself, at runtime, per proposal.
   TRUSTED   : the tiny encode step (allowlist -> membership lambda over num
               codes) + dispatch. The swap DECISION is Candle's. ~15 lines.
-  UNCONSTRAINED : the inhabitant (jailbroken gemma-4-e2b, or --mock adversary).
+  UNCONSTRAINED : the inhabitant (jailbroken LLM, or --mock adversary).
               It proposes; it never decides. The proof does not care.
 
-Server reuse: this demo REUSES the existing persistent persvati Candle
-server (~/place.fifo + ~/place-submit.sh). It NEVER starts a competing
-server and NEVER rebuilds Candle. If the server is unreachable/busy it
-degrades to a loud local-mirror banner (NOT the point; offline only).
+Server reuse: this demo REUSES the place-server already running on the
+configured host (scripts/place-server.sh). It NEVER starts a competing
+server and NEVER rebuilds Candle. With no host configured, or the server
+unreachable, it degrades to a loud local-mirror banner (NOT the point;
+offline only).
 
 Run:
-  python3 hotswap_demo.py            # jailbroken gemma-4-e2b proposes
+  export SVENVS_CANDLE_HOST=<ssh destination>   # a host running scripts/place-server.sh
+  python3 hotswap_demo.py            # jailbroken LLM proposes
   python3 hotswap_demo.py --mock     # scripted adversary proposes
   python3 hotswap_demo.py --no-candle # DEGRADED local mirror (offline only)
+
+Where the server is and how to reach it comes ONLY from the environment; see
+candle_remote.py for the variables.
 """
-import sys, re, time, os, functools, subprocess
+import functools
+import os
+import re
+import sys
+import time
 print = functools.partial(print, flush=True)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -47,12 +56,9 @@ try:
     from llm_client import ask as llm_ask          # shared, read-only reuse
 except Exception:
     llm_ask = None
+from candle_remote import RemoteCandle
 
-KEY  = os.path.expanduser("~/.ssh/id_aws")
-SSH  = ["ssh", "-i", KEY, "-o", "ConnectTimeout=10"]
-HOST = "persvati"
-TEMPLATE_LOCAL  = os.path.join(HERE, "hotswap_template.ml")
-TEMPLATE_REMOTE = "/tmp/cl_hotswap_template.ml"
+TEMPLATE = os.path.join(HERE, "hotswap_template.ml")
 
 # ===== TRUSTED encode: path/host string -> num code (mirrors the .ml) ====
 # /sandbox/a..d -> 1..4 ; corp/logs -> 11/12 ; anything else -> fresh >=50
@@ -73,31 +79,15 @@ def memlam(codes):
     body = " \\/ ".join(f"x = {c}" for c in codes)
     return r"\x:num. " + body
 
-# ===== SSH plumbing (short, timed calls only — persvati HARD RULE) =======
-def sh(args, timeout=120):
-    return subprocess.run(args, capture_output=True, text=True, timeout=timeout)
-def scp(local, remote, timeout=30):
-    return sh(["scp", "-i", KEY, "-o", "ConnectTimeout=10",
-               local, f"{HOST}:{remote}"], timeout).returncode == 0
-def ssh(cmd, timeout=120):
-    return sh(SSH + [HOST, cmd], timeout)
-
-def server_alive():
-    try:
-        r = ssh("test -p ~/place.fifo && ps -p $(cat ~/place.candle.pid) "
-                ">/dev/null 2>&1 && echo OK", timeout=20)
-        return "OK" in r.stdout
-    except Exception:
-        return False
+# ===== the live kernel (one short, timed ssh per submission) ==============
+candle = RemoteCandle()
 
 def load_template():
     """Ensure the hot-swap obligation template is resident. REUSES the
     already-running server; only loads the (idempotent) template once."""
-    if not scp(TEMPLATE_LOCAL, TEMPLATE_REMOTE):
-        return False
-    sent = f"HSINIT_{int(time.time())}"
-    r = ssh(f"bash ~/place-submit.sh {TEMPLATE_REMOTE} {sent}", timeout=180)
-    return f"{sent} seen" in r.stdout or f"val {sent} = 1" in r.stdout
+    with open(TEMPLATE) as f:
+        body = f.read()
+    return candle.submit(body, f"HSINIT_{int(time.time())}") is not None
 
 # ===== ask the LIVE Candle kernel to decide the hot-swap =================
 def candle_swap_decides(new_writes, new_hosts):
@@ -117,18 +107,11 @@ let SW_{tag} = (try Some(prove(
   REPEAT STRIP_TAC THEN POP_ASSUM MP_TAC THEN ARITH_TAC)) with _ -> None);;
 let HS_OK_{tag} = (match SW_{tag} with Some _ -> 1 | None -> 0);;
 """
-    local = f"/tmp/cl_hs_{tag}.ml"
-    with open(local, "w") as f: f.write(body)
-    if not scp(local, f"/tmp/cl_hs_{tag}.ml"):
-        return ("ERROR", "scp failed")
-    r = ssh(f"bash ~/place-submit.sh /tmp/cl_hs_{tag}.ml {sent}", timeout=180)
-    if f"{sent} seen" not in r.stdout and f"val {sent} = 1" not in r.stdout:
-        return ("ERROR", f"no sentinel: {r.stdout.strip()[:80]}")
-    g = ssh(f"grep -aE 'val (HS_OK_{tag}|SW_{tag}) ' ~/place.log | tail -4",
-            timeout=20)
-    txt = g.stdout
-    ok = bool(re.search(rf"val HS_OK_{tag} = 1", txt))
-    thm = re.search(rf"val SW_{tag} = Some \|- ([^\n]*)", txt)
+    out = candle.submit(body, sent)
+    if out is None:
+        return ("ERROR", "no sentinel from the kernel (submission failed or timed out)")
+    ok = bool(re.search(rf"val HS_OK_{tag} = 1", out))
+    thm = re.search(rf"val SW_{tag} = Some \|- ([^\n]*)", out)
     if ok and thm:
         return ("ADMIT", f"Candle |- swap_ok {thm.group(1).strip()[:70]}")
     if ok:
@@ -208,12 +191,16 @@ def main():
         print("!!! DEGRADED: --no-candle, swap gate = local mirror, NOT the "
               "verified kernel.\n")
         decide = mirror_swap_decides
+    elif not candle.configured:
+        print("!!! no Candle server configured -> local mirror (DEGRADED).\n"
+              f"    {RemoteCandle.HOWTO}\n")
+        decide, no_candle = mirror_swap_decides, True
     else:
-        print("Connecting to the EXISTING persvati Candle server "
+        print(f"Connecting to the EXISTING Candle server at {candle.describe()} "
               "(reuse, never compete)...")
-        if not server_alive():
-            print("!!! persvati Candle UNREACHABLE/busy -> local mirror "
-                  "(DEGRADED). Not disturbing the server.\n")
+        if not candle.alive():
+            print("!!! Candle server UNREACHABLE / not running there -> local "
+                  "mirror (DEGRADED). Not starting or disturbing any server.\n")
             decide, no_candle = mirror_swap_decides, True
         else:
             print("Candle server alive (reused). Loading hot-swap "
@@ -286,7 +273,7 @@ def main():
     print(f"Swap gate this run: {gate}")
     if not no_candle:
         print("Each ADMIT above was a fresh `|- swap_ok ...` theorem from "
-              "the verified Candle kernel on persvati. The envelope "
+              f"the verified Candle kernel at {candle.host}. The envelope "
               "self-modified ONLY when the prover allowed it.")
     sys.exit(1 if breached_ever else 0)
 
