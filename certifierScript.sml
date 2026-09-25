@@ -27,7 +27,6 @@
                                     the judge survives one gated step
     sound_certifier_iff_cgate_safe  … and conversely, given one good and one
                                     bad point of the judge
-    unsound_certifier_breaches      the necessity corollary (∃-witness)
     ratchet_stream / ratchet_stream_iff   the stream theorem and its converse
     cstep_ratchet / sound_certifier_iff_cstep_ratchet
     sound_certifier_iff_stream_safe soundness ⇔ every stream of gated steps
@@ -41,7 +40,7 @@
    layer (theory)          chk (certifier)          sem (meaning)            J (judge)
    ----------------------  -----------------------  -----------------------  -----------------------
    upgrade: gate           I on the bool cert       I (cert ⇒ J newp given)  sound_policy step safe
-     gate = cgate, gate_all = cgate_run I;
+     gate is cgate (an overload at policies), gate_all = cgate_run I;
      gate_keeps_sound, gate_all_keeps_sound, gated_self_improvement_is_safe  ← cgate_keeps, cgate_fold_keeps;
      gate_all_keeps_sound_iff ← cgate_fold_safe_iff; gate_keeps_sound_iff (one step, direct)
    upgrade: any certifier  chk on 'o                sem, encoded by          sound_policy step safe
@@ -53,10 +52,9 @@
      kernel_admits_sound_certifier, encodes_obligation_is_encoding,
      embedded_admit_preserves_safety
    kernelUpgrade           UNCURRY K (any kernel)   kernel_meaning mem       sound_policy step safe
-     kernel_sound ⇔ sound_certifier (UNCURRY K) (kernel_meaning mem):
-     embeddedGate.kernel_soundness_is_sound_certifier (from sound_certifier_curried);
-     kernel_sound_iff_gate_safe is embeddedGate.kernel_sound_certifier_iff_gate_safe,
-     itself sound_certifier_iff_policy_gate_safe at ob := (thy,obl)
+     kernel_sound_is_sound_certifier ← sound_certifier_curried;
+     kernel_sound_iff_transfers ← sound_certifier_iff_transfers;
+     kernel_sound_iff_gate_safe ← sound_certifier_iff_policy_gate_safe at ob := (thy,obl)
    selfProver              prover_certifier         prover_meaning           sound_policy step safe
                             (hol4_checks p B ∧ b)    (sound B ∧ b)
      frozen_checker_sound_iff_sound_certifier, prover_self_improvement_is_safe,
@@ -64,10 +62,10 @@
      prover_then_unbounded_policy_self_improvement_is_safe ← cgate_run_safe
    genealogy               λ(A,B). jsound A ∧       λ(A,B). jsound B         jsound
                             vouches A B
-     vouch_sound = ratchet, forward_certified = follows,
+     vouch_sound is ratchet, forward_certified is follows (overloads),
      genealogy_sound ← ratchet_stream, vouch_sound_is_necessary ← ratchet_stream_iff
    selfRecompileGate       I on the kernel verdict  I                        impl_correct spec
-     swap = cgate, run_loop = cgate_run I, loop_step = cstep I I …,
+     swap is cgate (an overload), run_loop = cgate_run I, loop_step = cstep I I …,
      gate_is_vouch_sound ← cstep_ratchet, loop_is_a_genealogy ← cgate_run_follows,
      self_recompile_loop_is_safe ← cgate_fold_keeps, cert_sound_iff_loop_safe ← cgate_fold_safe_iff
    apex                    (genealogy at apex_sound / apex_vouch)
@@ -176,16 +174,6 @@ Proof
   first_x_assum (qspecl_then [‘ob’, ‘a’, ‘b’] mp_tac) >> simp[cgate_def]
 QED
 
-(* NECESSITY, as a corollary: an unsound certifier breaches some judge-
-   keeping gated step, although the old point is good and the encoding is
-   (vacuously) faithful. *)
-Theorem unsound_certifier_breaches:
-  ¬sound_certifier chk sem ∧ J a ∧ ¬J b ⇒
-  ∃ob old new. J old ∧ (sem ob ⇒ J new) ∧ ¬J (cgate (chk ob) old new)
-Proof
-  metis_tac[sound_certifier_iff_cgate_safe]
-QED
-
 (* ===================================================================== *)
 (* 3. The ratchet: a judge preserved along a relation, over streams.     *)
 (* ===================================================================== *)
@@ -197,15 +185,6 @@ End
 Definition follows_def:
   follows (R:'x -> 'x -> bool) (s:num -> 'x) ⇔ ∀n. R (s n) (s (SUC n))
 End
-
-(* A ratchet is a certifier: the pair (x, y) with J x and R x y is
-   certified to mean J y. *)
-Theorem ratchet_is_sound_certifier:
-  ratchet J R ⇔
-  sound_certifier (λ(x,y). J x ∧ R x y) (λ(x,y). J y)
-Proof
-  rw[ratchet_def, sound_certifier_def, pairTheory.FORALL_PROD]
-QED
 
 (* THE STREAM THEOREM: a good genesis and a ratcheting relation keep the
    judge along every stream that follows the relation. *)

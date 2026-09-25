@@ -44,7 +44,7 @@
 open HolKernel boolLib bossLib BasicProvers
      holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSoundnessTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
-     upgradeTheory embeddedGateTheory;
+     certifierTheory upgradeTheory embeddedGateTheory;
 
 val _ = new_theory "kernelUpgrade";
 
@@ -77,24 +77,30 @@ QED
 (*  Soundness IS transfer.                                               *)
 (* ===================================================================== *)
 
-(* A kernel is sound exactly when its "yes" transfers to every fact P that
-   the certified term faithfully encodes ((thy,[]) |= t ⇒ P). This is the
-   kernel instance of the abstract certifier_sound_iff_transfers; the
-   theorems below that turn a kernel's yes into a real fact (a soundness
-   lift, an admissible upgrade, a safe gate) are instances of it. *)
-(* kernel_sound IS certifier soundness at meaning := entailment
-   (certifierTheory, via embeddedGateTheory's two-argument form). *)
+(* THE ONE TIE: kernel_sound IS certifier soundness of the uncurried kernel
+   at meaning := entailment (embeddedGateTheory.kernel_meaning); this is
+   certifierTheory.sound_certifier_curried. Every other kernel-soundness fact
+   below is derived from this tie and a certifierTheory theorem. *)
 Theorem kernel_sound_is_sound_certifier:
   kernel_sound ^mem K0 ⇔ sound_certifier (UNCURRY K0) (kernel_meaning ^mem)
 Proof
-  rw[kernel_sound_def, kernel_soundness_is_sound_certifier]
+  ‘kernel_meaning ^mem = UNCURRY (λthy obl. (thy,[]) |= obl)’
+    by simp[FUN_EQ_THM, pairTheory.FORALL_PROD, kernel_meaning_def] >>
+  pop_assum SUBST1_TAC >>
+  simp[kernel_sound_def, GSYM sound_certifier_curried]
 QED
 
+(* A kernel is sound exactly when its "yes" transfers to every fact P that
+   the certified term faithfully encodes ((thy,[]) |= t ⇒ P): the tie plus
+   certifierTheory.sound_certifier_iff_transfers. The theorems below that
+   turn a kernel's yes into a real fact (a soundness lift, an admissible
+   upgrade, a safe gate) are instances of it. *)
 Theorem kernel_sound_iff_transfers:
   kernel_sound ^mem K0 ⇔
   ∀thy t P. K0 thy t ∧ ((thy,[]) |= t ⇒ P) ⇒ P
 Proof
-  rw[kernel_sound_def, kernel_soundness_iff_transfers]
+  simp[kernel_sound_is_sound_certifier, sound_certifier_iff_transfers,
+       kernel_meaning_def, pairTheory.FORALL_PROD]
 QED
 
 (* ===================================================================== *)
@@ -353,11 +359,9 @@ QED
 
 (* Kernel soundness is EXACTLY what the operational gate needs: a kernel is
    sound iff the gate it drives is safe for every faithfully-encoded
-   proposal in every (here: num) habitat. Forward: the transfer instance
-   upgraded_kernel_preserves_safety. Backward: into the transfer form of
-   soundness -- a certified t with (|= t ⇒ P) and ¬P would have t not
-   entailed, and kernel_unsound_certificate_can_breach turns that into an
-   unsafe gate. *)
+   proposal in every (here: num) habitat. The tie plus
+   upgradeTheory.sound_certifier_iff_policy_gate_safe at chk := UNCURRY K',
+   ob := (thy,obl), with encodes_obligation as the faithful encoding. *)
 Theorem kernel_sound_iff_gate_safe:
   kernel_sound ^mem K' ⇔
   ∀thy obl (step:num -> num -> num) safe init shield oldp newp.
@@ -368,7 +372,9 @@ Theorem kernel_sound_iff_gate_safe:
     ∀ctrl. invariant step init
               (enveloped (kgate K' thy obl oldp newp) shield ctrl) safe
 Proof
-  rw[kernel_sound_def, kgate_def, kernel_sound_certifier_iff_gate_safe]
+  simp[kernel_sound_is_sound_certifier, kgate_def,
+       sound_certifier_iff_policy_gate_safe, encodes_obligation_is_encoding,
+       pairTheory.FORALL_PROD]
 QED
 
 (* A Candle certificate of an UNRELATED true term encodes nothing about K'.

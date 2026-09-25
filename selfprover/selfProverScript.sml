@@ -142,7 +142,7 @@ End
 (* 3. THE META-THEOREM: prover self-improvement is safe.                 *)
 (* --------------------------------------------------------------------- *)
 
-(* The OPERATIONAL prover gate. The inhabitant proposes a NEW prover build
+(* The OPERATIONAL prover gate (certifierTheory's cgate, via `gate`). The inhabitant proposes a NEW prover build
    B' with a proof object p', and B' returns a verdict `bcert` on a policy
    proposal (oldp ↦ newp). The envelope installs newp iff the FROZEN root
    accepted the build AND the build said yes. Nothing in the decision
@@ -178,13 +178,6 @@ Proof
   metis_tac[]
 QED
 
-Theorem prover_gate_is_certifier_gate:
-  prover_gate hol4_checks p' B' bcert oldp newp =
-  gate (prover_certifier hol4_checks (p',B',bcert)) oldp newp
-Proof
-  rw[prover_gate_def, prover_certifier_def]
-QED
-
 (* build_certifies, guarded by the build's verdict, is exactly the faithful
    encoding of admissibility by the certifier's meaning. *)
 Theorem build_certifies_is_encoding:
@@ -215,7 +208,10 @@ Theorem prover_self_improvement_is_safe:
             (enveloped (prover_gate hol4_checks p' B' bcert oldp newp)
                        shield ctrl) safe
 Proof
-  rw[prover_gate_is_certifier_gate, frozen_checker_sound_iff_sound_certifier] >>
+  rw[prover_gate_def, frozen_checker_sound_iff_sound_certifier] >>
+  ‘(hol4_checks p' B' ∧ bcert) = prover_certifier hol4_checks (p',B',bcert)’
+    by simp[prover_certifier_def] >>
+  pop_assum SUBST1_TAC >>
   irule certifier_gate_preserves_safety >> simp[] >>
   qexists_tac ‘prover_meaning sound’ >>
   rw[prover_meaning_def] >> fs[build_certifies_def]
@@ -238,8 +234,9 @@ Theorem frozen_checker_sound_iff_prover_gate_safe:
                          shield ctrl) safe
 Proof
   simp[frozen_checker_sound_iff_sound_certifier,
-       sound_certifier_iff_policy_gate_safe, prover_gate_is_certifier_gate,
-       pairTheory.FORALL_PROD, prover_meaning_def, build_certifies_def] >>
+       sound_certifier_iff_policy_gate_safe, prover_gate_def,
+       prover_certifier_def, pairTheory.FORALL_PROD, prover_meaning_def,
+       build_certifies_def] >>
   eq_tac >> rpt strip_tac >> first_x_assum irule >> simp[] >> metis_tac[]
 QED
 
