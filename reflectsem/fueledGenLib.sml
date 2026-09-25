@@ -76,8 +76,25 @@ fun members clauses =
    must thread fuel through ("fuel infection"). *)
 type fuel_env = (term * (term -> term)) list;
 
-fun env_sigma (env : fuel_env) k =
-  map (fn (c, mk) => c |-> mk k) env;
+(* TYPE-INSTANTIATING fuel substitution. The entries' constants carry the
+   types of their stored defining theorems (e.g. do_eval_res : α state ...),
+   but a use site may be a proper instance ('ffi state ...). Term.subst
+   matches redexes up to aconv only, so each occurrence gets its own redex:
+   the template is instantiated with the type match from the stored
+   constant to that occurrence. *)
+fun inst_sigma (templates : (term * term) list) r =
+  List.concat (map (fn (c, tmpl) =>
+      let
+        val occs = Lib.op_mk_set aconv
+                     (find_terms (fn t => is_const t andalso same_const t c) r)
+      in
+        map (fn occ =>
+               occ |-> Term.inst (Type.match_type (type_of c) (type_of occ))
+                                 tmpl)
+            occs
+      end) templates);
+
+fun env_templates (env : fuel_env) k = map (fn (c, mk) => (c, mk k)) env;
 
 (* build the env entries for a group just defined: Fn_const the dispatcher *)
 fun group_env_entries Fn_const mems arities in_tys out_tys one_out simple :
@@ -153,10 +170,10 @@ fun mk_fueled fueled_name (ext : fuel_env) def_th =
           else out_proj j (list_mk_comb
                  (Fn, [k, mk_inj in_tys j (list_mk_pair xs)]))
       in list_mk_abs (xs, body) end
-    val sigma = List.tabulate (m, fn j => List.nth (mems, j) |-> repl j)
-                @ env_sigma ext k
+    val templates = List.tabulate (m, fn j => (List.nth (mems, j), repl j))
+                    @ env_templates ext k
     fun fuel_rhs r =
-      let val r' = Term.subst sigma r
+      let val r' = Term.subst (inst_sigma templates r) r
       in rhs (concl (QCONV (TOP_DEPTH_CONV BETA_CONV) r')) end
     (* SUC-clauses *)
     val suck = mk_suc k
@@ -213,5 +230,91 @@ fun define_fueled fueled_name (ext : fuel_env) def_th =
     val new_env =
       group_env_entries Fn_const mems arities in_tys out_tys one_out simple
   in (def, new_env) end;
+
+(* ---------- post-generation check ---------- *)
+
+(* every ORIGINAL member constant of any fueled group that still occurs on a
+   right-hand side of any generated fueled definition: each one is a missed
+   fuel infection (or an ordering error in the group sequence).
+   groups: (fueled def name, original defining theorem, fueled def) *)
+fun leftover_originals (groups : (string * thm * thm) list) =
+  let
+    val origs = List.concat (map (fn (_,d,_) => members (dest_clauses d)) groups)
+    (* a clause stored as `P xs` or `~P xs` has rhs T/F: nothing to scan *)
+    fun rhss th =
+      List.mapPartial (fn cj => let val c = snd (strip_forall cj)
+                                in if is_eq c then SOME (rhs c) else NONE end)
+        (strip_conj (concl th))
+  in
+    List.concat (map (fn (nm,_,fd) =>
+        map (fn c => (nm, c))
+          (Lib.op_mk_set aconv
+             (List.concat (map (find_terms (fn t => is_const t andalso
+                                  List.exists (same_const t) origs))
+                               (rhss fd)))))
+      groups)
+  end;
+
+(* the same through the DIRECT (unfueled) functions the mirrors call: a
+   direct function whose definition, transitively, calls an original is
+   itself a missed fuel infection (its exported text would reference a
+   constant that only exists as a mirror). Only constants of theories
+   descending from ast can mention the semantics' originals.
+   Returns (direct constant, original it reaches). *)
+fun defthm_of c =
+  let
+    val {Thy, Name, ...} = dest_thy_const c
+    fun try nm = SOME (DB.fetch Thy nm) handle HOL_ERR _ => NONE
+  in
+    case try (Name ^ "_def") of SOME th => SOME th | NONE =>
+    case try (Name ^ "_DEF") of SOME th => SOME th | NONE => try Name
+  end;
+
+fun infected_direct (groups : (string * thm * thm) list) =
+  let
+    val origs = List.concat (map (fn (_,d,_) => members (dest_clauses d)) groups)
+    fun is_orig t = List.exists (same_const t) origs
+    val fueled_thy = current_theory ()
+    fun candidate t =
+      is_const t andalso not (is_orig t) andalso
+      let val thy = #Thy (dest_thy_const t)
+      in thy <> fueled_thy andalso thy <> "fueledSem" andalso
+         (thy = "ast" orelse Lib.mem "ast" (Theory.ancestry thy))
+      end handle HOL_ERR _ => false
+    fun consts_of th = find_terms is_const (concl th)
+    val seen = ref ([] : term list)
+    val bad = ref ([] : (term * term) list)
+    fun visit c =
+      if List.exists (same_const c) (!seen) then ()
+      else
+        (seen := c :: !seen;
+         case defthm_of c of
+           NONE => ()
+         | SOME th =>
+             let val cs = consts_of th
+             in List.app (fn o' => bad := (c, o') :: !bad)
+                  (Lib.op_mk_set same_const (List.filter is_orig cs));
+                List.app visit (List.filter candidate cs)
+             end)
+  in
+    List.app (fn (_,_,fd) => List.app visit (List.filter candidate (consts_of fd)))
+      groups;
+    List.rev (!bad)
+  end;
+
+fun report_leftovers groups =
+  let
+    val bad = leftover_originals groups
+    val () = List.app (fn (nm, c) =>
+        print ("LEFTOVER original in " ^ nm ^ ": " ^ term_to_string c ^
+               " : " ^ type_to_string (type_of c) ^ "\n")) bad
+    val bad' = infected_direct groups
+    val () = List.app (fn (d, c) =>
+        print ("LEFTOVER original via direct function " ^ term_to_string d ^
+               ": " ^ term_to_string c ^ "\n")) bad'
+    val () = print ("fueled groups checked: " ^ Int.toString (length groups) ^
+                    ", leftover original constants: " ^
+                    Int.toString (length bad + length bad') ^ "\n")
+  in map #2 bad @ map #2 bad' end;
 
 end
