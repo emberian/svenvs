@@ -243,7 +243,7 @@ any repository before trusting a green badge.
    Action, each toolchain checkout and each downloaded artifact, is pinned by
    a full commit SHA or a content hash, never a tag or a short id; the pin is
    compared verbatim where it is used (`git rev-parse HEAD`, `sha256sum -c`).
-2. **PR code is untrusted input to CI.** No `pull_request_target`; explicit
+2. **PR code is adversarial input to CI.** No `pull_request_target`; explicit
    least-privilege `permissions:`; caches restored on any event but saved
    only from trusted refs; no secrets reachable from a pull-request run.
 3. **A committed artifact is re-derived, or it is not committed.** Never
