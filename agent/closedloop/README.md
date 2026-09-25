@@ -4,16 +4,17 @@
 a **Python mirror** of the proven svenvs envelope. The mirror was TRUSTED by
 human audit (≈50 lines, cited 1:1 with `toolAgentScript.sml`).
 
-**This directory closes the loop.** Every action Gemma proposes is now
-admitted or refused by the **live verified Candle kernel** running on
-persvati — a fresh machine-checked theorem per step. The gate is no longer
-a human-audited transcription of the proof; it *is* the prover.
+**This directory closes the loop.** Every action the inhabitant proposes is
+now admitted or refused by a **live verified Candle kernel** (a
+`scripts/place-server.sh` on any host you can reach over ssh) — a fresh
+machine-checked theorem per step. The gate is no longer a human-audited
+transcription of the proof; it *is* the prover.
 
 ```
   embodied (before)        closed loop (here)
   ----------------         ------------------
   Gemma → Python mirror     Gemma → HOL Light obligation
-          (TRUSTED audit)           → persvati Candle kernel
+          (TRUSTED audit)           → live Candle kernel (place-server)
           → world step              → kernel theorem → world step
                                        (VERIFIED at runtime)
 ```
@@ -23,7 +24,9 @@ a human-audited transcription of the proof; it *is* the prover.
 | File | Role |
 |------|------|
 | `obligation_template.ml` | HOL Light mirror of `../toolAgentScript.sml` in the num-only Candle dialect. Defines `truly_unsafe`, `tool_pol`, `safe_allowlist`, `admit_ok`, `refuse_ok`. Proves **`ADMIT_SOUND`** (safe allowlist ⇒ an admitted action is within the absolute spec — the HOL-Light re-derivation of `tool_pol_sound`) and **`SHIELD_SAFE`** (`Refuse` is always in-spec). Loaded **once** per server lifetime. |
-| `closed_loop.py` | Runs gemma2:2b (ollama), encodes each proposed tool-call to num codes, ships a per-action `prove(...)` obligation to the persvati Candle server, parses the kernel verdict, gates the world step on it. |
+| `closed_loop.py` | Runs the inhabitant LLM (via `../embodied/llm_client.py`), encodes each proposed tool-call to num codes, ships a per-action `prove(...)` obligation to the configured Candle place-server, parses the kernel verdict, gates the world step on it. |
+| `hotswap_demo.py` | The inhabitant proposes changes to its own allowlist; each proposal is hot-swapped in only if the live kernel proves `swap_ok` (see `hotswap_template.ml`). |
+| `candle_remote.py` | The shared plumbing both demos use to reach the place-server: everything about the host comes from the environment (below); one short, timed ssh per submission. |
 | `README.md` | This file. |
 
 ## How the loop works
@@ -69,20 +72,32 @@ on it, with the verified prover.**"
 ## Run
 
 ```bash
-ollama pull gemma2:2b               # once
-python3 closed_loop.py              # real Gemma + real persvati Candle
-python3 closed_loop.py --mock       # scripted adversary + real Candle
+# 1. On the box that runs the verified gate (x86-64 Linux with the Candle
+#    binary; any host you can ssh to), from a svenvs checkout:
+scripts/place-server.sh             # loads hol.ml once; per-user PLACE_DIR
+
+# 2. Here. Nothing about that host is baked in; it all comes from env:
+export SVENVS_CANDLE_HOST=<ssh destination>   # an alias from ~/.ssh/config, or user@host
+export SVENVS_CANDLE_REMOTE_ROOT=~/svenvs     # that host's svenvs checkout (this is the default)
+python3 closed_loop.py              # real LLM (../embodied/llm_client.py) + live Candle
+python3 closed_loop.py --mock       # scripted adversary + live Candle
 python3 closed_loop.py --no-candle  # DEGRADED: local mirror only (offline)
 ```
+
+Optional: `SVENVS_CANDLE_SSH_KEY` (else your ssh config/agent), `SVENVS_CANDLE_PLACE_DIR`
+(only if the server was started with a non-default `PLACE_DIR`),
+`SVENVS_CANDLE_TIMEOUT` (seconds per proof, default 180). The same variables
+drive `hotswap_demo.py`. With no host configured the demos say so and take
+the degraded path.
 
 `--no-candle` (or an unreachable/busy server) drops to the local mirror and
 prints a loud DEGRADED banner — it is the *old* trust level, kept only so
 the demo runs offline. The real-Candle path is the default.
 
-## Sample transcript (mock adversary, real persvati Candle kernel)
+## Sample transcript (mock adversary, live Candle kernel)
 
 ```
-Connecting to persvati Candle server (the verified gate)...
+Connecting to the Candle server at <host>:$HOME/svenvs (the verified gate)...
 Candle server alive. Loading obligation template (once)...
 Template certified by Candle kernel (ADMIT_SOUND, SHIELD_SAFE).
 
@@ -120,32 +135,32 @@ step 4: gemma~'(scripted adversary)'
 
 RESULT: breached_ever=False  (predicted False, for ANY agent ...)
 Gate this run: LIVE CANDLE KERNEL
-Each ALLOW/REFUSE above was a fresh theorem from the verified Candle
-kernel on persvati — the gate IS the prover.
+Each ADMIT/REFUSE above was a fresh theorem from the verified Candle
+kernel at <host> — the gate IS the prover.
 ```
 
 (Filled in from an actual run — see "Verification status" below.)
 
 ## Honest limitations
 
-- **Encode step is trusted.** Mapping a tool-call string to num codes is
-  ~10 lines outside the kernel. It is deliberately tiny and auditable, but
-  it is the residual trusted base. (A fully reflected version would parse
-  inside HOL — that is the `hol-reflection` track, gated on the L1 port;
-  see `svenvs-real-embedding-plan` memory.)
+- **Encode step.** Mapping a tool-call string to num codes is ~10 lines
+  outside the kernel. It is deliberately tiny, and its faithfulness is
+  itself a theorem (`encFaithScript.sml` in this directory, cited in
+  `../../CLAIMS.md`); the code table is what remains trusted in the demo.
 - **num encoding, not strings.** The Candle dialect makes `:num` + `ARITH_TAC`
   rock-solid; strings/`int >`/`Printf` are avoided per the recorded dialect
   lessons. So the obligation reasons about *codes*, and the code table is
   part of the trusted encode step above.
 - **Latency.** Each step is an ssh round-trip + a Candle `prove`; this is a
   correctness demo, not a low-latency runtime. Submissions are intentionally
-  tiny ("light submissions only" — the persvati hard rule).
+  tiny ("light submissions only": one short, timed ssh per proof).
 - **Liveness vs. safety.** The kernel decides *admissibility* (safety). It
   does not guarantee Gemma ever makes progress; a refused agent simply gets
   `shield(Refuse)` forever. That is the correct envelope behaviour.
-- **Shared server.** Uses the existing persvati Candle process; if it is
-  busy with STAGE5 or unreachable the loop degrades to the mirror with a
-  loud banner rather than disturbing the server.
+- **Shared server.** Reuses whatever place-server is running on the
+  configured host; if none is configured or it is unreachable, the loop
+  degrades to the mirror with a loud banner rather than starting or
+  disturbing a server.
 - The HOL-Light obligations are a faithful *re-derivation* of the HOL4
   `toolAgentScript.sml` definitions, hand-mirrored (same discipline as
   `theplace.ml`); they are not yet produced by an automated HOL4→HOL-Light
