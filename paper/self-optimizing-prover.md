@@ -45,7 +45,7 @@ the supporting lemmas behind its rows, and one label the root table does not def
 | The recursive seam decomposes into the genealogy (verifier line) and selfprover (compiler line); recompile preserves code at every step. | **PROVED** | `recursive/recursiveImprovementScript.sml : stage_seam_decomposes, recursive_recompile_preserves_code_throughout` |
 | The live self-extension, sentinel by sentinel. | **RAN** | `candle/selfopt_demo.ml` (`SYM_LEMMA`, `SYM_RULE`, `FACT1_SYM`, `FACT1_ROUNDTRIP`) |
 | The compiler's self-recompilation, mechanically: self-host, fixpoint via `cmp`, self-optimize via `--inline_size`/`--max_app`. | **RAN** | `scripts/apex.sh` (APEX I) |
-| Succession structure cannot dissolve the strengthening seam (a second negative beside `loeb_finite_obstruction`). | **PROVED (negative)** | `genealogy/genealogyScript.sml : genealogy_irrelevant_to_vouch_sound` |
+| Succession structure cannot dissolve the strengthening seam (a second negative beside `loeb_finite_obstruction`): a forward-certified genealogy from a sound genesis with a non-`vouch_sound` vouching goes unsound at step one, and with total vouching the seam is equivalent to "every such genealogy stays sound". | **PROVED (negative)** | `genealogy/genealogyScript.sml : genealogy_irrelevant_to_vouch_sound, vouch_sound_is_necessary` |
 
 ## 2. The one Löb, and why mutual optimization escapes it
 

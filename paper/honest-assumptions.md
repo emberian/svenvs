@@ -137,11 +137,13 @@ When a clever trick *cannot* remove a hard assumption, that is a finding,
 and it is written as a theorem rather than quietly skipped:
 
 - `kernel/watchdogFiniteScript.sml : loeb_finite_obstruction` — finiteness
-  provably cannot dissolve the Löb obstruction (it has no habitat
-  parameter).
-- `genealogy/genealogyScript.sml : genealogy_irrelevant_to_vouch_sound` —
-  succession structure provably cannot dissolve the strengthening seam
-  (it has no genealogy parameter).
+  provably cannot dissolve the Löb obstruction: with every watchdog fact in hand and a genuine Candle certificate, a kernel that strictly extends Candle's still fails `loeb_reflection`, because it is unsound.
+- `genealogy/genealogyScript.sml : genealogy_irrelevant_to_vouch_sound,
+  vouch_sound_is_necessary` — succession structure provably cannot dissolve
+  the strengthening seam: a forward-certified genealogy from a sound genesis
+  whose vouching is not `vouch_sound` goes unsound at step one (a concrete
+  counterexample), and when every judge vouches for some successor the seam
+  is exactly equivalent to "every such genealogy stays sound".
 
 A precise negative is a result. Stating it as a theorem makes it
 impossible to quietly ignore.
