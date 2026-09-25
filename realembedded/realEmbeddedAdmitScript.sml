@@ -305,16 +305,12 @@ QED
    `loeb_reflection` hypothesis: the meta↔embedded seam is DISCHARGED for
    this concrete, non-trivial (tool-agent allowlist) instance. *)
 Theorem real_embedded_admit_preserves_safety:
-  kernel_admits ^mem real_thy obl_deep ⇒
   ∀agent.
     invariant tstep tinit
-      (enveloped (admit tstep tsafe deny_all (tool_pol base_A))
+      (enveloped (kernel_gate ^mem real_thy obl_deep deny_all (tool_pol base_A))
                  tshield agent) tsafe
 Proof
-  strip_tac >>
   irule embedded_admit_preserves_safety >>
-  qexists_tac ‘obl_deep’ >> qexists_tac ‘real_thy’ >> qexists_tac ‘mem’ >>
-  rpt conj_tac >>
   metis_tac[encodes_obligation_discharged, tshield_safe, tinit_safe,
             deny_all_sound]
 QED
@@ -324,12 +320,9 @@ QED
    kernel-checked proof of the embedded obligation. *)
 Theorem real_embedded_admit_installs:
   kernel_admits ^mem real_thy obl_deep ⇒
-  admit tstep tsafe deny_all (tool_pol base_A) = tool_pol base_A
+  kernel_gate ^mem real_thy obl_deep deny_all (tool_pol base_A) = tool_pol base_A
 Proof
-  strip_tac >>
-  irule embedded_admit_installs >>
-  qexists_tac ‘obl_deep’ >> qexists_tac ‘real_thy’ >> qexists_tac ‘mem’ >>
-  metis_tac[encodes_obligation_discharged]
+  metis_tac[embedded_admit_installs, encodes_obligation_discharged]
 QED
 
 val _ = export_theory ();
