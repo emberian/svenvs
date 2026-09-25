@@ -30,7 +30,7 @@
   PROVED; pure light HOL4.
 *)
 open HolKernel boolLib bossLib BasicProvers
-     genealogyTheory recursiveImprovementTheory;
+     certifierTheory genealogyTheory recursiveImprovementTheory;
 
 val _ = new_theory "apex";
 
@@ -38,14 +38,20 @@ val _ = new_theory "apex";
 (* `compiles c src` = the compiler `c` recompiling source `src` into a new
    compiler binary (cake compiling cake's own s-expression — APEX I, executed).
    `cake_correct` is CakeML's verified compiler-correctness (CITED). The single
-   cited step is: a correct compiler recompiles to a correct compiler. *)
+   cited step is: a correct compiler recompiles to a correct compiler.
+   The compiler line is certifierTheory's ratchet_stream at judge
+   cake_correct and step "recompile some source". *)
 Theorem compiler_self_recompilation_stays_correct:
   (∀c src. cake_correct c ⇒ cake_correct (compiles c src)) ∧   (* CITED: CakeML compiler-correctness *)
   cake_correct (C 0n) ∧
   (∀n. C (SUC n) = compiles (C n) (src n)) ⇒
   ∀n. cake_correct (C n)
 Proof
-  rpt strip_tac >> Induct_on ‘n’ >> rw[] >> metis_tac[]
+  strip_tac >>
+  qspecl_then [‘cake_correct’, ‘λc c'. ∃s. c' = compiles c s’, ‘C’]
+              mp_tac ratchet_stream >>
+  impl_tac >- (rw[ratchet_def, follows_def] >> metis_tac[]) >>
+  simp[]
 QED
 
 (* ---- THE APEX AS A GENEALOGY ------------------------------------------ *)
