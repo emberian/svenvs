@@ -25,12 +25,12 @@ build_dir(){
   say "Tier 1: $label"
   cd "$dir" || die "missing directory $dir"
   [ "$CLEAN" = 1 ] && { "$HOLMAKE" cleanAll >/dev/null 2>&1 || true; rm -rf .hol; }
-  if ! "$HOLMAKE" $SVENVS_HM_FLAGS 2>&1 | tee "/tmp/svenvs-t1-$tag.log" | tail -n 6; then
-    die "Holmake failed in $dir — full log: /tmp/svenvs-t1-$tag.log"
+  if ! "$HOLMAKE" $SVENVS_HM_FLAGS 2>&1 | tee "$SVENVS_LOGS/t1-$tag.log" | tail -n 6; then
+    die "Holmake failed in $dir — full log: $SVENVS_LOGS/t1-$tag.log"
   fi
   local t
   for t in "$@"; do
-    built "$dir" "$t" || die "$label: ${t}Theory not built (see /tmp/svenvs-t1-$tag.log)"
+    built "$dir" "$t" || die "$label: ${t}Theory not built (see $SVENVS_LOGS/t1-$tag.log)"
   done
   ok "$label: $# theories machine-checked"
 }
@@ -61,13 +61,18 @@ else
   warn "skipping optional verified-inference track (--quick)"
 fi
 
-# integrity: a real 'cheat' tactic must appear nowhere in Tier 1 sources.
-# (The word also occurs in prose: 'no cheats', 'not a cheat', etc. — those
-#  are fine; we look only for a bare `cheat` tactic invocation.)
-cheats="$(grep -RnE '(^|[^[:alnum:]_])cheat([^[:alnum:]_]|$)' \
-            "$SVENVS_ROOT"/*.sml "$SVENVS_ROOT"/agent/*.sml \
-            "$SVENVS_ROOT"/inference/mlpInferenceScript.sml 2>/dev/null \
-          | grep -viE 'no cheat|cheat-free|not a .?cheat|without cheat|EXPLICIT|zero .?cheat|never .*cheat' || true)"
+# integrity: a real 'cheat' tactic must appear nowhere in Tier 1 sources
+# (scope = every directory built above). Comments are stripped first (a
+# `(* ... *)` block becomes blanks, newlines kept), so prose about cheats
+# cannot trip the gate; only a bare `cheat` tactic in CODE does.
+code_only(){ perl -0777 -pe 's/\(\*.*?\*\)/ my $m = $&; $m =~ s#[^\n]# #g; $m /gse' "$1"; }
+cheats="$(for f in "$SVENVS_ROOT"/*.sml "$SVENVS_ROOT"/agent/*.sml \
+            "$SVENVS_ROOT"/agent/closedloop/*.sml "$SVENVS_ROOT"/recursive/*.sml \
+            "$SVENVS_ROOT"/selfRecompile/*.sml "$SVENVS_ROOT"/apex/*.sml \
+            "$SVENVS_ROOT"/inference/mlpInferenceScript.sml; do
+            [ -f "$f" ] || continue
+            { code_only "$f" | grep -nE '(^|[^[:alnum:]_])cheat([^[:alnum:]_]|$)' | sed "s|^|$f:|"; } || true
+          done)"
 if [ -n "$cheats" ]; then
   printf '%s\n' "$cheats" >&2
   die "a real 'cheat' tactic appears in a Tier-1 source (above) — STOP"

@@ -21,7 +21,7 @@ for a in "$@"; do case "$a" in --clean|--quick) : ;; *) die "apex-compiler-cell:
 CAKE="${CAKE:-$CANDLE_ROOT/candle/build/cake}"
 FFI="${CAKE_FFI:-$CANDLE_ROOT/candle/build/basis_ffi.c}"
 SRC="$SVENVS_ROOT/candle/compiler_cell_upgrade.cml"
-WORK="${TMPDIR:-/tmp}/svenvs-ccu"
+WORK="$SVENVS_WORK/ccu"
 
 if [ ! -x "$CAKE" ]; then
   warn "SKIP apex-compiler-cell: no verified cake binary at $CAKE.

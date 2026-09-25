@@ -42,13 +42,13 @@ t1b=$(yn built "$SVENVS_ROOT/agent" toolAgentRun)
 t2=$(yn built "$SVENVS_ROOT/kernel" kernelUpgrade)
 t25=$(yn built "$SVENVS_ROOT/loader" installLoader)
 t3=no
-grep -aqE 'val WD_HABITAT_SAFE = .*\|-' "${PLACE_LOG:-/tmp/place.log}" 2>/dev/null && t3=yes
+grep -aqE 'val WD_HABITAT_SAFE = .*\|-' "$PLACE_LOG" 2>/dev/null && t3=yes
 acc=no
-grep -aq COMPILER_CELL_UPGRADE_OK "${TMPDIR:-/tmp}/svenvs-ccu/ccu.out" 2>/dev/null && acc=yes
+grep -aq COMPILER_CELL_UPGRADE_OK "$SVENVS_WORK/ccu/ccu.out" 2>/dev/null && acc=yes
 accc=no
-grep -aqE 'val verdict = "COMPILER_CELL_CANDLE_OK"' "${PLACE_LOG:-/tmp/place.log}" 2>/dev/null && accc=yes
+grep -aqE 'val verdict = "COMPILER_CELL_CANDLE_OK"' "$PLACE_LOG" 2>/dev/null && accc=yes
 sur=no
-[ -x "${TMPDIR:-/tmp}/svenvs-selfupgrade-root/cake-selfupgrade" ] && sur='built (compiles fib->55; --repl env-blocked)'
+[ -x "$SVENVS_WORK/selfupgrade-root/cake-selfupgrade" ] && sur='built (compiles fib->55; --repl env-blocked)'
 
 printf '  Tier 1   core + cartpole + proof-carrying self-improvement : %s\n' "$t1"
 printf '  Tier 1   adversarial-LLM tool-agent (running episodes)     : %s\n' "$t1b"
@@ -64,10 +64,10 @@ printf '  ROOT     self-upgradable cake.S: the verified compiler patched to  : %
 printf '           self-upgrade its eval-compiler, self-compiled to a working cake\n'
 
 [ "$t1" = yes ] && [ "$t1b" = yes ] \
-  || die "Tier 1 MUST reproduce on any machine with HOL4 — see /tmp/svenvs-t1-*.log"
+  || die "Tier 1 MUST reproduce on any machine with HOL4 — see $SVENVS_LOGS/t1-*.log"
 
 ok "Tier 1 reproduced. Higher tiers reproduce when their (heavy) prereqs are present."
 echo
 echo "  Next: ./demo.sh                 — the 2-minute guided showcase"
 echo "        less CLAIMS.md            — exactly what is proven vs assumed"
-echo "        less ARCHITECTURE.md      — layers + honest epistemic status"
+echo "        less ARCHITECTURE.md      — layers, tower, design reasoning"

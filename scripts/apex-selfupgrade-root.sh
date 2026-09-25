@@ -22,7 +22,7 @@ for a in "$@"; do case "$a" in --clean|--quick|--rebuild) : ;; *) die "apex-self
 CAKE="${CAKE:-$CANDLE_ROOT/candle/build/cake}"
 FFI="${CAKE_FFI:-$CANDLE_ROOT/candle/build/basis_ffi.c}"
 SEXPR="${SELFUP_SEXPR:-$CAKEMLDIR/compiler/bootstrap/compilation/x64/64/cake-sexpr-64}"
-WORK="${TMPDIR:-/tmp}/svenvs-selfupgrade-root"
+WORK="$SVENVS_WORK/selfupgrade-root"
 ALT="$WORK/cake-selfupgrade"
 
 have(){ command -v "$1" >/dev/null 2>&1; }

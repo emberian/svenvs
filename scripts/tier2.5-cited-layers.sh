@@ -37,14 +37,14 @@ build_and_assert(){
     CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" cleanAll >/dev/null 2>&1 || true; rm -rf .hol
   fi
   if ! CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS 2>&1 \
-        | tee "/tmp/svenvs-t25-$tag.log" | tail -n 6; then
-    die "Holmake failed in $d — full log: /tmp/svenvs-t25-$tag.log"
+        | tee "$SVENVS_LOGS/t25-$tag.log" | tail -n 6; then
+    die "Holmake failed in $d — full log: $SVENVS_LOGS/t25-$tag.log"
   fi
   local spec th nm
   for spec in "$@"; do
     th="${spec%%:*}"; nm="${spec#*:}"
     grep -aqE "val $nm" "$SVENVS_ROOT/$d/.hol/objs/${th}Theory.sig" 2>/dev/null \
-      || die "$d: cited theorem $nm not found in ${th}Theory (see /tmp/svenvs-t25-$d.log)"
+      || die "$d: cited theorem $nm not found in ${th}Theory (see $SVENVS_LOGS/t25-$tag.log)"
     ok "$d : $th.$nm"
   done
 }
