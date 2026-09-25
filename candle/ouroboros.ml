@@ -5,10 +5,18 @@
    native code that returns the spec on the samples; 2 kernel refusals of
    the semantics-breaking `drop`; the self-model stopped gating `drop`, the
    pruned improver v2 was refused, the deepened improver v3 passed its gate
-   and was installed, v4 was refused; verdict "OUROBOROS_OK: 5 generations,
-   cost 19 -> 5, 2 rejections, improver upgraded". The improver's fragment
-   invariant is checked by ML code, not proved by the kernel. Load after
-   hol.ml + reflectsem_datatypes.ml + reflectsem_functions.ml. *)
+   and was installed, v4 was refused. Generation 2 (the fold 3 + 7 -> 10,
+   which is exactly ofold of its parent) was installed through the
+   REWRITER THEOREM ofold_preserves of candle/ouroboros_rewrites.ml, by
+   SPEC/MP and the parent's certificate, with no symbolic execution; the
+   other generations took the per-candidate proof. The partial-composition
+   route (orw_oeq + congruence + oeq_preserves) is exercised on the
+   genesis champion every run (ouro_rw_selftest). Verdict "OUROBOROS_OK: 5
+   generations, cost 19 -> 5, 2 rejections, improver upgraded, 1 via the
+   rewriter theorem". The improver's fragment invariant is checked by ML
+   code, not proved by the kernel (only the fold/dead rewriter's is a
+   theorem, ofold_frag). Load after hol.ml + reflectsem_datatypes.ml +
+   reflectsem_functions.ml + ouroboros_rewrites.ml. *)
 (* ===================================================================== *)
 (*  svenvs OUROBOROS — a running binary that evolves its own code over    *)
 (*  several ACCUMULATING generations, each gated by its own kernel        *)
@@ -32,6 +40,11 @@
 (*       by symbolic execution of the ported real semantics (eval_n,      *)
 (*       pinned to evaluateTheory by the HOL4 bridge eval_n_agrees).      *)
 (*       Refusals are recorded; at most ouro_budget gates per generation. *)
+(*       A candidate that the kernel-PROVED fold/dead rewriter produces   *)
+(*       from the champion (ofold champion, or a composition of root      *)
+(*       steps at any positions) skips the symbolic execution: its gate   *)
+(*       theorem is the rewriter theorem instantiated at the champion,    *)
+(*       chained with the champion's certificate (ouro_gen_<n>_route).    *)
 (*    4. INSTALL: the proved AST is rendered to concrete syntax and       *)
 (*       self-fed through Repl.nextString as `let ouro_champion_<n> =     *)
 (*       (fun x -> ...)`; its native code is called on sample inputs.     *)
@@ -118,77 +131,9 @@ and osrc_op op =
   else if aconv op ouro_mul then " * "
   else failwith "osrc: operator outside the fragment";;
 
-(* ---------------- the rewrite base (the exported lists) ---------------- *)
-let ouro_try f x = try f x with Failure _ -> [];;
-let ouro_ctor_thms =
-  itlist (fun n acc -> ouro_try (fun n -> [distinctness n]) n @
-                       ouro_try (fun n -> [injectivity n]) n @ acc)
-         reflectsem_dt_names [];;
-let OURO_EXISTS_REFL2 = prove (`!a:A. ?x. a = x`,
-  GEN_TAC THEN EXISTS_TAC `a:A` THEN REFL_TAC);;
-let ouro_defs =
-  reflectsem_dt_thms @ reflectsem_fn_thms @ ouro_ctor_thms @
-  [FST; SND; OUTL; OUTR; ALL; MAP; REVERSE; APPEND; LENGTH; HD; TL;
-   NOT_SUC; PRE; LET_DEF; LET_END_DEF; EXISTS_REFL; OURO_EXISTS_REFL2;
-   PAIR_EQ; CONS_11; injectivity "sum"];;
-
-(* WEAK call-by-value normalisation with the exported rewrite base.
-   Plain REWRITE_CONV rewrites everywhere, including inside the unapplied
-   continuation lambdas of eval_n's case constants and ahead of their
-   scrutinees (pair_CASE p f = f (FST p) (SND p) copies an UNevaluated p),
-   which is exponential in the nesting depth of the evaluated program: it
-   was fine for the smoke gates' closed one-App terms and ran away on a
-   depth-7 symbolic one. Here: never rewrite under a lambda; for a case
-   constant or COND evaluate only the scrutinee, then fire the clause;
-   everything else is evaluated arguments-first. *)
-let ouro_net =
-  itlist (net_of_thm false)
-    (itlist (mk_rewrites false) (ouro_defs @ basic_rewrites ()) [])
-    empty_net;;
-(* closed arithmetic, but never on SUC: fuel stays a SUC tower, which is
-   what the fueled clauses match (NUM_RED_CONV would fold it to 40) *)
-let OURO_NUM_CONV tm =
-  if is_comb tm && is_const (rator tm) && fst (dest_const (rator tm)) = "SUC"
-  then failwith "OURO_NUM_CONV: SUC" else NUM_RED_CONV tm;;
-(* the one place a binder body is rewritten: an existential such as
-   check_type's `?i'. Litv (IntLit E) = Litv (IntLit i')`, decided by
-   constructor injectivity/distinctness and EXISTS_REFL *)
-let OURO_EX_CONV tm =
-  if is_exists tm then
-    REWRITE_CONV (ouro_ctor_thms @ [EXISTS_REFL; OURO_EXISTS_REFL2]) tm
-  else failwith "OURO_EX_CONV";;
-let OURO_TOP_CONV =
-  FIRST_CONV [REWRITES_CONV ouro_net; GEN_BETA_CONV;
-              OURO_NUM_CONV; INT_RED_CONV; OURO_EX_CONV];;
-let ouro_is_lazy h =
-  is_const h &&
-  (let n = fst (dest_const h) in
-   n = "COND" ||
-   (String.length n > 5 &&
-    String.sub n (String.length n - 5) 5 = "_CASE"));;
-let rec OURO_WEAK_CONV tm =
-  if is_abs tm then REFL tm else
-  if not (is_comb tm) then
-    (* constants with a defining equation (nsEmpty, list_type_num, ...) *)
-    (match (try Some (OURO_TOP_CONV tm) with Failure _ -> None) with
-       None -> REFL tm
-     | Some th -> if aconv (rand (concl th)) tm then REFL tm
-                  else TRANS th (OURO_WEAK_CONV (rand (concl th))))
-  else
-  let (h, args) = strip_comb tm in
-  let th1 =
-    if ouro_is_lazy h then
-      funpow (length args - 1) RATOR_CONV (RAND_CONV OURO_WEAK_CONV) tm
-    else
-      let (f, x) = dest_comb tm in MK_COMB (OURO_WEAK_CONV f, OURO_WEAK_CONV x) in
-  let tm1 = rand (concl th1) in
-  match (try Some (OURO_TOP_CONV tm1) with Failure _ -> None) with
-    None -> th1
-  | Some th2 ->
-      (* a conversion that "succeeds" without changing the term (e.g. an
-         arithmetic conv on a literal) is no progress: stop, don't loop *)
-      if aconv (rand (concl th2)) tm1 then th1
-      else TRANS th1 (TRANS th2 (OURO_WEAK_CONV (rand (concl th2))));;
+(* the rewrite base (ouro_defs) and the weak call-by-value normaliser
+   (OURO_WEAK_CONV) live in candle/ouroboros_rewrites.ml, which proves the
+   rewriter theorems with them and is loaded before this file *)
 
 (* ---------------- the GATE: real-semantics correctness, for all i ------ *)
 let ouro_fuel = 40;;
@@ -307,6 +252,117 @@ let rec ouro_expand ops d t =
   let step = itlist (fun nm acc -> map (fun t1 -> ([nm], t1)) (ouro_at nm t) @ acc) ops [] in
   step @ flat (map (fun (l, t1) -> map (fun (l2, t2) -> (l @ l2, t2)) (ouro_expand ops (d - 1) t1)) step);;
 
+(* ---------------- the REWRITER route (candle/ouroboros_rewrites.ml) ---- *)
+(* A candidate that the kernel-proved rewriter produces from the champion
+   needs no symbolic execution: its gate theorem is ofold_preserves (or,
+   for a partial composition of fold/dead steps, orw_oeq + the congruences
+   + oeq_preserves) instantiated at the champion, chained with the
+   champion's own certificate. What is computed here in ML is only WHICH
+   theorem instances to build; every step is a kernel inference, and the
+   result must be literally the gate theorem for the candidate. *)
+let ouro_fuel_tm = parse_term (ouro_suc ouro_fuel);;
+(* the fragment exp term -> the oexp term it should embed *)
+let rec ouro_to_o t =
+  if ouro_is_x t then `OX` else
+  match ouro_dest_lit t with
+    Some n -> mk_comb (`OLit`, rand (rand t))
+  | None ->
+    (match ouro_dest_app t with
+       Some (op, a, b) ->
+         let c = if aconv op ouro_add then `OAdd`
+                 else if aconv op ouro_sub then `OSub`
+                 else if aconv op ouro_mul then `OMul`
+                 else failwith "ouro_to_o: operator outside the fragment" in
+         mk_comb (mk_comb (c, ouro_to_o a), ouro_to_o b)
+     | None -> failwith "ouro_to_o: term outside the fragment");;
+(* |- oemb p = t, by the kernel, and literally t *)
+let ouro_emb p t =
+  let th = OEMB_CONV (mk_comb (`oemb`, p)) in
+  if aconv (rand (concl th)) t then th else failwith "ouro_emb: not the term";;
+let ouro_obin t =
+  try let (f, args) = strip_comb t in
+      let n = fst (dest_const f) in
+      (match args with
+         [a; b] -> if n = "OAdd" || n = "OSub" || n = "OMul" then Some (n, a, b) else None
+       | _ -> None)
+  with Failure _ -> None;;
+(* |- oeq c p: c is reached from p by root steps (orw) at any positions *)
+let rec ouro_ocert p c =
+  if aconv p c then SPEC p OEQ_REFL else
+  try ouro_ocert_cong p c with Failure _ -> ouro_ocert_root p c
+and ouro_ocert_cong p c =
+  match (ouro_obin p, ouro_obin c) with
+    (Some (n, a, b), Some (m, a2, b2)) ->
+      if n = m then
+        (let cg = if n = "OAdd" then OEQ_CONG_ADD
+                  else if n = "OSub" then OEQ_CONG_SUB else OEQ_CONG_MUL in
+         MATCH_MP cg (CONJ (ouro_ocert a a2) (ouro_ocert b b2)))
+      else failwith "ouro_ocert: different operators"
+  | _ -> failwith "ouro_ocert: not both applications"
+and ouro_ocert_root p c =
+  let th1 = ORW_CONV (mk_comb (`orw`, p)) in
+  let p1 = rand (concl th1) in
+  if aconv p1 p then failwith "ouro_ocert: no root step" else
+  let st = EQ_MP (AP_THM (AP_TERM `oeq` th1) p) (SPEC p orw_oeq) in
+  MATCH_MP OEQ_TRANS (CONJ (ouro_ocert p1 c) st);;
+let ouro_via_cong = "orw_oeq+congruence, oeq_preserves";;
+let ouro_le_tm l = mk_comb (mk_comb (`(<=):num->num->bool`, l), ouro_fuel_tm);;
+(* (which theorem, the gate theorem for c), or Failure *)
+let ouro_rw_route cth c =
+  let t = ouro_champ_term cth in
+  let p = ouro_to_o t in
+  let pc = ouro_to_o c in
+  let th_t = ouro_emb p t in
+  let th_c = ouro_emb pc c in
+  let fold_eq = OFOLDO_CONV (mk_comb (`ofoldo`, p)) in
+  let (via, eq) =
+    if aconv (rand (concl fold_eq)) pc then
+      (let oof_eq = TRANS (AP_TERM `oof` (SYM th_t)) (SPEC p OOF_OEMB) in
+       let frag = EQ_MP (SYM (SPEC t ofrag_oemb))
+                    (EXISTS (mk_exists (`q:oexp`, mk_eq (t, mk_comb (`oemb`, `q:oexp`))), p)
+                            (SYM th_t)) in
+       let fuel = prove (ouro_le_tm (mk_comb (`efuel`, t)),
+                    REWRITE_TAC [efuel_def; oof_eq] THEN
+                    CONV_TAC (LAND_CONV OFUEL_CONV THENC NUM_REDUCE_CONV)) in
+       let fold_t = (REWRITE_CONV [ofold_def; oof_eq] THENC RAND_CONV OFOLDO_CONV THENC
+                     OEMB_CONV) (mk_comb (`ofold`, t)) in
+       if not (aconv (rand (concl fold_t)) c) then failwith "ouro_rw_route: ofold is not the candidate" else
+       ("ofold_preserves",
+        SUBS [fold_t] (MP (SPECL [t; ouro_fuel_tm; `i:int`] ofold_preserves) (CONJ frag fuel))))
+    else
+      (let cert = ouro_ocert p pc in
+       let fuel = EQT_ELIM ((LAND_CONV OFUEL_CONV THENC NUM_REDUCE_CONV)
+                              (ouro_le_tm (mk_comb (`ofuel`, p)))) in
+       (ouro_via_cong,
+        SUBS [th_c; th_t]
+          (MP (SPECL [ouro_fuel_tm; `i:int`] (MP (SPECL [pc; p] oeq_preserves) cert)) fuel))) in
+  let g = GEN `i:int` (TRANS (CONV_RULE OURO_UNFOLD_CONV eq) (SPEC `i:int` cth)) in
+  if ouro_is_gate_thm g then (via, g) else failwith "ouro_rw_route: not the gate theorem";;
+(* exercised on the genesis champion every run, since the loop itself
+   may never need it: a PARTIAL composition (x * 0 -> 0 inside, the rest
+   untouched) is certified by orw_oeq + congruence + oeq_preserves, and a
+   semantics-breaking edit (dropping the summand 3 + 7) gets no theorem *)
+let ouro_rw_selftest_of cth =
+  let g = ouro_champ_term cth in
+  match ouro_dest_app g with
+    Some (op, l, r) ->
+      let partial = ouro_app op l (ouro_lit (Int 0)) in
+      let bad = (match ouro_dest_app l with Some (op2, l1, l2) -> ouro_app op l1 r | None -> g) in
+      (try (match ouro_rw_route cth partial with (via, th) -> via = ouro_via_cong)
+       with Failure _ -> false) &&
+      (try (match ouro_rw_route cth bad with (via, th) -> false) with Failure _ -> true)
+  | None -> false;;
+(* the two routes: the rewriter theorem first, else the per-candidate gate *)
+let ouro_route_rw = "rewriter theorem";;
+let ouro_route_gate = "per-candidate proof";;
+let ouro_certify cth t =
+  match (try Some (ouro_rw_route cth t) with Failure _ -> None) with
+    Some (via, th) -> Some (th, ouro_route_rw, via)
+  | None ->
+      (match ouro_gate_memo t with
+         Some th -> Some (th, ouro_route_gate, "eval_n symbolic execution")
+       | None -> None);;
+
 (* ---------------- the self-model ---------------- *)
 (* op -> (proposed to the kernel, proved, refused) *)
 let ouro_stats = ref ([] : (string * (int * int * int)) list);;
@@ -350,6 +406,7 @@ let ouro_record n th =
 
 (* ---------------- the search (steered by the model) ---------------- *)
 let ouro_found = ref (None : (string list * term * thm) option);;
+let ouro_found_route = ref ouro_route_gate;;
 let ouro_genlog = ref ([] : string list);;
 let ouro_genrej = ref ([] : string list);;
 let ouro_eligible (l, t) =
@@ -372,30 +429,33 @@ let ouro_line c0 (l, t) =
             " score " ^ soi (ouro_score c0 (l, t)) ^ " (w " ^
             ouro_join "," (map (fun nm -> soi (ouro_w nm)) l) ^ ") -> " in
   fun v -> pre ^ v;;
-let rec ouro_search_loop c0 pool budget =
+let rec ouro_search_loop cth c0 pool budget =
   if budget = 0 then () else
   match ouro_pick c0 None pool with
     None -> ()
   | Some (l, t) ->
       let ln = ouro_line c0 (l, t) in
-      (match ouro_gate_memo t with
-         Some th ->
+      (match ouro_certify cth t with
+         Some (th, route, via) ->
            (ouro_note l 1 0;
-            ouro_genlog := ln "PROVED by the kernel" :: !ouro_genlog;
-            ouro_found := Some (l, t, th))
+            ouro_genlog := ln ("PROVED by the kernel via the " ^ route ^ " (" ^ via ^ ")") :: !ouro_genlog;
+            ouro_found := Some (l, t, th);
+            ouro_found_route := route)
        | None ->
            (ouro_note l 0 1;
             ouro_genrej := ln "REFUSED by the kernel" :: !ouro_genrej;
             ouro_refusals := ln "REFUSED by the kernel" :: !ouro_refusals;
             ouro_genlog := ln "REFUSED by the kernel" :: !ouro_genlog;
-            ouro_search_loop c0 pool (budget - 1)));;
-let ouro_search imp champ =
+            ouro_search_loop cth c0 pool (budget - 1)));;
+(* cth: the champion's certificate (the rewriter route builds on it) *)
+let ouro_search imp cth =
   ouro_found := None; ouro_genlog := []; ouro_genrej := [];
+  let champ = ouro_champ_term cth in
   let c0 = osize champ in
   let all = (try imp champ with Failure _ -> []) in
   let pool = filter (fun (l, t) -> osize t < c0) all in
   ouro_discarded := !ouro_discarded + (length all - length pool);
-  ouro_search_loop c0 pool ouro_budget;
+  ouro_search_loop cth c0 pool ouro_budget;
   ("improver emitted " ^ soi (length all) ^ ", cheaper than " ^ soi c0 ^ ": " ^
    soi (length pool)) :: rev !ouro_genlog;;
 let ouro_last_rejections () = rev !ouro_genrej;;
@@ -403,6 +463,8 @@ let ouro_found_thm () =
   match !ouro_found with Some (l, t, th) -> th | None -> failwith "ouro: nothing found";;
 let ouro_found_ops () =
   match !ouro_found with Some (l, t, th) -> l | None -> [];;
+let ouro_found_route_str () =
+  match !ouro_found with Some _ -> !ouro_found_route | None -> failwith "ouro: nothing found";;
 
 (* ---------------- genesis champion ---------------- *)
 (* deliberately naive: ((x+x+x+x+x+x) + (3 + 7)) + x * 0   (size 19) *)
@@ -444,10 +506,10 @@ let ouro_inv_selftest =
   ouro_improver_invariant (fun t -> [(["fold"], ouro_x)]);;
 let ouro_imp_passed = ref false;;
 let ouro_imp_reason = ref "not gated";;
-let ouro_improver_gate inv_ok imp champ =
+let ouro_improver_gate inv_ok imp cth =
   ouro_imp_passed := false;
   if not inv_ok then (ouro_imp_reason := "the fragment invariant failed"; ["invariant FAILED"]) else
-  let lg = ouro_search imp champ in
+  let lg = ouro_search imp cth in
   (match !ouro_found with
      Some _ -> (ouro_imp_passed := true; ouro_imp_reason := "passed")
    | None -> ouro_imp_reason := "invariant held, but its search yielded no kernel-proved strictly cheaper candidate");
@@ -482,15 +544,18 @@ let ouro_propose () =
 (* ---------------- the verdict ---------------- *)
 let rec ouro_decreasing l =
   match l with a :: b :: r -> b < a && ouro_decreasing (b :: r) | _ -> true;;
-let ouro_verdict_of costs natives final_ok =
+let ouro_verdict_of costs natives final_ok routes rw_selftest =
   let n = length costs - 1 in
   let k = length !ouro_refusals in
+  let r = length (filter (fun s -> s = ouro_route_rw) routes) in
+  let rws = soi r ^ " via the rewriter theorem" in
   if n >= 3 && ouro_decreasing costs && forall (fun b -> b) natives && final_ok &&
-     k >= 1 && !ouro_upgrades >= 1 && ouro_inv_selftest
+     k >= 1 && !ouro_upgrades >= 1 && ouro_inv_selftest && r >= 1 && rw_selftest &&
+     length routes = length costs
   then "OUROBOROS_OK: " ^ soi n ^ " generations, cost " ^ soi (hd costs) ^ " -> " ^
-       soi (last costs) ^ ", " ^ soi k ^ " rejections, improver upgraded"
+       soi (last costs) ^ ", " ^ soi k ^ " rejections, improver upgraded, " ^ rws
   else "OUROBOROS_PARTIAL: " ^ soi n ^ " generations, " ^ soi k ^ " rejections, " ^
-       soi !ouro_upgrades ^ " improver upgrades";;
+       soi !ouro_upgrades ^ " improver upgrades, " ^ rws;;
 
 (* ---------------- the loop: a planner feeding the REPL ---------------- *)
 (* Every fed string is one complete declaration; each runs before the next
@@ -517,17 +582,21 @@ let ouro_batch_install n src =
 let ouro_batch_start () =
   ("let ouro_improver_1 = " ^ ouro_improver_src ouro_all_ops 1 ^ ";;") ::
   "let ouro_gen_0_thm = ouro_the (ouro_gate ouro_genesis);;" ::
+  "let ouro_gen_0_route = ouro_route_gate;;" ::
+  "let ouro_rw_selftest = ouro_rw_selftest_of ouro_gen_0_thm;;" ::
   ouro_batch_install 0 (osrc ouro_genesis);;
 let ouro_parent n = "(ouro_champ_term " ^ ouro_g (n - 1) ^ "_thm)";;
+let ouro_parent_thm n = ouro_g (n - 1) ^ "_thm";;
 let ouro_batch_search n =
   [ "let " ^ ouro_g n ^ "_parent_src = osrc " ^ ouro_parent n ^ ";;";
-    "let " ^ ouro_g n ^ "_search = ouro_search ouro_improver_" ^ soi !ouro_imp_ver ^ " " ^ ouro_parent n ^ ";;";
+    "let " ^ ouro_g n ^ "_search = ouro_search ouro_improver_" ^ soi !ouro_imp_ver ^ " " ^ ouro_parent_thm n ^ ";;";
     "let " ^ ouro_g n ^ "_rejections = ouro_last_rejections ();;" ];;
 let ouro_batch_accept n =
   match !ouro_found with
     Some (l, t, th) ->
       ("let " ^ ouro_g n ^ "_thm = ouro_found_thm ();;") ::
       ("let " ^ ouro_g n ^ "_ops = ouro_found_ops ();;") ::
+      ("let " ^ ouro_g n ^ "_route = ouro_found_route_str ();;") ::
       ouro_batch_install n (osrc t)
   | None -> [];;
 let ouro_batch_improver n v ops d why =
@@ -538,18 +607,19 @@ let ouro_batch_improver n v ops d why =
     "let " ^ iv ^ "_src = " ^ ouro_quote (ouro_escape (ouro_improver_src ops d)) ^ ";;";
     "let ouro_improver_cand_" ^ soi v ^ " = " ^ ouro_improver_src ops d ^ ";;";
     "let " ^ iv ^ "_inv_ok = ouro_improver_invariant ouro_improver_cand_" ^ soi v ^ ";;";
-    "let " ^ iv ^ "_gate = ouro_improver_gate " ^ iv ^ "_inv_ok ouro_improver_cand_" ^ soi v ^ " " ^ ouro_parent n ^ ";;";
+    "let " ^ iv ^ "_gate = ouro_improver_gate " ^ iv ^ "_inv_ok ouro_improver_cand_" ^ soi v ^ " " ^ ouro_parent_thm n ^ ";;";
     "let " ^ iv ^ "_gate_ok = ouro_improver_gate_passed ();;" ];;
 let ouro_batch_finish () =
   let acc = rev !ouro_accepted in
   let k = hd !ouro_accepted in
   [ "let ouro_costs = [" ^ ouro_join "; " (map (fun n -> ouro_g n ^ "_cost") acc) ^ "];;";
     "let ouro_natives_ok = [" ^ ouro_join "; " (map (fun n -> ouro_g n ^ "_native_ok") acc) ^ "];;";
+    "let ouro_routes = [" ^ ouro_join "; " (map (fun n -> ouro_g n ^ "_route") acc) ^ "];;";
     "let ouro_final_src = " ^ ouro_g k ^ "_cand_src;;";
     "let ouro_final_native_out = map ouro_champion_" ^ soi k ^ " ouro_inputs;;";
     "let ouro_model_final = ouro_model_str " ^ soi k ^ ";;";
     "let ouro_verdict = ouro_verdict_of ouro_costs ouro_natives_ok " ^
-      "(ouro_final_native_out = map ouro_spec ouro_inputs);;" ];;
+      "(ouro_final_native_out = map ouro_spec ouro_inputs) ouro_routes ouro_rw_selftest;;" ];;
 let rec ouro_plan () =
   let (tag, n) = !ouro_state in
   if tag = 0 then (ouro_state := (1, 1); ouro_batch_start ())

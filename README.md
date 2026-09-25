@@ -155,10 +155,12 @@ by row: [`CLAIMS.md`](CLAIMS.md).
   re-composition and a runnable self-upgrading root binary are the stated
   residuals ([`compilerOpt/LAYERB.md`](compilerOpt/LAYERB.md),
   [`selfUpgrade/SELFUPGRADE_ROOT.md`](selfUpgrade/SELFUPGRADE_ROOT.md)).
-- **The ouroboros's improver as a theorem** — its fragment invariant is
-  checked by ML code, not proved by the kernel, and the fragment is
-  `{x, int literals, +, -, *}`; a kernel-proved improver and a richer
-  fragment are the next steps (`candle/ouroboros.ml`).
+- **The rest of the ouroboros's improver as a theorem** — its
+  constant-folding / dead-subterm rewriter is now proved once in the live
+  kernel (`candle/ouroboros_rewrites.ml`); the other moves are still gated
+  per candidate, the general improver's fragment invariant is ML-checked,
+  and the fragment is `{x, int literals, +, -, *}`. A richer fragment and a
+  fully proved improver are the next steps.
 - **PureCake** as the inhabitant's verified language
   ([`pureverified/CLAIMS.md`](pureverified/CLAIMS.md)) and **Gemma-scale
   verified inference** (`inference/`) — the long research axes.

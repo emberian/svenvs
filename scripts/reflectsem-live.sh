@@ -3,7 +3,8 @@
 #   build fueledSem/fueledBridge -> check_fueled -> export datatypes +
 #   functions (HOL4 -> HOL Light script) -> private place-server -> load the
 #   45 datatypes -> load the function cone -> gate smoke test (and, with
-#   --ouroboros, the gated self-fed multi-generation ouroboros loop of
+#   --ouroboros, the rewriter theorems of candle/ouroboros_rewrites.ml,
+#   then the gated self-fed multi-generation ouroboros loop of
 #   candle/ouroboros.ml, at most N generations with --generations N) ->
 #   print the kernel's verdict lines -> stop the server.
 #
@@ -107,6 +108,17 @@ grep -a 'RS_SMOKE_VERDICT\|val RS_SMOKE_OK' "$LOG/smoke.out"
 # every generation as self-fed declarations; they all run before the
 # submission's sentinel is read, so submit() returning means the loop is over.
 if [ "$OURO" = 1 ]; then
+  # 6a. the improver's fold/dead rewriter, PROVED once as kernel theorems
+  T=$(tick); submit "$SVENVS_ROOT/candle/ouroboros_rewrites.ml" OURO_RW_LOADED 900 "$LOG/rewrites.out"
+  for v in ofrag_oemb ofold_preserves ofold_frag ofold_cost orw_oeq oeq_preserves; do
+    grep -a -q "val $v = |-" "$LOG/rewrites.out" || die "the kernel did not prove $v (see $LOG/rewrites.out)"
+  done
+  grep -a -q 'val OURO_RW_VERDICT = "OURO_RW_OK' "$LOG/rewrites.out" || die "no OURO_RW_OK verdict (see $LOG/rewrites.out)"
+  say "kernel rewriter theorems ($(( $(tick) - T ))s)"
+  awk '/val (ofrag_oemb|ofold_preserves|ofold_frag|ofold_cost|orw_oeq|oeq_preserves) = \|-/{p=1} p{print} /: thm$/{p=0}' "$LOG/rewrites.out"
+  grep -a 'val OURO_RW_VERDICT' "$LOG/rewrites.out"
+
+  # 6b. the loop
   T=$(tick); OF="$SVENVS_ROOT/candle/ouroboros.ml"
   if [ -n "$GENS" ]; then
     OF="$LOG/ouroboros-g$GENS.ml"
@@ -116,7 +128,7 @@ if [ "$OURO" = 1 ]; then
   submit "$OF" OURO_DONE 900 "$LOG/ouroboros.out"
   ! grep -a -q 'val ouro_plan_failed' "$LOG/ouroboros.out" || die "the ouroboros planner failed (see $LOG/ouroboros.out)"
   say "kernel verdict lines (ouroboros, $(( $(tick) - T ))s)"
-  grep -a 'val ouro_gen_[0-9]*_\(parent_src\|search\|rejections\|ops\|cand_src\|gate_ok\|cost\|native_out\|native_ok\|model\) \|val ouro_improver_[0-9]*_\(proposal\|src\|inv_ok\|gate\|gate_ok\|installed\|rejected\) \|val ouro_costs\|val ouro_final_\|val ouro_verdict' "$LOG/ouroboros.out"
+  grep -a 'val ouro_gen_[0-9]*_\(parent_src\|search\|rejections\|ops\|route\|cand_src\|gate_ok\|cost\|native_out\|native_ok\|model\) \|val ouro_improver_[0-9]*_\(proposal\|src\|inv_ok\|gate\|gate_ok\|installed\|rejected\) \|val ouro_costs\|val ouro_routes\|val ouro_rw_selftest\|val ouro_final_\|val ouro_verdict' "$LOG/ouroboros.out"
   say "the last generation's certificate"
   awk '/val ouro_gen_[0-9]+_thm = \|-/{b=""; p=1} p{b=b $0 "\n"} /: thm$/{if(p)last=b; p=0} END{printf "%s", last}' "$LOG/ouroboros.out"
   grep -a -q 'val ouro_verdict = "OUROBOROS_OK' "$LOG/ouroboros.out" || die "no OUROBOROS_OK verdict (see $LOG/ouroboros.out)"
