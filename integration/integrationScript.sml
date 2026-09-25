@@ -30,13 +30,14 @@
      `attestation_faithful` seam VERBATIM. PERMITTED, NEVER REQUIRED:
      svenvs_tower_disclosure_is_optional shows non-disclosure still
      reaches meta for ANY inhabitant with NO labelled assumption.
-   * svenvs_tower_with_prover_upgrade — adds prover self-improvement;
-     carries selfProverTheory's labelled `frozen_checker_sound` VERBATIM.
+   * svenvs_tower_with_prover_upgrade — adds prover self-improvement
+     through the operational prover gate; carries selfProverTheory's
+     labelled `frozen_checker_sound` VERBATIM (load-bearing).
    * the kernel-self-upgrade crown composes by the *identical* transport
      lemma but its slice (kernelUpgradeTheory) pulls the Tier-2 Candle
      semantics; it is proved in the companion `integrationKernelScript`
      (Tier-2 build) carrying `loeb_reflection`/`encodes_obligation`
-     verbatim — the one build-tier-gated, still-labelled crown.
+     verbatim, through the operational kernel gate `kgate` — the one build-tier-gated, still-labelled crown.
 
   NOT claimed to compose into this theorem (honest): the verified-
   inference research track (the inference/ subtree) is a separate axis;
@@ -93,24 +94,29 @@ QED
 
 (* ------------------------------------------------------------------ *)
 (*  2. Conditional crown: prover self-improvement.                     *)
+(*     The policy upgrade goes through the OPERATIONAL prover gate      *)
+(*     (install iff the frozen root accepted B' and B' said yes).      *)
 (*     selfProverTheory's frozen_checker_sound seam is carried         *)
-(*     VERBATIM — the gap is in the statement, not hidden.             *)
+(*     VERBATIM and is load-bearing, as is the build's faithfulness    *)
+(*     (selfProverTheory.unsound_frozen_checker_can_breach,            *)
+(*     uncertified_build_can_breach).                                  *)
 (* ------------------------------------------------------------------ *)
 Theorem svenvs_tower_with_prover_upgrade:
   spec_refines curspec meta /\
   frozen_checker_sound hol4_checks sound /\
-  hol4_checks p' B' /\
-  build_certifies sound B' step curspec oldp newp /\
+  (bcert ==> build_certifies sound B' step curspec oldp newp) /\
   init_safe init curspec /\
   safe_shield step curspec shield /\
   sound_policy step curspec oldp ==>
   !ctrl.
     invariant step init
-      (enveloped (admit step curspec oldp newp) shield ctrl) meta
+      (enveloped (prover_gate hol4_checks p' B' bcert oldp newp) shield ctrl)
+      meta
 Proof
   rpt strip_tac >>
   `invariant step init
-     (enveloped (admit step curspec oldp newp) shield ctrl) curspec`
+     (enveloped (prover_gate hol4_checks p' B' bcert oldp newp) shield ctrl)
+     curspec`
     by metis_tac[prover_self_improvement_is_safe] >>
   metis_tac[invariant_transports_to_meta]
 QED

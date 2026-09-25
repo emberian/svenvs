@@ -24,7 +24,7 @@
                                    *proposed* artifact.
 
     The svenvs policy envelope ... MUTABLE, gated by the prover (upgradeTheory:
-                                   admissible / admit / self_improvement_is_safe).
+                                   admissible / gate / gated_self_improvement_is_safe).
 
   The crucial asymmetry: the fixed trusted root (frozen HOL4) vouches for a
   *mutable* layer (the proposed Candle build). That is NOT a system vouching
@@ -59,7 +59,7 @@
   is just the soundness of the immovable bottom turtle that the entire stack
   already rests on; we assume nothing about Candle directly).
 *)
-open HolKernel boolLib bossLib BasicProvers
+open HolKernel boolLib bossLib BasicProvers listTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
      upgradeTheory;
 
@@ -81,12 +81,13 @@ Type prover_obligation = “:'b -> bool”;
 (* `sound B` : the build B discharges the soundness obligation, i.e. B's
    kernel only ever certifies semantically-entailed conclusions. *)
 
-(* The OPERATIONAL meaning of "the envelope runs prover build B as its
-   admission gate": when B is sound, B certifying a self-improvement
-   proposal really does establish the meta-level admissibility obligation.
-   This is the same shape as embeddedGateTheory.encodes_obligation, but with
-   the prover build (not a single embedded term) as the trusted certifier;
-   we keep it abstract (no CakeML) and parametric in the build. *)
+(* Faithfulness of a build's verdict. A theorem uses it guarded by the
+   build's actual answer: `bcert ⇒ build_certifies sound B …` reads "if B
+   said yes to this proposal and B is sound, the proposal is admissible" --
+   i.e. a sound build only certifies admissible proposals. Same shape as
+   embeddedGateTheory.encodes_obligation, with the prover build (not a
+   single embedded term) as the certifier; abstract (no CakeML) and
+   parametric in the build. *)
 Definition build_certifies_def:
   build_certifies (sound:'b prover_obligation) (B:'b)
                   step safe oldp newp ⇔
@@ -141,110 +142,190 @@ End
 (* 3. THE META-THEOREM: prover self-improvement is safe.                 *)
 (* --------------------------------------------------------------------- *)
 
-(* The inhabitant proposes a NEW prover build B' together with a proof
-   object p'. The envelope adopts B' as its admission prover ONLY if the
-   frozen HOL4 root accepts it (`hol4_checks p' B'`). We then use the
-   freshly-adopted B' to discharge a self-improvement policy proposal.
+(* The OPERATIONAL prover gate. The inhabitant proposes a NEW prover build
+   B' with a proof object p', and B' returns a verdict `bcert` on a policy
+   proposal (oldp ↦ newp). The envelope installs newp iff the FROZEN root
+   accepted the build AND the build said yes. Nothing in the decision
+   consults the semantic `admissible`: the frozen checker's soundness and
+   the build's faithfulness are what make a "yes" trustworthy. *)
+Definition prover_gate_def:
+  prover_gate (hol4_checks:'p -> 'b -> bool) p' B' (bcert:bool)
+              (oldp:('s,'a) policy) newp =
+    gate (hol4_checks p' B' ∧ bcert) oldp newp
+End
 
-   Claim: adopting B' and admitting a policy weakening through it preserves
-   the svenvs safety guarantee for EVERY controller — exactly the guarantee
-   the OLD prover gave. The new prover discharges the admission obligation
-   just as the old one did; safety is never lost.
-
-   Note the explicit hypotheses: `frozen_checker_sound hol4_checks sound`
-   (the LABELLED trust axiom) and `hol4_checks p' B'` (the frozen root
-   actually accepted the proposed build) are both REQUIRED antecedents. *)
+(* Claim: through the prover gate, safety holds for EVERY controller. The
+   hypotheses on the certifiers are both load-bearing:
+     * `frozen_checker_sound` turns the frozen root's acceptance into
+       soundness of B' (unsound_frozen_checker_can_breach: without it an
+       unsound build is adopted and breaches);
+     * `bcert ⇒ build_certifies sound B' …` says a sound B' only says yes to
+       admissible proposals (uncertified_build_can_breach: without it a
+       vouched, sound-by-fiat build certifies an unsound policy).
+   `hol4_checks p' B'` is no longer a hypothesis: it is the gate's input.
+   If the root did not vouch, the gate rejects and safety is the original
+   guarantee (unvouched_prover_swap_is_inert). *)
 Theorem prover_self_improvement_is_safe:
   frozen_checker_sound hol4_checks sound ∧
-  hol4_checks p' B' ∧
-  build_certifies sound B' step safe oldp newp ∧
+  (bcert ⇒ build_certifies sound B' step safe oldp newp) ∧
   init_safe init safe ∧
   safe_shield step safe shield ∧
   sound_policy step safe oldp ⇒
   ∀ctrl. invariant step init
-            (enveloped (admit step safe oldp newp) shield ctrl) safe
+            (enveloped (prover_gate hol4_checks p' B' bcert oldp newp)
+                       shield ctrl) safe
 Proof
-  rpt strip_tac >>
-  ‘sound B'’ by metis_tac[frozen_checker_sound_def] >>
-  ‘admissible step safe oldp newp’ by metis_tac[build_certifies_def] >>
-  irule admit_preserves_safety >> fs[]
+  rpt strip_tac >> simp[prover_gate_def] >>
+  irule gate_preserves_safety >> rw[] >>
+  metis_tac[frozen_checker_sound_def, build_certifies_def, admissible_def]
 QED
 
-(* When the frozen root accepted the proposed build and the build certified
-   the proposal, the policy weakening is genuinely INSTALLED (authority
-   actually granted), not silently dropped — the gate did real work. *)
+(* When the frozen root accepted the build and the build said yes, the
+   policy weakening is genuinely INSTALLED, and what was installed is a
+   certified genuine weakening (sound, at least as permissive). *)
 Theorem prover_self_improvement_installs:
+  hol4_checks p' B' ∧ bcert ∧
   frozen_checker_sound hol4_checks sound ∧
-  hol4_checks p' B' ∧
   build_certifies sound B' step safe oldp newp ⇒
-  admit step safe oldp newp = newp
+  prover_gate hol4_checks p' B' bcert oldp newp = newp ∧
+  admissible step safe oldp newp
 Proof
-  rpt strip_tac >>
-  ‘sound B'’ by metis_tac[frozen_checker_sound_def] >>
-  ‘admissible step safe oldp newp’ by metis_tac[build_certifies_def] >>
-  rw[admit_def]
+  rpt strip_tac >- rw[prover_gate_def, gate_def] >>
+  metis_tac[frozen_checker_sound_def, build_certifies_def]
 QED
 
-(* A build that the frozen root did NOT accept can change nothing: with no
-   `hol4_checks p B` available, `build_certifies` gives nothing, the gate
-   keeps the old policy, and safety holds via the ORIGINAL guarantee. An
-   un-vouched-for prover swap is inert — exactly the upgradeTheory
-   discipline, now one layer down at the prover. *)
+(* A build that the frozen root did NOT accept changes nothing, whatever it
+   certifies and however unsound it is: the gate keeps the old policy and
+   safety holds via the ORIGINAL guarantee. No hypothesis on the build. *)
 Theorem unvouched_prover_swap_is_inert:
+  ¬hol4_checks p' B' ∧
   init_safe init safe ∧
   safe_shield step safe shield ∧
   sound_policy step safe oldp ⇒
+  prover_gate hol4_checks p' B' bcert oldp newp = oldp ∧
   ∀ctrl. invariant step init
-            (enveloped (admit step safe oldp oldp) shield ctrl) safe
+            (enveloped (prover_gate hol4_checks p' B' bcert oldp newp)
+                       shield ctrl) safe
 Proof
-  rpt strip_tac >>
-  irule admit_preserves_safety >> fs[]
+  strip_tac >>
+  ‘prover_gate hol4_checks p' B' bcert oldp newp = oldp’
+    by rw[prover_gate_def, gate_def] >>
+  simp[] >> metis_tac[safety_preservation]
+QED
+
+(* NECESSITY of frozen_checker_sound: a checker that vouches for a build
+   whose soundness obligation fails lets that build certify an unsound
+   policy, and the enveloped system breaches. *)
+Theorem unsound_frozen_checker_can_breach:
+  ∃(hol4_checks:num -> num -> bool) sound p' B' bcert
+   (step:num -> num -> num) safe init shield oldp newp ctrl.
+    ¬frozen_checker_sound hol4_checks sound ∧
+    hol4_checks p' B' ∧
+    (bcert ⇒ build_certifies sound B' step safe oldp newp) ∧
+    init_safe init safe ∧
+    safe_shield step safe shield ∧
+    sound_policy step safe oldp ∧
+    ¬invariant step init
+       (enveloped (prover_gate hol4_checks p' B' bcert oldp newp) shield ctrl)
+       safe
+Proof
+  strip_assume_tac unsound_certificate_breaches >>
+  qexistsl_tac [‘λp B. T’, ‘λB. F’, ‘0’, ‘0’, ‘T’, ‘step’, ‘safe’, ‘init’,
+                ‘shield’, ‘oldp’, ‘newp’, ‘ctrl’] >>
+  fs[frozen_checker_sound_def, build_certifies_def, prover_gate_def]
+QED
+
+(* NECESSITY of the build premise: the frozen checker is sound, the root
+   vouched for the build, the build said yes -- and without the build
+   being faithful to admissibility the installed policy breaches. *)
+Theorem uncertified_build_can_breach:
+  ∃(hol4_checks:num -> num -> bool) sound p' B'
+   (step:num -> num -> num) safe init shield oldp newp ctrl.
+    frozen_checker_sound hol4_checks sound ∧
+    hol4_checks p' B' ∧
+    ¬build_certifies sound B' step safe oldp newp ∧
+    init_safe init safe ∧
+    safe_shield step safe shield ∧
+    sound_policy step safe oldp ∧
+    ¬invariant step init
+       (enveloped (prover_gate hol4_checks p' B' T oldp newp) shield ctrl)
+       safe
+Proof
+  strip_assume_tac unsound_certificate_breaches >>
+  qexistsl_tac [‘λp B. T’, ‘λB. T’, ‘0’, ‘0’, ‘step’, ‘safe’, ‘init’,
+                ‘shield’, ‘oldp’, ‘newp’, ‘ctrl’] >>
+  fs[frozen_checker_sound_def, build_certifies_def, prover_gate_def,
+     admissible_def]
 QED
 
 (* --------------------------------------------------------------------- *)
 (* 4. COMPOSITION with the existing self-improvement core.               *)
 (* --------------------------------------------------------------------- *)
 
-(* The story is "EVERY mutable layer self-improves, gated by the frozen
-   root". We show the prover-improvement layer COMPOSES with the policy
-   hot-swap core: after adopting a frozen-root-vouched new prover B', an
-   UNBOUNDED stream of self-proposed policy weakenings — adversarial or not —
-   still keeps safety for every controller. This reuses upgradeTheory's
-   `self_improvement_is_safe` (the iterated admit_all gate) verbatim: the
-   new prover discharges each obligation exactly where the old one did. *)
+(* The stream form of the prover gate: every verdict of B' on a stream of
+   proposals passes through the frozen root's acceptance of B'. *)
+Definition prover_gate_all_def:
+  prover_gate_all (hol4_checks:'p -> 'b -> bool) p' B' (p0:('s,'a) policy)
+                  proposals =
+    gate_all p0 (MAP (λ(bcert,newp). (hol4_checks p' B' ∧ bcert, newp))
+                     proposals)
+End
+
+(* After a frozen-root-vouched prover swap, an UNBOUNDED stream of policy
+   proposals decided by the new build B' keeps safety for every controller.
+   The premise is on B' only through the frozen root: IF B' is sound, every
+   yes it gives is to a sound policy. frozen_checker_sound turns the root's
+   acceptance into soundness of B'; if the root did not accept, every
+   proposal is rejected. This is upgradeTheory's gated_self_improvement_
+   is_safe with certificates issued by the new prover. *)
 Theorem prover_then_unbounded_policy_self_improvement_is_safe:
   frozen_checker_sound hol4_checks sound ∧
-  hol4_checks p' B' ∧
-  sound B' ∧
+  (sound B' ⇒
+     EVERY (λ(bcert,newp). bcert ⇒ sound_policy step safe newp) proposals) ∧
   init_safe init safe ∧
   safe_shield step safe shield ∧
   sound_policy step safe p0 ⇒
-  ∀proposals ctrl.
+  ∀ctrl.
     invariant step init
-      (enveloped (admit_all step safe p0 proposals) shield ctrl) safe
+      (enveloped (prover_gate_all hol4_checks p' B' p0 proposals) shield ctrl)
+      safe
 Proof
+  rpt strip_tac >> simp[prover_gate_all_def] >>
+  irule gated_self_improvement_is_safe >> simp[] >>
+  simp[EVERY_MAP, EVERY_MEM, pairTheory.FORALL_PROD] >>
   rpt strip_tac >>
-  (* the frozen root vouched for B'; B' is the adopted prover. The iterated
-     policy self-improvement guarantee is then exactly upgradeTheory's. *)
-  irule self_improvement_is_safe >> fs[]
+  ‘sound B'’ by metis_tac[frozen_checker_sound_def] >>
+  fs[EVERY_MEM, pairTheory.FORALL_PROD] >> metis_tac[]
 QED
 
-(* And it composes the OTHER direction too: a frozen-root-vouched prover
-   swap, then a single policy weakening to any weaker still-sound policy
-   (sv_weakeningTheory.safe_weakening), keeps the full guarantee. This is the
-   "loosen my own envelope, having first upgraded my own prover" path. *)
+(* And it composes the OTHER direction too: a frozen-root-vouched build B'
+   certifies loosening the envelope from q to p; through the prover gate the
+   system keeps the full safety guarantee AND the controller loses no
+   authority it had under q (sv_weakeningTheory.safe_weakening, whose
+   weakening premise is here SUPPLIED by B''s certificate). *)
 Theorem prover_swap_then_safe_weakening:
   frozen_checker_sound hol4_checks sound ∧
-  hol4_checks p' B' ∧
+  (bcert ⇒ build_certifies sound B' step safe q p) ∧
   init_safe init safe ∧
   safe_shield step safe shield ∧
-  weaker p q ∧
-  sound_policy step safe p ⇒
-  ∀ctrl. invariant step init (enveloped p shield ctrl) safe
+  sound_policy step safe q ⇒
+  ∀ctrl.
+    invariant step init
+      (enveloped (prover_gate hol4_checks p' B' bcert q p) shield ctrl) safe ∧
+    ∀s. enveloped q shield ctrl s = ctrl s ∧ q s (ctrl s) ⇒
+        enveloped (prover_gate hol4_checks p' B' bcert q p) shield ctrl s =
+        ctrl s
 Proof
-  rpt strip_tac >>
-  irule safe_weakening >>
-  metis_tac[]
+  rpt gen_tac >> strip_tac >> gen_tac >>
+  Cases_on ‘hol4_checks p' B' ∧ bcert’
+  >- (‘prover_gate hol4_checks p' B' bcert q p = p’
+        by fs[prover_gate_def, gate_def] >>
+      ‘admissible step safe q p’
+        by metis_tac[frozen_checker_sound_def, build_certifies_def] >>
+      fs[admissible_def] >> metis_tac[safe_weakening])
+  >- (‘prover_gate hol4_checks p' B' bcert q p = q’
+        by (fs[prover_gate_def, gate_def] >> metis_tac[]) >>
+      simp[] >> metis_tac[safety_preservation])
 QED
 
 (* --------------------------------------------------------------------- *)
@@ -256,7 +337,7 @@ QED
 
   loeb_reflection (kernelUpgradeTheory) has the shape
 
-      (∀thy. K thy (sound_stmt thy)) ⇒ kernel_sound mem K'
+      K thy sound_stmt ⇒ kernel_sound mem K'
 
   where K is the CURRENT kernel and K' is its PROPOSED REPLACEMENT, and
   `sound_stmt` is the embedded proposition "K' is sound". The certifier (K)
@@ -295,7 +376,8 @@ QED
         that build — finite proof replay, NOT a reflection/LCA construction.
 
   Hence `prover_self_improvement_is_safe` carries `frozen_checker_sound` (a
-  finite-proof-replay trust axiom) and NOT `loeb_reflection`. The two are
+  finite-proof-replay trust axiom, load-bearing: see
+  unsound_frozen_checker_can_breach) and NOT `loeb_reflection`. The two are
   independent turtles: this layer's seam is strictly smaller and is
   discharged by ordinary proof replay (follow-up #28), whereas the
   kernel-replacing-itself seam genuinely needs the LCA. We checked: the

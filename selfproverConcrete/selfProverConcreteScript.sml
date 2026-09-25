@@ -92,34 +92,37 @@ QED
 (* 3. The CONCRETE prover-self-improvement theorem — UNCONDITIONAL in  *)
 (*    the seam. selfProver's `prover_self_improvement_is_safe` no      *)
 (*    longer carries `frozen_checker_sound` as a hypothesis: it is     *)
-(*    discharged for the real Candle build above.                      *)
+(*    discharged for the real Candle build above. What remains is the  *)
+(*    build's own faithfulness: a yes from the Candle build must be a  *)
+(*    yes to an admissible proposal (load-bearing: the gate installs   *)
+(*    on that yes alone, since the frozen root accepts candle_kernel). *)
 (* ------------------------------------------------------------------ *)
 Theorem prover_self_improvement_is_safe_candle:
-  build_certifies (sound_real (^mem)) candle_kernel step safe oldp newp ∧
+  (bcert ⇒ build_certifies (sound_real (^mem)) candle_kernel step safe oldp newp) ∧
   init_safe init safe ∧
   safe_shield step safe shield ∧
   sound_policy step safe oldp ⇒
   ∀ctrl. invariant step init
-            (enveloped (admit step safe oldp newp) shield ctrl) safe
+            (enveloped (prover_gate hol4_checks_real p candle_kernel bcert
+                                    oldp newp) shield ctrl) safe
 Proof
   rpt strip_tac >>
-  ‘sound_real (^mem) candle_kernel’
-    by (rw[sound_real_def] >> metis_tac[candle_kernel_sound]) >>
-  ‘admissible step safe oldp newp’ by metis_tac[build_certifies_def] >>
-  irule admit_preserves_safety >> fs[]
+  irule prover_self_improvement_is_safe >> simp[] >>
+  metis_tac[frozen_checker_sound_candle]
 QED
 
-(* And the install corollary, concretely: when the candle build certified the
-   proposal, the policy weakening genuinely installs. *)
+(* And the install corollary, concretely: when the Candle build said yes,
+   the policy weakening installs, and it is a certified genuine weakening. *)
 Theorem prover_self_improvement_installs_candle:
+  bcert ∧
   build_certifies (sound_real (^mem)) candle_kernel step safe oldp newp ⇒
-  admit step safe oldp newp = newp
+  prover_gate hol4_checks_real p candle_kernel bcert oldp newp = newp ∧
+  admissible step safe oldp newp
 Proof
-  rpt strip_tac >>
-  ‘sound_real (^mem) candle_kernel’
-    by (rw[sound_real_def] >> metis_tac[candle_kernel_sound]) >>
-  ‘admissible step safe oldp newp’ by metis_tac[build_certifies_def] >>
-  rw[admit_def]
+  strip_tac >>
+  irule prover_self_improvement_installs >>
+  simp[hol4_checks_real_def] >>
+  metis_tac[frozen_checker_sound_candle]
 QED
 
 val _ = export_theory ();

@@ -20,26 +20,31 @@ val mem = ``mem:'U->'U->bool``;
 
 val _ = new_theory "integrationKernel";
 
-(* The kernel-self-upgrade crown reaches the fixed meta-invariant,
-   for any inhabitant, under exactly kernelUpgrade's labelled seams
-   (loeb_reflection + encodes_obligation) — carried verbatim. *)
+(* The kernel-self-upgrade crown reaches the fixed meta-invariant, for
+   any inhabitant, under exactly kernelUpgrade's labelled seams
+   (loeb_reflection + encodes_obligation) — carried verbatim. The policy
+   upgrade is decided by the upgraded kernel K' through the operational
+   gate `kgate`, so every hypothesis is load-bearing: the Candle
+   certificate and loeb_reflection make K' sound
+   (kernelUpgradeTheory.certificate_without_reflection_can_breach,
+   reflection_without_certificate_can_breach), and K''s soundness plus the
+   encoding make its yes safe (kernel_unsound_certificate_can_breach,
+   embeddedGateTheory.unfaithful_encoding_can_breach). *)
 Theorem svenvs_tower_with_kernel_upgrade:
   spec_refines curspec meta /\
-  is_set_theory ^mem /\
-  loeb_reflection ^mem candle_kernel K' sound_stmt /\
-  (!thy. candle_kernel thy (sound_stmt thy)) /\
-  K' thy obl /\
+  loeb_reflection ^mem candle_kernel K' sthy sound_stmt /\
+  candle_kernel sthy sound_stmt /\
   encodes_obligation ^mem thy obl step curspec oldp newp /\
   init_safe init curspec /\
   safe_shield step curspec shield /\
   sound_policy step curspec oldp ==>
   !ctrl.
     invariant step init
-      (enveloped (admit step curspec oldp newp) shield ctrl) meta
+      (enveloped (kgate K' thy obl oldp newp) shield ctrl) meta
 Proof
   rpt strip_tac >>
   `invariant step init
-     (enveloped (admit step curspec oldp newp) shield ctrl) curspec`
+     (enveloped (kgate K' thy obl oldp newp) shield ctrl) curspec`
     by metis_tac[self_improving_kernel_is_safe] >>
   metis_tac[invariant_transports_to_meta]
 QED
