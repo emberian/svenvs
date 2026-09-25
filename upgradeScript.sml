@@ -21,9 +21,14 @@
   This is the HOL-level layer. The "typed-in program" that denotes [newp]
   is reflected in cartpoleProgramScript; the same obligation lifts to
   CakeML-level evaluation via the candle/prover chain later.
+
+  The gate below is certifierTheory's general `cgate` at policies
+  (gate_is_cgate), and its safety theorems are the policy instances of the
+  general certifier theorems (judge := sound_policy step safe).
 *)
 open HolKernel boolLib bossLib BasicProvers listTheory pairTheory
-     systemTheory envelopeTheory safetyTheory sv_weakeningTheory;
+     systemTheory envelopeTheory safetyTheory sv_weakeningTheory
+     certifierTheory;
 
 val _ = new_theory "upgrade";
 
@@ -114,6 +119,14 @@ Definition gate_def:
   gate (cert:bool) (oldp:('s,'a) policy) newp = if cert then newp else oldp
 End
 
+(* The policy gate IS certifierTheory's general gate, at policies. Every
+   gate theorem below is the policy instance of a general one. *)
+Theorem gate_is_cgate:
+  gate = cgate
+Proof
+  rw[FUN_EQ_THM, gate_def, cgate_def]
+QED
+
 (* `admit` is the gate driven by a perfect (oracle) certifier. *)
 Theorem admit_is_gate:
   admit step safe oldp newp = gate (admissible step safe oldp newp) oldp newp
@@ -124,13 +137,13 @@ QED
 Theorem gate_installs:
   cert ⇒ gate cert oldp newp = newp
 Proof
-  rw[gate_def]
+  metis_tac[gate_is_cgate, cgate_installs]
 QED
 
 Theorem gate_rejects:
   ¬cert ⇒ gate cert oldp newp = oldp
 Proof
-  rw[gate_def]
+  metis_tac[gate_is_cgate, cgate_rejects]
 QED
 
 (* Safety through the operational gate: the ONLY thing asked of the
@@ -140,7 +153,20 @@ Theorem gate_keeps_sound:
   sound_policy step safe oldp ⇒
   sound_policy step safe (gate cert oldp newp)
 Proof
-  rw[gate_def]
+  metis_tac[gate_is_cgate, cgate_keeps]
+QED
+
+(* ...and that is exactly what the gate needs: the verdict is sound for
+   the proposal iff the gate keeps every sound policy sound. (The empty
+   policy is always sound, so a sound old policy always exists.) *)
+Theorem gate_keeps_sound_iff:
+  (cert ⇒ sound_policy step safe newp) ⇔
+  ∀oldp. sound_policy step safe oldp ⇒
+         sound_policy step safe (gate cert oldp newp)
+Proof
+  eq_tac >- metis_tac[gate_keeps_sound] >>
+  disch_then (qspec_then ‘λs a. F’ mp_tac) >>
+  simp[sound_policy_def, gate_def]
 QED
 
 Theorem gate_preserves_safety:
@@ -178,15 +204,33 @@ Definition gate_all_def:
   (gate_all p0 ((cert,newp)::rest) = gate_all (gate cert p0 newp) rest)
 End
 
+(* The policy fold IS certifierTheory's fold with the identity certifier. *)
+Theorem gate_all_is_cgate_run:
+  ∀proposals p0. gate_all p0 proposals = cgate_run I p0 proposals
+Proof
+  Induct >> simp[gate_all_def, cgate_run_def, pairTheory.FORALL_PROD,
+                 gate_is_cgate]
+QED
+
 Theorem gate_all_keeps_sound:
   ∀proposals p0.
     EVERY (λ(cert,newp). cert ⇒ sound_policy step safe newp) proposals ∧
     sound_policy step safe p0 ⇒
     sound_policy step safe (gate_all p0 proposals)
 Proof
-  Induct >> simp[gate_all_def, pairTheory.FORALL_PROD] >>
-  rpt strip_tac >> first_x_assum irule >> fs[] >>
-  irule gate_keeps_sound >> fs[]
+  metis_tac[gate_all_is_cgate_run, cgate_fold_keeps]
+QED
+
+(* ...and its converse: a stream of verdicts keeps every sound genesis
+   sound at every prefix iff every yes in it went to a sound proposal
+   (certifierTheory.cgate_fold_safe_iff; the empty policy is sound). *)
+Theorem gate_all_keeps_sound_iff:
+  EVERY (λ(cert,newp). cert ⇒ sound_policy step safe newp) proposals ⇔
+  ∀p0. sound_policy step safe p0 ⇒
+       ∀n. sound_policy step safe (gate_all p0 (TAKE n proposals))
+Proof
+  ‘sound_policy step safe (λs a. F)’ by simp[sound_policy_def] >>
+  drule cgate_fold_safe_iff >> simp[gate_all_is_cgate_run]
 QED
 
 Theorem gated_self_improvement_is_safe:
@@ -277,6 +321,46 @@ Proof
   ‘reach (λs a. a) (λs. s = 0) (enveloped (λs a. T) (λs. 0) (λs. 1)) 0’
     by simp[Once reach_cases] >>
   drule reach_step >> simp[enveloped_def]
+QED
+
+(* ---- ANY certifier, through the policy gate ------------------------------
+   A certifier `chk` over obligations of any type, whose obligations carry
+   a meaning `sem` that faithfully encodes admissibility of the proposal
+   (sem ob ⇒ admissible …: the shape of embeddedGate's encodes_obligation
+   and selfProver's build_certifies). *)
+Theorem certifier_gate_preserves_safety:
+  sound_certifier chk sem ∧
+  (sem ob ⇒ admissible step safe oldp newp) ∧
+  init_safe init safe ∧
+  safe_shield step safe shield ∧
+  sound_policy step safe oldp ⇒
+  ∀ctrl. invariant step init
+            (enveloped (gate (chk ob) oldp newp) shield ctrl) safe
+Proof
+  rpt strip_tac >> irule safety_preservation >> simp[gate_is_cgate] >>
+  irule cgate_safe >> fs[admissible_def] >> metis_tac[]
+QED
+
+(* THE IFF at policies: a certifier is sound iff the policy gate it drives
+   keeps safety for every faithfully-encoded proposal in every (here: num)
+   habitat. The general form of kernelUpgradeTheory.kernel_sound_iff_gate_safe
+   (take ob := (thy,obl), chk := UNCURRY K, sem := entailment) and of the
+   selfProver iff; the ⇐ direction is unsound_certificate_breaches. *)
+Theorem sound_certifier_iff_policy_gate_safe:
+  sound_certifier chk sem ⇔
+  ∀ob (step:num -> num -> num) safe init shield oldp newp.
+    (sem ob ⇒ admissible step safe oldp newp) ∧
+    init_safe init safe ∧
+    safe_shield step safe shield ∧
+    sound_policy step safe oldp ⇒
+    ∀ctrl. invariant step init
+              (enveloped (gate (chk ob) oldp newp) shield ctrl) safe
+Proof
+  eq_tac >- metis_tac[certifier_gate_preserves_safety] >>
+  rw[sound_certifier_def] >> CCONTR_TAC >>
+  strip_assume_tac unsound_certificate_breaches >>
+  ‘gate (chk ob) oldp newp = gate T oldp newp’ by simp[] >>
+  metis_tac[]
 QED
 
 (* NECESSITY of the weakening half: a certificate for a sound but

@@ -31,10 +31,15 @@
   proved `loader/installLoaderScript : do_install_preserves_code`, over CakeML's
   real `closSem$do_install` — cited, not re-proved here.
 
+  The loop is certifierTheory's general gate driven by the identity
+  certifier on the kernel's boolean verdict: swap = cgate, run_loop =
+  cgate_run I, loop_step = cstep I I (impl_correct spec). Each theorem
+  below is the instance of the general one at judge impl_correct spec.
+
   PROVED; pure light HOL4.
 *)
 open HolKernel boolLib bossLib BasicProvers arithmeticTheory listTheory
-     pairTheory genealogyTheory;
+     pairTheory certifierTheory genealogyTheory;
 
 val _ = new_theory "selfRecompileGate";
 
@@ -74,19 +79,40 @@ Definition loop_step_def:
     ∃cert g. (cert ⇒ impl_correct spec g) ∧ f' = swap cert f g
 End
 
+(* The loop's pieces are certifierTheory's general gate, fold and step. *)
+Theorem swap_is_cgate:
+  swap = cgate
+Proof
+  rw[FUN_EQ_THM, swap_def, cgate_def]
+QED
+
+Theorem run_loop_is_cgate_run:
+  ∀offers f. run_loop f offers = cgate_run I f offers
+Proof
+  Induct >> simp[run_loop_def, cgate_run_def, FORALL_PROD, swap_is_cgate]
+QED
+
+Theorem loop_step_is_cstep:
+  loop_step spec = cstep I I (impl_correct spec)
+Proof
+  rw[FUN_EQ_THM, cstep_bool, loop_step_def, swap_is_cgate]
+QED
+
 (* The GATE is a SOUND vouching for correctness: a certified swap installs a
    correct g (by certificate soundness); a rejected one keeps the running f
-   (correct by hypothesis). Both branches are used. *)
+   (correct by hypothesis). The instance of certifierTheory.cstep_ratchet
+   at the identity certifier. *)
 Theorem gate_is_vouch_sound:
   vouch_sound (impl_correct spec) (loop_step spec)
 Proof
-  rw[vouch_sound_def, loop_step_def, swap_def] >> rw[]
+  simp[vouch_sound_is_ratchet, loop_step_is_cstep, cstep_ratchet,
+       identity_sound_certifier]
 QED
 
 Theorem run_loop_append:
   ∀f xs ys. run_loop f (xs ++ ys) = run_loop (run_loop f xs) ys
 Proof
-  Induct_on ‘xs’ >> simp[run_loop_def, FORALL_PROD]
+  simp[run_loop_is_cgate_run, cgate_run_append]
 QED
 
 (* The loop's n-th running version (after the first n offers). *)
@@ -101,16 +127,11 @@ Theorem loop_is_a_genealogy:
   cert_sound spec offers ⇒
   forward_certified (loop_step spec) (loop_version f0 offers)
 Proof
-  rw[forward_certified_def, loop_version_def, loop_step_def,
-     cert_sound_def, EVERY_EL] >>
-  Cases_on ‘n < LENGTH offers’
-  >- (qexistsl_tac [‘FST (EL n offers)’, ‘SND (EL n offers)’] >>
-      first_x_assum drule >> Cases_on ‘EL n offers’ >> simp[] >>
-      strip_tac >>
-      ‘TAKE (SUC n) offers = TAKE n offers ++ [EL n offers]’
-        by simp[GSYM rich_listTheory.SNOC_EL_TAKE, SNOC_APPEND] >>
-      simp[run_loop_append, run_loop_def]) >>
-  qexistsl_tac [‘F’, ‘ARB’] >> simp[swap_def, TAKE_LENGTH_TOO_LONG]
+  strip_tac >>
+  ‘loop_version f0 offers = λn. cgate_run I f0 (TAKE n offers)’
+    by simp[FUN_EQ_THM, loop_version_def, run_loop_is_cgate_run] >>
+  simp[forward_certified_is_follows, loop_step_is_cstep] >>
+  irule cgate_run_follows >> fs[cert_sound_def]
 QED
 
 (* THE BRIDGE. A correct genesis + sound certificates ⇒ the version the loop
@@ -121,14 +142,22 @@ Theorem self_recompile_loop_is_safe:
   impl_correct spec (run_loop f0 offers) ∧
   ∀n. impl_correct spec (loop_version f0 offers n)
 Proof
-  strip_tac >>
-  ‘∀n. impl_correct spec (loop_version f0 offers n)’
-    by (irule genealogy_sound >>
-        metis_tac[gate_is_vouch_sound, loop_is_a_genealogy,
-                  loop_version_def, TAKE_0, run_loop_def]) >>
-  simp[] >>
-  first_x_assum (qspec_then ‘LENGTH offers’ mp_tac) >>
-  simp[loop_version_def, TAKE_LENGTH_ID]
+  rw[cert_sound_def, loop_version_def, run_loop_is_cgate_run] >>
+  metis_tac[cgate_fold_keeps]
+QED
+
+(* THE CONVERSE (the iff beside unsound_certificate_breaks_loop): the
+   verdicts in a stream of offers are sound iff the loop keeps every correct
+   genesis correct at every step. The instance of
+   certifierTheory.cgate_fold_safe_iff (the spec itself is a correct
+   version). *)
+Theorem cert_sound_iff_loop_safe:
+  cert_sound spec offers ⇔
+  ∀f0. impl_correct spec f0 ⇒ ∀n. impl_correct spec (loop_version f0 offers n)
+Proof
+  ‘impl_correct spec spec’ by simp[impl_correct_def] >>
+  drule cgate_fold_safe_iff >>
+  simp[cert_sound_def, loop_version_def, run_loop_is_cgate_run]
 QED
 
 (* The observable consequence the run exhibits: no accepted swap, however

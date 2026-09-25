@@ -18,10 +18,19 @@
   hol-reflection proof-producing translator discharges automatically
   (`term_to_deep`/`termsem_cert`); everything else here is proved outright
   from the built Candle soundness theorem.
+
+  In certifierTheory's terms: the certifier is `UNCURRY (kernel_admits mem)`
+  on (theory, obligation) pairs, its meaning is entailment
+  (`kernel_meaning`), `kernel_admits_is_sound` is exactly its
+  `sound_certifier`, `encodes_obligation` is the faithful-encoding premise,
+  and `kernel_gate` is the policy gate driven by it. The general kernel
+  lemma `kernel_sound_certifier_iff_gate_safe` (any K) is the form
+  kernelUpgradeTheory.kernel_sound_iff_gate_safe instantiates.
 *)
 open HolKernel boolLib bossLib BasicProvers
      holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSoundnessTheory
-     systemTheory envelopeTheory safetyTheory sv_weakeningTheory upgradeTheory;
+     systemTheory envelopeTheory safetyTheory sv_weakeningTheory
+     certifierTheory upgradeTheory;
 
 val _ = new_theory "embeddedGate";
 
@@ -51,6 +60,67 @@ Proof
   rw[kernel_admits_def] >> metis_tac[proves_sound]
 QED
 
+(* ---- the certifier view ------------------------------------------------ *)
+
+(* What a (theory, obligation) pair means: the obligation is entailed. *)
+Definition kernel_meaning_def:
+  kernel_meaning ^mem (ob:thy # term) ⇔ (FST ob,[]) |= SND ob
+End
+
+(* ANY two-argument kernel's soundness (the shape of kernelUpgradeTheory's
+   kernel_sound) is certifier soundness of its uncurrying, and is transfer:
+   certifierTheory.sound_certifier_curried / curried_sound_iff_transfers at
+   meaning := entailment. *)
+Theorem kernel_soundness_is_sound_certifier:
+  (∀thy obl. kchk thy obl ⇒ (thy,[]) |= obl) ⇔
+  sound_certifier (UNCURRY kchk) (kernel_meaning ^mem)
+Proof
+  simp[sound_certifier_def, kernel_meaning_def, pairTheory.FORALL_PROD]
+QED
+
+Theorem kernel_soundness_iff_transfers:
+  (∀thy obl. kchk thy obl ⇒ (thy,[]) |= obl) ⇔
+  ∀thy obl P. kchk thy obl ∧ ((thy,[]) |= obl ⇒ P) ⇒ P
+Proof
+  simp[kernel_soundness_is_sound_certifier, sound_certifier_iff_transfers,
+       kernel_meaning_def, pairTheory.FORALL_PROD]
+QED
+
+(* Candle's kernel_admits is a sound certifier in exactly that sense. *)
+Theorem kernel_admits_sound_certifier:
+  sound_certifier (UNCURRY (kernel_admits ^mem)) (kernel_meaning ^mem)
+Proof
+  simp[GSYM kernel_soundness_is_sound_certifier, kernel_admits_is_sound]
+QED
+
+(* encodes_obligation is the faithful-encoding premise of the general gate
+   theorems, at the kernel meaning. *)
+Theorem encodes_obligation_is_encoding:
+  encodes_obligation ^mem thy obl step safe oldp newp ⇔
+  (kernel_meaning ^mem (thy,obl) ⇒ admissible step safe oldp newp)
+Proof
+  simp[encodes_obligation_def, kernel_meaning_def]
+QED
+
+(* THE GENERAL KERNEL IFF (any kernel kchk): kernel soundness is exactly
+   what makes the policy gate it drives safe for every faithfully-encoded
+   proposal in every (num) habitat. upgradeTheory's
+   sound_certifier_iff_policy_gate_safe at chk := UNCURRY kchk. *)
+Theorem kernel_sound_certifier_iff_gate_safe:
+  (∀thy obl. kchk thy obl ⇒ (thy,[]) |= obl) ⇔
+  ∀thy obl (step:num -> num -> num) safe init shield oldp newp.
+    encodes_obligation ^mem thy obl step safe oldp newp ∧
+    init_safe init safe ∧
+    safe_shield step safe shield ∧
+    sound_policy step safe oldp ⇒
+    ∀ctrl. invariant step init
+              (enveloped (gate (kchk thy obl) oldp newp) shield ctrl) safe
+Proof
+  simp[kernel_soundness_is_sound_certifier,
+       sound_certifier_iff_policy_gate_safe, encodes_obligation_is_encoding,
+       pairTheory.FORALL_PROD]
+QED
+
 (* The embedded gate: install [newp] iff the Candle kernel DERIVED the
    obligation term. The decision is syntactic (a `|-` derivation), never
    the semantic `admissible`; `proves_sound` is what connects the two. *)
@@ -74,10 +144,13 @@ Theorem embedded_admit_preserves_safety:
   ∀ctrl. invariant step init
             (enveloped (kernel_gate ^mem thy obl oldp newp) shield ctrl) safe
 Proof
-  rpt strip_tac >>
-  simp[kernel_gate_def] >>
-  irule gate_preserves_safety >> fs[] >>
-  metis_tac[kernel_admits_is_sound, encodes_obligation_def, admissible_def]
+  rpt strip_tac >> simp[kernel_gate_def] >>
+  ‘kernel_admits ^mem thy obl = UNCURRY (kernel_admits ^mem) (thy,obl)’
+    by simp[] >>
+  pop_assum SUBST1_TAC >>
+  irule certifier_gate_preserves_safety >> simp[] >>
+  qexists_tac ‘kernel_meaning ^mem’ >>
+  fs[kernel_admits_sound_certifier, encodes_obligation_is_encoding]
 QED
 
 (* When the kernel derived the obligation, the upgrade is installed, and

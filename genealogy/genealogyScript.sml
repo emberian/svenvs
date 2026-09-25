@@ -42,12 +42,14 @@
      analogue of kernel/watchdogFiniteScript's `loeb_finite_obstruction`:
      the wall is stated as a theorem so it cannot be quietly ignored.
 
-  Pure light HOL4 (no deps beyond the base): reproducible by anyone, Tier 1.
-  The judges are an opaque type `'j`; nothing
-  here is specific to HOL4 — it is the general principle the whole tower is
-  an instance of.
+  Pure light HOL4 (the only dependency is the pure certifierTheory at the
+  root): reproducible by anyone, Tier 1. The judges are an opaque type `'j`;
+  nothing here is specific to HOL4. `vouch_sound` IS certifierTheory's
+  `ratchet` and `forward_certified` IS its `follows` (vouch_sound_is_ratchet,
+  forward_certified_is_follows); genealogy_sound and vouch_sound_is_necessary
+  are its ratchet_stream / ratchet_stream_iff at judges.
 *)
-open HolKernel boolLib bossLib BasicProvers arithmeticTheory;
+open HolKernel boolLib bossLib BasicProvers arithmeticTheory certifierTheory;
 
 val _ = new_theory "genealogy";
 
@@ -71,18 +73,40 @@ Definition forward_certified_def:
     ∀n. vouches (J n) (J (SUC n))
 End
 
+(* The seam and the succession are certifierTheory's ratchet and stream. *)
+Theorem vouch_sound_is_ratchet:
+  vouch_sound = ratchet
+Proof
+  rw[FUN_EQ_THM, vouch_sound_def, ratchet_def]
+QED
+
+Theorem forward_certified_is_follows:
+  forward_certified = follows
+Proof
+  rw[FUN_EQ_THM, forward_certified_def, follows_def]
+QED
+
+(* The seam as a certifier: a sound judge's vouching is a certifier whose
+   yes on (A, B) means B is sound. *)
+Theorem vouch_sound_is_sound_certifier:
+  vouch_sound jsound vouches ⇔
+  sound_certifier (λ(A,B). jsound A ∧ vouches A B) (λ(A,B). jsound B)
+Proof
+  rw[vouch_sound_is_ratchet, ratchet_is_sound_certifier]
+QED
+
 (* THE HEADLINE. Sound genesis + forward-certified succession ⇒ every judge
    in the unbounded line is sound. Modus ponens folded over `num`: no Löb,
-   no assumption beyond the carried `vouch_sound` seam. *)
+   no assumption beyond the carried `vouch_sound` seam. The instance of
+   certifierTheory.ratchet_stream at judges. *)
 Theorem genealogy_sound:
   vouch_sound jsound vouches ∧
   jsound (J 0n) ∧
   forward_certified vouches J ⇒
   ∀n. jsound (J n)
 Proof
-  rpt strip_tac >>
-  Induct_on ‘n’ >- fs[] >>
-  fs[vouch_sound_def, forward_certified_def] >> metis_tac[]
+  metis_tac[ratchet_stream, vouch_sound_is_ratchet,
+            forward_certified_is_follows]
 QED
 
 (* The sound NON-STRENGTHENING case is UNCONDITIONAL. If a "successor" is the
@@ -138,16 +162,8 @@ Theorem vouch_sound_is_necessary:
   (vouch_sound jsound vouches ⇔
    ∀J. jsound (J 0n) ∧ forward_certified vouches J ⇒ ∀n. jsound (J n))
 Proof
-  strip_tac >> eq_tac
-  >- metis_tac[genealogy_sound] >>
-  rw[vouch_sound_def] >> CCONTR_TAC >>
-  ‘∃f. ∀X. vouches X (f X)’ by (simp[GSYM SKOLEM_THM] >> metis_tac[]) >>
-  qabbrev_tac ‘J = λn. if n = 0 then A else FUNPOW f (n - 1) B’ >>
-  ‘forward_certified vouches J’
-    by (rw[forward_certified_def, Abbr ‘J’] >>
-        Cases_on ‘n’ >> simp[arithmeticTheory.FUNPOW_SUC]) >>
-  ‘jsound (J 0) ∧ ¬jsound (J 1)’ by simp[Abbr ‘J’] >>
-  metis_tac[]
+  simp[vouch_sound_is_ratchet, forward_certified_is_follows,
+       ratchet_stream_iff]
 QED
 
 val _ = export_theory ();

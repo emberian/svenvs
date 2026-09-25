@@ -36,7 +36,7 @@ build_dir(){
 }
 
 build_dir "core + cartpole (pure HOL4)" "$SVENVS_ROOT" core \
-  system envelope safety sv_weakening upgrade \
+  system envelope safety sv_weakening upgrade certifier viability \
   cartpole cartpoleEnvelope cartpoleUpgrades cartpoleProgram
 
 build_dir "adversarial-LLM tool-agent" "$SVENVS_ROOT/agent" agent \

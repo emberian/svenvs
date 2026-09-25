@@ -61,7 +61,7 @@
 *)
 open HolKernel boolLib bossLib BasicProvers listTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
-     upgradeTheory;
+     certifierTheory upgradeTheory;
 
 val _ = new_theory "selfProver";
 
@@ -154,6 +154,46 @@ Definition prover_gate_def:
     gate (hol4_checks p' B' ∧ bcert) oldp newp
 End
 
+(* The prover gate as an instance of certifierTheory. The obligation is a
+   (proof object, build, build verdict) triple; the CERTIFIER is "the frozen
+   root accepted the build and the build said yes"; the MEANING of a yes is
+   "the build is sound and it said yes". frozen_checker_sound is EXACTLY
+   the soundness of that certifier (both directions). *)
+Definition prover_certifier_def:
+  prover_certifier (hol4_checks:'p -> 'b -> bool) (ob:'p # 'b # bool) ⇔
+    hol4_checks (FST ob) (FST (SND ob)) ∧ SND (SND ob)
+End
+
+Definition prover_meaning_def:
+  prover_meaning (sound:'b prover_obligation) (ob:'p # 'b # bool) ⇔
+    sound (FST (SND ob)) ∧ SND (SND ob)
+End
+
+Theorem frozen_checker_sound_iff_sound_certifier:
+  frozen_checker_sound hol4_checks sound ⇔
+  sound_certifier (prover_certifier hol4_checks) (prover_meaning sound)
+Proof
+  rw[frozen_checker_sound_def, sound_certifier_def, prover_certifier_def,
+     prover_meaning_def, pairTheory.FORALL_PROD] >>
+  metis_tac[]
+QED
+
+Theorem prover_gate_is_certifier_gate:
+  prover_gate hol4_checks p' B' bcert oldp newp =
+  gate (prover_certifier hol4_checks (p',B',bcert)) oldp newp
+Proof
+  rw[prover_gate_def, prover_certifier_def]
+QED
+
+(* build_certifies, guarded by the build's verdict, is exactly the faithful
+   encoding of admissibility by the certifier's meaning. *)
+Theorem build_certifies_is_encoding:
+  (bcert ⇒ build_certifies sound B step safe oldp newp) ⇔
+  (prover_meaning sound (p,B,bcert) ⇒ admissible step safe oldp newp)
+Proof
+  rw[build_certifies_def, prover_meaning_def] >> metis_tac[]
+QED
+
 (* Claim: through the prover gate, safety holds for EVERY controller. The
    hypotheses on the certifiers are both load-bearing:
      * `frozen_checker_sound` turns the frozen root's acceptance into
@@ -175,9 +215,32 @@ Theorem prover_self_improvement_is_safe:
             (enveloped (prover_gate hol4_checks p' B' bcert oldp newp)
                        shield ctrl) safe
 Proof
-  rpt strip_tac >> simp[prover_gate_def] >>
-  irule gate_preserves_safety >> rw[] >>
-  metis_tac[frozen_checker_sound_def, build_certifies_def, admissible_def]
+  rw[prover_gate_is_certifier_gate, frozen_checker_sound_iff_sound_certifier] >>
+  irule certifier_gate_preserves_safety >> simp[] >>
+  qexists_tac ‘prover_meaning sound’ >>
+  rw[prover_meaning_def] >> fs[build_certifies_def]
+QED
+
+(* THE IFF beside the two ∃-witnesses below: the frozen checker is sound iff
+   the prover gate keeps safety for every build, verdict and proposal in
+   every (here: num) habitat whose verdict faithfully encodes admissibility.
+   The selfProver instance of upgradeTheory's
+   sound_certifier_iff_policy_gate_safe. *)
+Theorem frozen_checker_sound_iff_prover_gate_safe:
+  frozen_checker_sound hol4_checks sound ⇔
+  ∀p B bcert (step:num -> num -> num) safe init shield oldp newp.
+    (bcert ⇒ build_certifies sound B step safe oldp newp) ∧
+    init_safe init safe ∧
+    safe_shield step safe shield ∧
+    sound_policy step safe oldp ⇒
+    ∀ctrl. invariant step init
+              (enveloped (prover_gate hol4_checks p B bcert oldp newp)
+                         shield ctrl) safe
+Proof
+  simp[frozen_checker_sound_iff_sound_certifier,
+       sound_certifier_iff_policy_gate_safe, prover_gate_is_certifier_gate,
+       pairTheory.FORALL_PROD, prover_meaning_def, build_certifies_def] >>
+  eq_tac >> rpt strip_tac >> first_x_assum irule >> simp[] >> metis_tac[]
 QED
 
 (* When the frozen root accepted the build and the build said yes, the
@@ -271,6 +334,17 @@ Definition prover_gate_all_def:
                      proposals)
 End
 
+(* The stream prover gate is certifierTheory's fold, with the certifier
+   "the frozen root accepted B' and B' said yes" on each verdict. *)
+Theorem prover_gate_all_is_cgate_run:
+  prover_gate_all hol4_checks p' B' p0 proposals =
+  cgate_run (λb. hol4_checks p' B' ∧ b) p0 proposals
+Proof
+  simp[prover_gate_all_def, gate_all_is_cgate_run] >>
+  qid_spec_tac ‘p0’ >> Induct_on ‘proposals’ >>
+  simp[cgate_run_def, pairTheory.FORALL_PROD]
+QED
+
 (* After a frozen-root-vouched prover swap, an UNBOUNDED stream of policy
    proposals decided by the new build B' keeps safety for every controller.
    The premise is on B' only through the frozen root: IF B' is sound, every
@@ -290,12 +364,14 @@ Theorem prover_then_unbounded_policy_self_improvement_is_safe:
       (enveloped (prover_gate_all hol4_checks p' B' p0 proposals) shield ctrl)
       safe
 Proof
-  rpt strip_tac >> simp[prover_gate_all_def] >>
-  irule gated_self_improvement_is_safe >> simp[] >>
-  simp[EVERY_MAP, EVERY_MEM, pairTheory.FORALL_PROD] >>
-  rpt strip_tac >>
-  ‘sound B'’ by metis_tac[frozen_checker_sound_def] >>
-  fs[EVERY_MEM, pairTheory.FORALL_PROD] >> metis_tac[]
+  rpt strip_tac >> irule safety_preservation >>
+  simp[prover_gate_all_is_cgate_run] >>
+  ‘sound_certifier (λb. hol4_checks p' B' ∧ b) (λb. sound B' ∧ b)’
+    by (fs[sound_certifier_def, frozen_checker_sound_def] >> metis_tac[]) >>
+  ‘EVERY (λ(ob,y). (λb. sound B' ∧ b) ob ⇒ sound_policy step safe y)
+         proposals’
+    by (Cases_on ‘sound B'’ >> fs[EVERY_MEM, pairTheory.FORALL_PROD]) >>
+  metis_tac[cgate_run_safe]
 QED
 
 (* And it composes the OTHER direction too: a frozen-root-vouched build B'
