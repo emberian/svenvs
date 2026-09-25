@@ -30,8 +30,7 @@
                                NECESSARY: `cert ⇒ sound newp` holds iff the
                                gated envelope is safe for every init, shield,
                                sound old policy and controller.
-                               `unsound_certificate_breaches_general` and
-                               `unsound_certificate_breaches_via_iff` recover
+                               `unsound_certificate_breaches_general` recovers
                                upgradeTheory's necessity witness as corollaries.
    * `gate_iff_needs_viability` the viability hypothesis cannot be dropped: a
                                doomed safe state kills every shield, the
@@ -252,26 +251,6 @@ Proof
      invariant step init (enveloped (gate T oldp newp) shield ctrl) safe’
     by (irule gate_certificate_iff >> metis_tac[]) >>
   gs[] >> metis_tac[]
-QED
-
-(* upgradeTheory's `unsound_certificate_breaches`, re-derived from the iff
-   (same statement). *)
-Theorem unsound_certificate_breaches_via_iff:
-  ∃(step:num -> num -> num) safe init shield oldp newp ctrl.
-    init_safe init safe ∧
-    safe_shield step safe shield ∧
-    sound_policy step safe oldp ∧
-    ¬sound_policy step safe newp ∧
-    ¬invariant step init (enveloped (gate T oldp newp) shield ctrl) safe
-Proof
-  ‘safe_shield (λs a:num. a) (λs:num. s = 0) (λs. 0) ∧
-   ¬sound_policy (λs a:num. a) (λs:num. s = 0) (λs a. T)’
-    by (simp[safe_shield_def, sound_policy_def] >> qexists_tac ‘1’ >>
-        simp[]) >>
-  drule_all unsound_certificate_breaches_general >> strip_tac >>
-  qexistsl_tac [‘λs a. a’, ‘λs. s = 0’, ‘init’, ‘shield’, ‘oldp’,
-                ‘λs a. T’, ‘ctrl’] >>
-  simp[]
 QED
 
 (* NECESSITY of viability for the iff: 0 is safe but doomed (every action

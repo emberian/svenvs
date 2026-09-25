@@ -108,15 +108,6 @@ Proof
   rw[sound_certifier_def, pairTheory.FORALL_PROD]
 QED
 
-Theorem curried_sound_iff_transfers:
-  (∀a b. kchk a b ⇒ ksem a b) ⇔
-  ∀a b P. kchk a b ∧ (ksem a b ⇒ P) ⇒ P
-Proof
-  eq_tac >> rpt strip_tac
-  >- metis_tac[] >>
-  first_x_assum (qspecl_then [‘a’, ‘b’, ‘ksem a b’] mp_tac) >> simp[]
-QED
-
 (* Two certifiers that are sound for free: the oracle (a certifier that
    consults the meaning itself) and the identity on a boolean verdict. *)
 Theorem oracle_sound_certifier:
@@ -193,13 +184,6 @@ Theorem unsound_certifier_breaches:
   ∃ob old new. J old ∧ (sem ob ⇒ J new) ∧ ¬J (cgate (chk ob) old new)
 Proof
   metis_tac[sound_certifier_iff_cgate_safe]
-QED
-
-(* And that failure is exactly one yes without its meaning. *)
-Theorem unsound_certifier_witness:
-  ¬sound_certifier chk sem ⇔ ∃ob. chk ob ∧ ¬sem ob
-Proof
-  rw[sound_certifier_def] >> metis_tac[]
 QED
 
 (* ===================================================================== *)
