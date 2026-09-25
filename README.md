@@ -88,7 +88,13 @@ and an honest line where execution stops and proof takes over. Full ledger:
   runs natively and under a live Candle correctness gate; and **the kernel
   interface primitive `REFL` is swapped in-process under the whole live
   prover** (`scripts/apex-kernel-swap.sh`, `KERNEL_INPROCESS_SWAP_OK`) —
-  gated, accumulating, a wrong swap rejected.
+  gated, accumulating, a wrong swap rejected; and **the real CakeML
+  semantics is ported into the live kernel** (45 datatypes, 134
+  kernel-checked clause theorems, about two minutes) so that **one
+  ouroboros generation runs**: the program synthesizes an edit, its own
+  kernel proves it against `eval_n` for every input, and the proved source
+  is self-fed through the verified compiler and executed
+  (`scripts/reflectsem-live.sh --ouroboros`, `OUROBOROS_ONE_GEN_OK`).
 - **The fixed root (by design, not a gap):** the *verified primitive*
   `Kernel` (the unforgeable `thm` constructors compiled into `cake.S`) is
   never swapped; the `REFL` swap above is anchored to it. Self-improvement goes
@@ -146,6 +152,8 @@ by row: [`CLAIMS.md`](CLAIMS.md).
   re-composition and a runnable self-upgrading root binary are the stated
   residuals ([`compilerOpt/LAYERB.md`](compilerOpt/LAYERB.md),
   [`selfUpgrade/SELFUPGRADE_ROOT.md`](selfUpgrade/SELFUPGRADE_ROOT.md)).
+- **The ouroboros beyond one generation** — accumulating generations, the
+  self-model, and gating the improver itself (`candle/ouroboros.ml`).
 - **PureCake** as the inhabitant's verified language
   ([`pureverified/CLAIMS.md`](pureverified/CLAIMS.md)) and **Gemma-scale
   verified inference** (`inference/`) — the long research axes.

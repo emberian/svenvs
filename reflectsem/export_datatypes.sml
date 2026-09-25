@@ -125,7 +125,9 @@ val seeds = List.mapPartial (fn (t,n) => fetch t n)
    ("semanticPrimitives","compiler_agrees_def"),
    ("ffi","call_FFI_def"),
    ("ast","getOpClass_def"),
-   ("ast","pat_bindings_def")]
+   ("ast","pat_bindings_def"),
+   (* the function cone reaches mlstring comparisons (ordering) *)
+   ("mlstring","compare_def")]
 end;
 val () = List.app visit_all_types_in seeds;
 
@@ -156,6 +158,8 @@ val () = emit "new_constant (\"cml_ORD\", `:char -> num`);;";
 val () = emit "new_constant (\"cml_char_lt\", `:char -> char -> bool`);;";
 val () = emit "";
 
+val dt_names = ref ([] : string list);
+val dt_thms = ref ([] : string list);
 fun try_emit_dt ty =
   let
     val cty = canonical ty
@@ -164,27 +168,73 @@ fun try_emit_dt ty =
     val () = emit ("(* " ^ Thy ^ "$" ^ Tyop ^ " *)")
     val () = emit ("let " ^ exportLib.rename Tyop ^ "_DT = define_type \""
                    ^ spec ^ "\";;")
-    (* case constant *)
+    (* case constant: instantiate the recursion theorem define_type just
+       returned (new_recursive_definition, direct); the generic `define`
+       re-derives admissibility and took ~1 hour on op's 50 clauses in
+       the verified kernel. `define` stays as a logged fallback. *)
     val () =
       (let val cls = exportLib.case_def_clauses cty
-       in emit (exportLib.pdefine_named (exportLib.rename Tyop ^ "_CASE_def") cls)
+           val nm = exportLib.rename Tyop
+       in emit (exportLib.pcase_define nm cls)
        end handle HOL_ERR _ => emit ("(* no case_def for " ^ Tyop ^ " *)"))
     (* record accessors/fupds (named, for rewrite lists) *)
+    val () = dt_names := exportLib.rename Tyop :: !dt_names
+    val () = dt_thms := (exportLib.rename Tyop ^ "_CASE_def") :: !dt_thms
     val ctr = ref 0
+    val () = exportLib.annotate_vars := true
     val () =
       List.app (fn cls =>
           (emit (exportLib.pdefine_named
                    (exportLib.rename Tyop ^ "_rec" ^ Int.toString (!ctr)
                     ^ "_def") cls);
+           dt_thms := (exportLib.rename Tyop ^ "_rec" ^ Int.toString (!ctr)
+                       ^ "_def") :: !dt_thms;
            ctr := !ctr + 1)
           handle HOL_ERR _ => emit ("(* skipped a record def for " ^ Tyop ^ " *)"))
         (exportLib.record_defs cty)
+    val () = exportLib.annotate_vars := false
   in emit "" end
   handle e =>
+    (exportLib.annotate_vars := false;
     emit ("(* FAILED to export " ^ exportLib.pty (canonical ty) ^ " : "
-          ^ General.exnMessage e ^ " *)\n");
+          ^ General.exnMessage e ^ " *)\n"));
 
 val () = List.app try_emit_dt dts;
+(* the datatypes' names (for distinctness/injectivity) and their case /
+   record theorems, as lists the gate scripts use *)
+val () = emit ("let reflectsem_dt_names = [" ^ String.concatWith "; "
+                 (map (fn n => "\"" ^ n ^ "\"") (List.rev (!dt_names))) ^ "];;");
+val () = emit ("let reflectsem_dt_thms = [" ^ String.concatWith "; "
+                 (List.rev (!dt_thms)) ^ "];;");
 val () = emit "let REFLECTSEM_DATATYPES_END = 1;;";
 val () = TextIO.closeOut out;
 val () = print ("wrote " ^ out_path ^ "\n");
+
+(* manifest of exported datatypes (Thy$Tyop per line): export_functions.sml
+   checks every type its printed definitions mention against it *)
+val manifest_path = OS.Path.concat (out_dir, "reflectsem_datatypes.manifest");
+val () =
+  let val m = TextIO.openOut manifest_path
+  in List.app (fn ty => let val {Thy,Tyop,...} = dest_thy_type ty
+                        in TextIO.output (m, Thy ^ "$" ^ Tyop ^ "\n") end) dts;
+     TextIO.closeOut m
+  end;
+val () = print ("wrote " ^ manifest_path ^ "\n");
+val dt_fail = ref 0;
+val () = List.app
+  (fn (t,n) => (print ("EXPORT_FAIL unmapped builtin constant: " ^ t ^ "$" ^ n ^ "\n");
+                dt_fail := !dt_fail + 1))
+  (!exportLib.unmapped_seen);
+val () =
+  let val ins = TextIO.openIn out_path
+      fun loop () = case TextIO.inputLine ins of
+                      NONE => ()
+                    | SOME l => ((if String.isSubstring "FAILED" l orelse
+                                     String.isSubstring "skipped a record" l
+                                  then (print ("EXPORT_FAIL " ^ l); dt_fail := !dt_fail + 1)
+                                  else ()); loop ())
+  in loop (); TextIO.closeIn ins end;
+val () =
+  if !dt_fail = 0
+  then print ("EXPORT_DATATYPES_OK " ^ Int.toString (length dts) ^ "\n")
+  else (print "EXPORT_DATATYPES_FAILED\n"; OS.Process.exit OS.Process.failure);

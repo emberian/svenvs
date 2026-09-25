@@ -115,7 +115,11 @@ val prelude_funs : (string * thm) list = [
   ("cml_LUPDATE",     listTheory.LUPDATE_def),
   ("cml_oEL",         listTheory.oEL_def),
   ("cml_ALL_DISTINCT",listTheory.ALL_DISTINCT),
-  ("cml_ALOOKUP",     alistTheory.ALOOKUP_def)
+  ("cml_ALOOKUP",     alistTheory.ALOOKUP_def),
+  ("cml_EL",          listTheory.EL),
+  ("cml_Num",         integerTheory.Num),
+  ("cml_int_div",     integerTheory.int_div),
+  ("cml_int_mod",     integerTheory.int_mod)
 ];
 
 (* ---------------- the function walk (topological) ---------------- *)
@@ -231,7 +235,7 @@ val () = emit "(* -- list/alist helpers (printed from HOL4 defining theorems) --
 val () = List.app
   (fn (nm, th) =>
      emit (exportLib.pdefine_named (nm ^ "_def")
-             (map (fn cj => snd (strip_forall cj)) (strip_conj (concl th))))
+             (map exportLib.total_clause (strip_conj (concl th))))
      handle e => emit ("(* FAILED prelude " ^ nm ^ " : "
                        ^ General.exnMessage e ^ " *)"))
   prelude_funs;
@@ -240,8 +244,8 @@ val () = emit "(* ---- direct functions (dependency order) ---- *)";
 val () = List.app
   (fn ((thy,nm), th) =>
      (emit ("(* " ^ thy ^ "$" ^ nm ^ " *)");
-      emit (exportLib.pdefine_named (exportLib.rename nm ^ "_def")
-              (map (fn cj => snd (strip_forall cj)) (strip_conj (concl th)))))
+      emit (exportLib.pdefine_smart (exportLib.rename nm ^ "_def")
+              (map exportLib.total_clause (strip_conj (concl th)))))
      handle e => emit ("(* FAILED " ^ thy ^ "$" ^ nm ^ " : "
                        ^ General.exnMessage e ^ " *)"))
   direct;
@@ -250,12 +254,21 @@ val () = emit "(* ---- fueled mirrors (from fueledSemTheory) ---- *)";
 val () = List.app
   (fn d =>
      (emit ("(* fueledSem$" ^ d ^ " *)");
-      emit (exportLib.pdefine_named d
-              (map (fn cj => snd (strip_forall cj))
+      emit (exportLib.pdefine_smart d
+              (map exportLib.total_clause
                    (strip_conj (concl (DB.fetch "fueledSem" d))))))
      handle e => emit ("(* FAILED fueled " ^ d ^ " : "
                        ^ General.exnMessage e ^ " *)"))
   fueled_defs;
+(* the rewrite base for evaluating the ported semantics by rewriting:
+   every scaffolding/prelude definition and every rewrite-safe clause
+   theorem, as ONE list the gate scripts use (no guessing names) *)
+val () = emit ("let reflectsem_fn_thms = [" ^ String.concatWith "; "
+  (["cml_K_def", "cml_S_def", "cml_C_def", "cml_W_def", "cml_literal_case_def",
+    "cml_num_CASE_def", "list_CASE_def", "option_CASE_def", "sum_CASE_def",
+    "pair_CASE_def"]
+   @ map (fn (nm, _) => nm ^ "_def") prelude_funs
+   @ List.rev (!exportLib.rewrite_safe)) ^ "];;");
 val () = emit "let REFLECTSEM_FUNCTIONS_END = 1;;";
 
 (* prelude of opaque declarations collected during printing *)
@@ -270,3 +283,66 @@ val () = List.app
 val () = List.app (fn s => TextIO.output (out, s ^ "\n")) (List.rev (!buf));
 val () = TextIO.closeOut out;
 val () = print ("wrote " ^ out_path ^ "\n");
+
+(* ---------------- loud checks: nothing printed may be undefined -------- *)
+val fail_count = ref 0;
+fun fail_msg s = (print ("EXPORT_FAIL " ^ s ^ "\n"); fail_count := !fail_count + 1);
+
+(* every cml_* builtin target must be defined by scaffolding/prelude/opaques *)
+val scaffold_cml = ["cml_K","cml_S","cml_C","cml_W","cml_literal_case",
+                    "cml_num_CASE","cml_CHR","cml_ORD","cml_char_lt"];
+val () = List.app
+  (fn n => if Lib.mem n scaffold_cml
+              orelse List.exists (fn (p,_) => p = n) prelude_funs
+              orelse List.exists (fn (p,_) => p = n) (!exportLib.opaque_seen)
+           then () else fail_msg ("builtin target never defined: " ^ n))
+  (!exportLib.cml_used);
+(* no builtin-theory constant may fall through to its bare name *)
+val () = List.app
+  (fn (t,n) => fail_msg ("unmapped builtin constant: " ^ t ^ "$" ^ n))
+  (!exportLib.unmapped_seen);
+(* every in-text failure marker counts *)
+val () = List.app
+  (fn s => if String.isSubstring "FAILED" s then fail_msg s else ())
+  (!buf);
+(* every datatype the printed functions mention must have been exported by
+   export_datatypes.sml (its manifest), or be a candle builtin/opaque *)
+val manifest_path = OS.Path.concat (out_dir, "reflectsem_datatypes.manifest");
+val manifest =
+  let val ins = TextIO.openIn manifest_path
+      fun loop acc = case TextIO.inputLine ins of
+                       NONE => (TextIO.closeIn ins; acc)
+                     | SOME l => loop (String.tokens Char.isSpace l @ acc)
+  in loop [] end
+  handle _ => (fail_msg ("no datatype manifest at " ^ manifest_path ^
+                         " (run export_datatypes.sml first)"); []);
+val builtin_tys =
+  ["min$bool","min$fun","num$num","integer$int","list$list","option$option",
+   "pair$prod","sum$sum","one$one","string$char","words$word","fcp$bit0",
+   "fcp$bit1","one$one","min$ind","fpSem$rounding","binary_ieee$rounding"];
+fun check_ty ty =
+  if is_vartype ty then ()
+  else let val {Thy,Tyop,Args} = dest_thy_type ty
+           val k = Thy ^ "$" ^ Tyop
+       in if exportLib.is_word8 ty orelse exportLib.is_word64 ty then ()
+          else (if Lib.mem k builtin_tys orelse Lib.mem k manifest then ()
+                else fail_msg ("datatype not exported: " ^ k);
+                List.app check_ty Args)
+       end;
+local
+  val seen = ref ([] : string list)
+  fun tys_of th =
+    List.app (fn t => check_ty (type_of t))
+      (find_terms (fn t => is_const t orelse is_var t) (concl th))
+in
+val () = List.app (fn (_,th) => tys_of th) prelude_funs;
+val () = List.app (fn (_,th) => tys_of th) direct;
+val () = List.app (fn d => tys_of (DB.fetch "fueledSem" d)) fueled_defs;
+end;
+val () = List.app (fn (n, r) => print ("ROUTE " ^ n ^ " : " ^ r ^ "\n"))
+                  (List.rev (!exportLib.smart_log));
+val () =
+  if !fail_count = 0 then print "EXPORT_FUNCTIONS_OK\n"
+  else (print ("EXPORT_FUNCTIONS_FAILED (" ^ Int.toString (!fail_count) ^
+               " problems)\n");
+        OS.Process.exit OS.Process.failure);
