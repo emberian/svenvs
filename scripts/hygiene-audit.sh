@@ -23,7 +23,7 @@ grep -vE "$DATA|$LOCK" "$T" > "$T.text"
 grep -E "$CODE" "$T.text" > "$T.code"
 grep -E '^\.github/workflows/[^/]+\.ya?ml$' "$T" > "$T.wf"
 hard=0; soft=0
-g(){ local list="$1" re="$2"; shift 2; tr '\n' '\0' < "$list" | xargs -0 grep -nIE "$@" -e "$re" 2>/dev/null | grep -v '^Binary'; }
+g(){ local list="$1" re="$2"; shift 2; [ -s "$list" ] || return 0; tr '\n' '\0' < "$list" | xargs -0 grep -HnIE "$@" -e "$re" 2>/dev/null | grep -v '^Binary'; }   # -H: always file:line, so loc() can redact even for a single file
 code(){ grep -vE '^[^:]+:[0-9]+:[[:space:]]*(#|\(\*|//|\*|--)'; }         # drop comment-only lines
 stmt(){ grep -vE '^[^:]+:[0-9]+:.*(die|echo|printf|log|warn|err)[[:space:]]*\(?[[:space:]]*["'"'"']' ; } # drop matches inside message strings
 loc(){ sed -E 's/^([^:]+:[0-9]+):.*/\1/' | sort -u; }                        # location only (secrets)
@@ -73,7 +73,8 @@ report soft "committed generated-looking files (check CI re-derives and diffs th
 
 section "4. Nothing baked to a machine"
 report HARD "private key paths or ssh identities in code" "$(g "$T.code" '~/\.ssh/|\.ssh/id_[a-z0-9]+|-i[[:space:]]+\$?\{?HOME' | code)"
-report HARD "machine paths in JSON/JSONC config" "$(grep -E '\.(json|jsonc)$|(^|/)\.mcp\.json$' "$T.text" | grep -vE "$LOCK" > "$T.json"; [ -s "$T.json" ] && g "$T.json" '"[^"]*"[[:space:]]*:[[:space:]]*"(bash )?/(Users|home)/[^/"]+/')"
+report HARD "machine paths in JSON/JSONC config" "$(grep -E '\.(json|jsonc)$|(^|/)\.mcp\.json$' "$T.text" | grep -vE "$LOCK|(^|/)(results?|outputs?|data|manifests?|evidence|runs?|artifacts?)/" > "$T.json"; [ -s "$T.json" ] && g "$T.json" '"[^"]*"[[:space:]]*:[[:space:]]*"(bash )?/(Users|home)/[^/"]+/' | cut -d: -f1 | sort | uniq -c | sort -rn | awk '{print $2": "$1" line(s)"}')"
+report soft "machine paths in data-shaped JSON (results/outputs/manifests; one line per file)" "$(grep -E '\.(json|jsonc)$' "$T.text" | grep -E '(^|/)(results?|outputs?|data|manifests?|evidence|runs?|artifacts?)/' > "$T.jdata"; [ -s "$T.jdata" ] && g "$T.jdata" '/(Users|home)/[^/"]+/' | cut -d: -f1 | sort -u | head -10)"
 report soft "home paths or private IPs in code (should come from env)" "$(g "$T.code" '/Users/[a-z]+/|/home/[a-z]+/|\b(192\.168|10|172\.(1[6-9]|2[0-9]|3[01]))\.[0-9]{1,3}\.[0-9]{1,3}\b' | code | grep -vE 'example|placeholder|"version"|\$HOME|\$\{HOME')"
 report soft "path constants and silent skips in source" "$(g "$T.code" 'const [A-Z_]+: &str = "/(Users|home)/|eprintln!\([[:space:]]*"SKIP|os\.environ\.get\("HOME"\)[^)]*\)[[:space:]]*\+[[:space:]]*"/' | code)"
 report soft "ssh/scp/rsync calls with a literal host" "$(g "$T.code" '\b(ssh|scp|rsync)\b[^|]*\b[a-z][a-z0-9.-]{2,}:[/~A-Za-z]' | code | grep -vE '\$\{?[A-Z_]+|@\{')"
