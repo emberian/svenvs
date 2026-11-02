@@ -166,17 +166,19 @@ Proof
   REWRITE_TAC [init_theory_ok, hol4_checks_lca_ext_cv, GSYM lca_ext_ctxt_def]
 QED
 
-Theorem wd_state_chk_cv_inline[cv_inline] = wd_state_chk_def;
-Theorem wd_obl_tm_cv_inline[cv_inline] = wd_obl_tm_def;
-
 Theorem wd_obl_tm_wellformed_cv:
   type_ok (tysof init_ctxt) (typeof wd_obl_tm) ∧
+  type_ok (tysof (thyof init_ctxt)) (typeof wd_obl_tm) ∧
   welltyped wd_obl_tm ∧
   term_ok (sigof init_ctxt) wd_obl_tm ∧
+  term_ok (sigof (thyof init_ctxt)) wd_obl_tm ∧
   term_ok (sigof lca_ext_ctxt) wd_obl_tm ∧
+  term_ok (sigof (thyof lca_ext_ctxt)) wd_obl_tm ∧
+  ¬CLOSED wd_obl_tm ∧
+  sizeof wd_obl_tm = 45 ∧
   typeof wd_obl_tm = Bool
 Proof
-  rpt conj_tac >> CONV_TAC cv_eval
+  CONV_TAC cv_eval
 QED
 
 Theorem wd_build_certifies_candle:

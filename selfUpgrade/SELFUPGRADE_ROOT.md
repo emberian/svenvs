@@ -11,15 +11,23 @@ compiler **in place**, at a generation boundary, while running.
 A small patch to CakeML's bootstrap compiler program
 (`compiler/bootstrap/translation/compiler64ProgScript.sml`, pin `ac654a0a3`):
 
+- `compiler_pass_gate`, `cert_bvl_pass_id`, `check_compiler_upgrade_cert` —
+  the proof-gated BVL pass gate (`compiler_pass_gate ok pass s = if ok then
+  pass s else s`) and certificate checker translated directly into deep CakeML
+  AST (`compiler_pass_gate_v_thm`, `check_compiler_upgrade_cert_v_thm`).
 - `compiler_for_eval_upgraded` — the **upgraded** eval-compiler: the same
   verified backend algorithm (`compile_inc_progs_for_eval x64_config`) but with
   a different register allocator (`word_to_word_conf.reg_alg := 0`). Same
   semantics, different compiled code.
-- the REPL's `eval` loop now **dispatches by generation**: declarations up to
-  generation 3 are compiled by the stock compiler; from generation 3 on, by the
-  upgraded compiler — and the binary **announces the in-place upgrade**. This is
-  exactly `repl_upgrade` / `do_eval_record_gen`'s per-generation dispatch,
-  realised on the running binary.
+- `certified_eval_compiler_swap` (`certified_eval_compiler_swap_eq`,
+  `certified_eval_compiler_swap_v_thm`) — the REPL's `eval` loop now
+  **dispatches by generation through `compiler_pass_gate`**: declarations up to
+  generation 3 are compiled by the stock compiler; from generation 3 on, the
+  state `s1` is gated through `compiler_pass_gate (check_compiler_upgrade_cert
+  gen) cert_bvl_pass_id s1` and compiled by `compiler_for_eval_upgraded` — and
+  the binary **announces the in-place upgrade** (`"cake self-upgraded its own
+  compiler IN PLACE"`). This is `repl_upgrade` / `do_eval_record_gen`'s
+  per-generation proof-gated dispatch, realised on the running binary.
 
 Why this is a genuine in-place compiler self-upgrade and not a re-link: the
 running `cake` **installs and runs the bytes its own compiler produced** for each

@@ -47,7 +47,7 @@
 open HolKernel boolLib bossLib BasicProvers
      cv_transLib cv_stdTheory setSpecTheory setModelTheory
      holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSemanticsExtraTheory
-     holSoundnessTheory kernelUpgradeTheory;
+     holSoundnessTheory kernelUpgradeTheory watchdogFiniteTheory;
 
 val _ = new_theory "loebReduction";
 val _ = numLib.prefer_num ();
@@ -247,12 +247,6 @@ QED
 open pairTheory listTheory rich_listTheory pred_setTheory stringTheory alistTheory
      finite_mapTheory relationTheory holSyntaxLibTheory;
 
-val () = cv_auto_trans domain_raw;
-val () = cv_auto_trans codomain_raw;
-val () = cv_auto_trans typeof_def;
-val () = cv_auto_trans VFREE_IN_def;
-val () = cv_auto_trans sizeof_def;
-val () = cv_auto_trans equation_def;
 val () = cv_auto_trans init_ctxt_def;
 val () = cv_auto_trans axexts_of_upd_def;
 val () = cv_auto_trans REV_ASSOCD_def;
@@ -1368,6 +1362,24 @@ QED
    Certificates on `init_ctxt` and `lca_ext_ctxt`
    ---------------------------------------------------------------------- *)
 
+Theorem FST_thyof_cv_inline[cv_inline]:
+  ∀ctxt. FST (thyof ctxt) = sigof ctxt
+Proof
+  rw[]
+QED
+
+Theorem IN_LIST_TO_SET_cv_inline[cv_inline]:
+  ∀(x : 'a) l. (x ∈ LIST_TO_SET l) = list_mem x l
+Proof
+  rw[MEM_cv_inline]
+QED
+
+Definition axiom_list_c_def:
+  axiom_list_c [] = [] ∧
+  axiom_list_c (u :: us) = axioms_of_upd_c u ++ axiom_list_c us
+End
+val () = cv_auto_trans axiom_list_c_def;
+
 Definition lca_ext_upds_def:
   lca_ext_upds =
     [ConstDef «k_sound» (Abs (Var «b» Bool) (Var «b» Bool) ===
@@ -1381,22 +1393,35 @@ Definition lca_ext_ctxt_def:
 End
 val () = cv_auto_trans lca_ext_ctxt_def;
 
+Theorem axsof_thyof_init_ctxt_cv_inline[cv_inline]:
+  axsof (thyof init_ctxt) = LIST_TO_SET (axiom_list_c init_ctxt)
+Proof
+  EVAL_TAC
+QED
+
+Theorem axsof_thyof_lca_ext_ctxt_cv_inline[cv_inline]:
+  axsof (thyof lca_ext_ctxt) = LIST_TO_SET (axiom_list_c lca_ext_ctxt)
+Proof
+  EVAL_TAC
+QED
+
 Theorem init_ctxt_syntax_cv_verified:
   init_ctxt_axexts = [] ∧
   is_std_sig (sigof init_ctxt) ∧
-  FLOOKUP (tysof init_ctxt) «bool» = SOME 0 ∧
-  FLOOKUP (tysof init_ctxt) «fun» = SOME 2 ∧
-  FLOOKUP (tysof init_ctxt) «ind» = NONE ∧
-  FLOOKUP (tmsof init_ctxt) «=» = SOME (Fun (Tyvar «A») (Fun (Tyvar «A») Bool)) ∧
-  FLOOKUP (tmsof init_ctxt) «@» = NONE ∧
-  type_ok (tysof init_ctxt) (Fun Bool Bool) ∧
-  term_ok (sigof init_ctxt)
+  FLOOKUP (tysof (thyof init_ctxt)) «bool» = SOME 0 ∧
+  FLOOKUP (tysof (thyof init_ctxt)) «fun» = SOME 2 ∧
+  FLOOKUP (tysof (thyof init_ctxt)) «ind» = NONE ∧
+  FLOOKUP (tmsof (thyof init_ctxt)) «=» = SOME (Fun (Tyvar «A») (Fun (Tyvar «A») Bool)) ∧
+  FLOOKUP (tmsof (thyof init_ctxt)) «@» = NONE ∧
+  type_ok (tysof (thyof init_ctxt)) (Fun Bool Bool) ∧
+  term_ok (sigof (thyof init_ctxt))
     (Comb (Abs (Var «x» Bool) (Var «x» Bool)) (Var «x» Bool) === Var «x» Bool) ∧
   all_constrainable_updates init_ctxt ∧
   all_constrainable_updates lca_ext_upds ∧
   check_updates_chain lca_ext_upds init_ctxt ∧
-  FLOOKUP (tmsof lca_ext_ctxt) «k_sound» = SOME Bool ∧
-  term_ok (sigof lca_ext_ctxt) (Const «k_sound» Bool) ∧
+  FLOOKUP (tmsof (thyof lca_ext_ctxt)) «k_sound» = SOME Bool ∧
+  (Const «k_sound» Bool) ∈ axsof (thyof lca_ext_ctxt) ∧
+  term_ok (sigof (thyof lca_ext_ctxt)) (Const «k_sound» Bool) ∧
   welltyped (Comb (Abs (Var «x» Bool) (Var «x» Bool)) (Const «k_sound» Bool)
              === Const «k_sound» Bool) ∧
   ACONV (Abs (Var «x» Bool) (Var «x» Bool))
@@ -1407,7 +1432,7 @@ Theorem init_ctxt_syntax_cv_verified:
   sizeof (Comb (Abs (Var «x» Bool) (Var «x» Bool)) (Var «x» Bool)
           === Var «x» Bool) = 9
 Proof
-  rpt conj_tac >> CONV_TAC cv_eval
+  CONV_TAC cv_eval
 QED
 
 Theorem init_ctxt_std_sig_cv:
@@ -1423,7 +1448,8 @@ Theorem lca_ext_ctxt_extends_init_cv:
   EVERY constrainable_update_check init_ctxt ∧
   EVERY constrainable_update_check lca_ext_upds
 Proof
-  strip_assume_tac init_ctxt_syntax_cv_verified >>
+  strip_assume_tac
+    (SIMP_RULE bool_ss [pairTheory.FST] init_ctxt_syntax_cv_verified) >>
   mp_tac (Q.SPECL [`lca_ext_upds`, `init_ctxt`] check_updates_chain_sound) >>
   ASM_REWRITE_TAC [init_theory_ok, GSYM lca_ext_ctxt_def,
                    all_constrainable_updates_EVERY] >>

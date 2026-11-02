@@ -55,9 +55,22 @@ else
   ok "patch applied (reverse with: scripts/build-selfupgrade-root.sh --undo)"
 fi
 
+# mipsProgTheory and compiler64ProgTheory require >12 GB Poly/ML heap (~25-32 GB).
+# Ensure at least SVENVS_ROOT_HEAP_MB (default 32000) unless a larger heap is set.
+ROOT_HEAP_MB="${SVENVS_ROOT_HEAP_MB:-32000}"
+ROOT_HM_FLAGS="$SVENVS_HM_FLAGS"
+if printf '%s' "$ROOT_HM_FLAGS" | grep -qE -- '--heap-size=[0-9]+'; then
+  cur_heap="$(printf '%s' "$ROOT_HM_FLAGS" | sed -nE 's/.*--heap-size=([0-9]+).*/\1/p' | tail -1)"
+  if [ -n "$cur_heap" ] && [ "$cur_heap" -lt "$ROOT_HEAP_MB" ]; then
+    ROOT_HM_FLAGS="$(printf '%s' "$ROOT_HM_FLAGS" | sed -E "s/--heap-size=[0-9]+/--heap-size=$ROOT_HEAP_MB/g")"
+  fi
+else
+  ROOT_HM_FLAGS="$ROOT_HM_FLAGS --heap-size=$ROOT_HEAP_MB"
+fi
+
 say "re-translating the patched compiler program (chain tail; ~1-2h if backend timestamps moved)"
 ( cd "$CAKEMLDIR/compiler/bootstrap/translation" \
-    && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS -j4 compiler64ProgTheory.uo ) \
+    && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $ROOT_HM_FLAGS -j4 compiler64ProgTheory.uo ) \
   || die "re-translation failed (see the Holmake output)"
 ok "compiler64ProgTheory re-translated"
 
@@ -73,7 +86,7 @@ trap 'mv -f "$SEXDIR/Holmakefile.svenvs.bak" "$SEXDIR/Holmakefile" 2>/dev/null |
 sed -i 's@^HOLHEAP = .*cake_compile_heap@# HOLHEAP disabled for sexpr-only step@' "$SEXDIR/Holmakefile"
 rc=0
 ( cd "$SEXDIR" && rm -f cake-sexpr-64 \
-    && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS -j1 cake-sexpr-64 ) || rc=$?
+    && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $ROOT_HM_FLAGS -j1 cake-sexpr-64 ) || rc=$?
 mv -f "$SEXDIR/Holmakefile.svenvs.bak" "$SEXDIR/Holmakefile"   # always restore
 trap - EXIT
 [ "$rc" = 0 ] || die "sexpr regeneration failed"
@@ -83,10 +96,10 @@ ok "altered cake-sexpr-64 produced"
 if [ "${SVENVS_BOOTSTRAP_INLOGIC:-0}" = "1" ]; then
   say "rebuilding cv_translator/cake_compile_heap and running x64BootstrapScript to emit matching cake.S + config_enc_str.txt"
   ( cd "$CAKEMLDIR/cv_translator" \
-      && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS -j4 cake_compile_heap ) \
+      && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $ROOT_HM_FLAGS -j4 cake_compile_heap ) \
     || die "cake_compile_heap build failed"
-  ( cd "$SEXDIR" \
-      && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS -j1 x64BootstrapTheory.uo ) \
+  ( cd "$SEXDIR" && rm -f cake.S config_enc_str.txt \
+      && CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $ROOT_HM_FLAGS -j1 cake.S config_enc_str.txt ) \
     || die "x64BootstrapScript failed"
   [ -f "$SEXDIR/cake.S" ] && [ -f "$SEXDIR/config_enc_str.txt" ] \
     || die "x64BootstrapScript did not emit cake.S + config_enc_str.txt"

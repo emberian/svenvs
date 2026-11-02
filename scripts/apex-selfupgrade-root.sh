@@ -17,7 +17,14 @@
 # the official in-logic bootstrap (x64BootstrapTheory). The self-upgrade PATTERN
 # runs as a program on cake: scripts/apex-compiler-cell*.sh.
 . "$(dirname "$0")/env.sh"
-for a in "$@"; do case "$a" in --clean|--quick|--rebuild) : ;; *) die "apex-selfupgrade-root: unknown arg '$a'";; esac; done
+REBUILD=0
+for a in "$@"; do
+  case "$a" in
+    --clean|--rebuild) REBUILD=1 ;;
+    --quick) : ;;
+    *) die "apex-selfupgrade-root: unknown arg '$a'" ;;
+  esac
+done
 
 CAKE="${CAKE:-$CANDLE_ROOT/candle/build/cake}"
 FFI="${CAKE_FFI:-$CANDLE_ROOT/candle/build/basis_ffi.c}"
@@ -41,19 +48,25 @@ fi
 have cc || die "cc not found"
 mkdir -p "$WORK"
 
-say "self-compiling the ALTERED self-upgradable compiler with the existing verified cake (~5 min)"
-CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 "$CAKE" --sexp=true --skip_type_inference=true \
-  < "$SEXPR" > "$WORK/cake.S" 2>"$WORK/sc.err" || { cat "$WORK/sc.err" >&2; die "self-compile failed"; }
-# the bootstrapped .S defaults its Eval scratch buffers tiny; size them as the
-# official cake does, and link with -DEVAL so the Eval buffers are reserved.
-sed -i 's/#define DATA_BUFFER_SIZE    65536/#define DATA_BUFFER_SIZE  655360000/; s/#define CODE_BUFFER_SIZE  5242880/#define CODE_BUFFER_SIZE  524288000/' "$WORK/cake.S"
-ok "altered cake.S produced ($(wc -l < "$WORK/cake.S") lines, Eval buffers sized)"
+if [ "$REBUILD" = 0 ] && [ -x "$ALT" ] && [ -s "$WORK/cake.S" ] && [ "$ALT" -nt "$SEXPR" ]; then
+  alt_bytes="$(stat -c %s "$ALT" 2>/dev/null || wc -c < "$ALT" | tr -d ' ')"
+  ok "reusing cached self-upgradable cake: $ALT ($alt_bytes bytes; pass --rebuild to recompile)"
+else
+  say "self-compiling the ALTERED self-upgradable compiler with the existing verified cake (~5 min)"
+  CML_STACK_SIZE=1000 CML_HEAP_SIZE=6000 "$CAKE" --sexp=true --skip_type_inference=true \
+    < "$SEXPR" > "$WORK/cake.S" 2>"$WORK/sc.err" || { cat "$WORK/sc.err" >&2; die "self-compile failed"; }
+  # the bootstrapped .S defaults its Eval scratch buffers tiny; size them as the
+  # official cake does, and link with -DEVAL so the Eval buffers are reserved.
+  sed -i 's/#define DATA_BUFFER_SIZE    65536/#define DATA_BUFFER_SIZE  655360000/; s/#define CODE_BUFFER_SIZE  5242880/#define CODE_BUFFER_SIZE  524288000/' "$WORK/cake.S"
+  ok "altered cake.S produced ($(wc -l < "$WORK/cake.S") lines, Eval buffers sized)"
 
-say "assembling + linking (-DEVAL, the Eval-capable build)"
-cc -O2 -DEVAL -D_DEFAULT_SOURCE -Wno-implicit-function-declaration \
-  -o "$ALT" "$WORK/cake.S" "$FFI" -lm 2>"$WORK/link.err" \
-  || { cat "$WORK/link.err" >&2; die "link failed"; }
-ok "self-upgradable cake built: $ALT ($(stat -c %s "$ALT" 2>/dev/null) bytes)"
+  say "assembling + linking (-DEVAL, the Eval-capable build)"
+  cc -O2 -DEVAL -D_DEFAULT_SOURCE -Wno-implicit-function-declaration \
+    -o "$ALT" "$WORK/cake.S" "$FFI" -lm 2>"$WORK/link.err" \
+    || { cat "$WORK/link.err" >&2; die "link failed"; }
+  alt_bytes="$(stat -c %s "$ALT" 2>/dev/null || wc -c < "$ALT" | tr -d ' ')"
+  ok "self-upgradable cake built: $ALT ($alt_bytes bytes)"
+fi
 
 say "DEMONSTRATING the altered cake is a WORKING COMPILER (compiles a program correctly)"
 printf 'fun fib n = if n < 2 then n else fib (n-1) + fib (n-2);\nval _ = TextIO.print (Int.toString (fib 10));\n' > "$WORK/t.cml"
@@ -66,8 +79,9 @@ out="$("$WORK/t.exe" 2>/dev/null | tr -dc '0-9')"
   || die "altered-cake-compiled program gave '$out', expected 55"
 
 grep -aq compiler_for_eval_upgraded "$SEXPR" \
+  && grep -aq "cake self-upgraded its own compiler IN PLACE" "$ALT" \
   && ok "the per-generation self-upgrade (compiler_for_eval_upgraded) is embedded in the compiler" \
-  || die "self-upgrade not present in the altered sexpr"
+  || die "self-upgrade not present in the altered sexpr / compiled binary"
 cmp -s "$SEXPR" "$CANDLE_ROOT/candle/build/cake-sexpr-64" 2>/dev/null \
   && warn "altered sexpr identical to stock (unexpected)" \
   || ok "the altered compiler differs from stock (the self-upgrade changed the compiler)"
