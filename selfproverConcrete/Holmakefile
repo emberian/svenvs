@@ -8,7 +8,7 @@ ifndef CAKEMLDIR
 CAKEMLDIR = $(HOME)/dev/CakeML
 endif
 HOLHOL = $(CAKEMLDIR)/candle
-INCLUDES = .. ../embedded ../kernel ../selfprover \
+INCLUDES = .. ../embedded ../kernel ../kernel/loebReduction ../selfprover \
            $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure \
            $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
            $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics

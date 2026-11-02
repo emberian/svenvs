@@ -49,7 +49,7 @@
 *)
 Theory selfUpgradeEndToEnd
 Ancestors
-  source_evalProof evalUpgradeB semanticPrimitives
+  source_evalProof evalUpgradeB evalUpgradeOp semanticPrimitives certifier
 Libs
   preamble
 
@@ -335,3 +335,279 @@ Proof
   \\ simp []
   \\ strip_tac \\ fs []
 QED
+
+(* ------------------------------------------------------------------------ *)
+(* 7. Concrete operational compiler-swap transitions.                       *)
+(*                                                                          *)
+(* Explicitly defines the state-level transition updating the EvalDecs      *)
+(* compiler (`compiler := mk_compiler_fun_from_ci ci'`,                     *)
+(* `decode_decs := v_fun_abs ci'.decs_dom ci'.decs_v`) and the EvalOracle   *)
+(* `custom_do_eval` alongside `repl_upgrade ci' gen_now g2c`, and proves    *)
+(* that it transitions a state satisfying the generation invariant at `ci`  *)
+(* to one satisfying the generation invariant (`recorded_orac_wf_gen` +     *)
+(* compiler agreement) at `ci'`, as well as re-establishing `s_rel ci'` and *)
+(* `s_rel_gen (repl_upgrade ci' gen_now g2c) gen ci'`.                      *)
+(* ------------------------------------------------------------------------ *)
+
+Definition dec_s_def:
+  dec_s (SOME (EvalDecs ds)) = ds /\
+  dec_s _ = ARB "not EvalDecs"
+End
+
+Definition swap_decs_compiler_def:
+  swap_decs_compiler ci' (ds : eval_decs_state) =
+    ds with <|
+      compiler := mk_compiler_fun_from_ci ci';
+      decode_decs := v_fun_abs ci'.decs_dom ci'.decs_v
+    |>
+End
+
+Definition swap_eval_decs_state_def:
+  swap_eval_decs_state ci' (s : 'ffi semanticPrimitives$state) =
+    s with eval_state :=
+      SOME (EvalDecs (swap_decs_compiler ci' (dec_s s.eval_state)))
+End
+
+Definition swap_eval_oracle_gen_state_def:
+  swap_eval_oracle_gen_state ci' gen_now g2c (t : 'ffi semanticPrimitives$state) =
+    t with eval_state :=
+      SOME (EvalOracle ((orac_s t.eval_state) with
+        custom_do_eval :=
+          do_eval_record_gen (repl_upgrade ci' gen_now g2c)
+            (v_fun_abs ci'.decs_dom ci'.decs_v)))
+End
+
+Definition swap_eval_oracle_ci_state_def:
+  swap_eval_oracle_ci_state ci' (t : 'ffi semanticPrimitives$state) =
+    t with eval_state :=
+      SOME (EvalOracle ((orac_s t.eval_state) with
+        custom_do_eval := do_eval_record ci'))
+End
+
+Definition swap_eval_compiler_def:
+  swap_eval_compiler ci' gen_now g2c (s, t) =
+    (swap_eval_decs_state ci' s,
+     swap_eval_oracle_gen_state ci' gen_now g2c t,
+     repl_upgrade ci' gen_now g2c)
+End
+
+Theorem es_forward_with_custom_do_eval:
+  es_forward es (es with custom_do_eval := f)
+Proof
+  rw [es_forward_def]
+  \\ PairCases_on `env_id`
+  \\ fs [lookup_env_def]
+QED
+
+Theorem sv_rel_with_custom_do_eval:
+  LIST_REL (sv_rel (v_rel es)) xs ys ==>
+  LIST_REL (sv_rel (v_rel (es with custom_do_eval := f))) xs ys
+Proof
+  strip_tac
+  \\ `es_forward es (es with custom_do_eval := f)`
+       by rw [es_forward_with_custom_do_eval]
+  \\ imp_res_tac (el 4 (CONJUNCTS forward_rules))
+QED
+
+Theorem env_rel_with_custom_do_eval:
+  env_rel (v_rel es) env env' ==>
+  env_rel (v_rel (es with custom_do_eval := f)) env env'
+Proof
+  strip_tac
+  \\ `es_forward es (es with custom_do_eval := f)`
+       by rw [es_forward_with_custom_do_eval]
+  \\ imp_res_tac (el 3 (CONJUNCTS forward_rules))
+QED
+
+Theorem active_gen_swap_oracle_gen[simp]:
+  active_gen (swap_eval_oracle_gen_state ci' gen_now g2c t) = active_gen t
+Proof
+  rw [active_gen_def, swap_eval_oracle_gen_state_def, orac_s_def]
+QED
+
+Theorem active_gen_swap_oracle_ci[simp]:
+  active_gen (swap_eval_oracle_ci_state ci' t) = active_gen t
+Proof
+  rw [active_gen_def, swap_eval_oracle_ci_state_def, orac_s_def]
+QED
+
+Definition gen_eval_inv_def:
+  gen_eval_inv g2c gen ci (s : 'ffi semanticPrimitives$state)
+                          (t : 'ffi semanticPrimitives$state) <=>
+    ?dec_s0 orac_s0 refs'.
+      t = s with <| refs := refs'; eval_state := SOME (EvalOracle orac_s0) |> /\
+      LIST_REL (sv_rel (v_rel orac_s0)) s.refs refs' /\
+      s.eval_state = SOME (EvalDecs dec_s0) /\
+      orac_s0.custom_do_eval =
+        do_eval_record_gen g2c (v_fun_abs ci.decs_dom ci.decs_v) /\
+      dec_s0.compiler_state = FST (SND (orac_s0.oracle 0)) /\
+      dec_s0.decode_decs = v_fun_abs ci.decs_dom ci.decs_v /\
+      dec_s0.compiler = mk_compiler_fun_from_ci ci /\
+      dec_s0.env_id_counter =
+        (orac_s0.generation,
+         LENGTH (EL orac_s0.generation orac_s0.envs),
+         LENGTH orac_s0.envs) /\
+      orac_s0.generation < LENGTH orac_s0.envs /\
+      recorded_orac_wf_gen g2c gen orac_s0.oracle /\
+      g2c (gen (active_gen t + 1)) = mk_compiler_fun_from_ci ci
+End
+
+Theorem s_rel_IMP_gen_eval_inv_const:
+  s_rel ci s t ==>
+  gen_eval_inv (K (mk_compiler_fun_from_ci ci)) gen ci s t
+Proof
+  rw [s_rel_def, gen_eval_inv_def]
+  \\ qexistsl_tac [`dec_s'`, `orac_s'`, `refs'`]
+  \\ simp [do_eval_record_gen_const, recorded_orac_wf_gen_const]
+QED
+
+Theorem recorded_orac_wf_gen_cong:
+  recorded_orac_wf_gen g2c gen0 orac /\
+  (!j. 0 < j /\ j <= FST (FST (orac 0)) ==> gen j = gen0 j) ==>
+  recorded_orac_wf_gen g2c gen orac
+Proof
+  rw [recorded_orac_wf_gen_def]
+  \\ `gen j = gen0 j` by (first_x_assum irule \\ decide_tac)
+  \\ res_tac \\ fs []
+QED
+
+Theorem swap_eval_compiler_transitions_gen_eval_inv:
+  gen_eval_inv g2c gen ci s t /\
+  (!j. j <= active_gen t ==> gen j <= gen_now) /\
+  gen_now + 1 <= gen (active_gen t + 1) /\
+  swap_eval_compiler ci' gen_now g2c (s, t) = (s', t', g2c') ==>
+  gen_eval_inv g2c' gen ci' s' t' /\
+  (dec_s s'.eval_state).compiler = mk_compiler_fun_from_ci ci' /\
+  g2c' (gen (active_gen t' + 1)) = mk_compiler_fun_from_ci ci' /\
+  recorded_orac_wf_gen g2c' gen (orac_s t'.eval_state).oracle
+Proof
+  strip_tac
+  \\ fs [swap_eval_compiler_def, gen_eval_inv_def]
+  \\ rveq
+  \\ `active_gen (s with <|refs := refs'; eval_state := SOME (EvalOracle orac_s0)|>) =
+      FST (FST (orac_s0.oracle 0))`
+       by simp [active_gen_def, orac_s_def]
+  \\ `recorded_orac_wf_gen (repl_upgrade ci' gen_now g2c) gen orac_s0.oracle`
+       by (irule repl_upgrade_preserves_recorded_orac_wf_gen
+           \\ fs [])
+  \\ `repl_upgrade ci' gen_now g2c (gen (FST (FST (orac_s0.oracle 0)) + 1)) =
+        mk_compiler_fun_from_ci ci'`
+       by (irule repl_upgrade_uses_new_compiler \\ fs [])
+  \\ simp [swap_eval_decs_state_def, swap_eval_oracle_gen_state_def,
+           swap_decs_compiler_def, dec_s_def, orac_s_def, active_gen_def]
+  \\ qexistsl_tac [
+       `orac_s0 with custom_do_eval :=
+          do_eval_record_gen (repl_upgrade ci' gen_now g2c)
+            (v_fun_abs ci'.decs_dom ci'.decs_v)`,
+       `refs'`]
+  \\ simp [semanticPrimitivesTheory.state_component_equality]
+  \\ irule sv_rel_with_custom_do_eval
+  \\ first_x_assum ACCEPT_TAC
+QED
+
+Theorem swap_eval_states_establishes_s_rel:
+  s_rel ci s t /\
+  ci'.config_v ci'.init_state = ci.config_v ci.init_state /\
+  recorded_orac_wf (mk_compiler_fun_from_ci ci') (orac_s t.eval_state).oracle ==>
+  s_rel ci' (swap_eval_decs_state ci' s) (swap_eval_oracle_ci_state ci' t)
+Proof
+  strip_tac
+  \\ fs [s_rel_def]
+  \\ rveq
+  \\ `LIST_REL (sv_rel (v_rel (orac_s' with custom_do_eval := do_eval_record ci')))
+        s.refs refs'`
+       by (irule sv_rel_with_custom_do_eval \\ first_x_assum ACCEPT_TAC)
+  \\ simp [swap_eval_decs_state_def, swap_eval_oracle_ci_state_def,
+           swap_decs_compiler_def, dec_s_def, orac_s_def]
+  \\ qexistsl_tac [
+       `orac_s' with custom_do_eval := do_eval_record ci'`,
+       `refs'`]
+  \\ fs [semanticPrimitivesTheory.state_component_equality, orac_s_def]
+  \\ rw [] \\ fs []
+QED
+
+Theorem swap_eval_states_establishes_s_rel_gen:
+  s_rel_gen g2c gen0 ci s t /\
+  ci'.config_v ci'.init_state = ci.config_v ci.init_state /\
+  recorded_orac_wf (mk_compiler_fun_from_ci ci') (orac_s t.eval_state).oracle /\
+  (!j. j <= active_gen t ==> gen j <= gen_now) /\
+  (!j. 0 < j /\ j <= active_gen t ==> gen j = gen0 j) /\
+  gen_now + 1 <= gen (active_gen t) ==>
+  s_rel_gen (repl_upgrade ci' gen_now g2c) gen ci'
+    (swap_eval_decs_state ci' s) (swap_eval_oracle_ci_state ci' t)
+Proof
+  strip_tac
+  \\ fs [s_rel_gen_def]
+  \\ `s_rel ci' (swap_eval_decs_state ci' s) (swap_eval_oracle_ci_state ci' t)`
+       by (irule swap_eval_states_establishes_s_rel
+           \\ rpt (first_assum (irule_at Any)) \\ simp [])
+  \\ `recorded_orac_wf_gen g2c gen (orac_s t.eval_state).oracle`
+       by (irule recorded_orac_wf_gen_cong
+           \\ first_assum (irule_at Any)
+           \\ fs [active_gen_def])
+  \\ `recorded_orac_wf_gen (repl_upgrade ci' gen_now g2c) gen
+        (orac_s t.eval_state).oracle`
+       by (irule repl_upgrade_preserves_recorded_orac_wf_gen
+           \\ fs [active_gen_def])
+  \\ `repl_upgrade ci' gen_now g2c (gen (active_gen t)) =
+        mk_compiler_fun_from_ci ci'`
+       by (irule repl_upgrade_uses_new_compiler \\ simp [])
+  \\ simp [swap_eval_oracle_ci_state_def, orac_s_def]
+QED
+
+Definition certified_eval_compiler_swap_def:
+  certified_eval_compiler_swap (cert:bool) ci' gen_now g2c (s, t) =
+    cgate cert (s, t, g2c) (swap_eval_compiler ci' gen_now g2c (s, t))
+End
+
+Theorem certified_eval_compiler_swap_transitions_gen_eval_inv:
+  gen_eval_inv g2c gen ci s t /\
+  (cert ==>
+     (!j. j <= active_gen t ==> gen j <= gen_now) /\
+     gen_now + 1 <= gen (active_gen t + 1)) /\
+  certified_eval_compiler_swap cert ci' gen_now g2c (s, t) = (s', t', g2c') ==>
+  gen_eval_inv g2c' gen (cgate cert ci ci') s' t' /\
+  (dec_s s'.eval_state).compiler = mk_compiler_fun_from_ci (cgate cert ci ci') /\
+  g2c' (gen (active_gen t' + 1)) = mk_compiler_fun_from_ci (cgate cert ci ci') /\
+  recorded_orac_wf_gen g2c' gen (orac_s t'.eval_state).oracle
+Proof
+  Cases_on `cert` \\ simp [certified_eval_compiler_swap_def, cgate_def]
+  >- (
+    strip_tac
+    \\ drule_all swap_eval_compiler_transitions_gen_eval_inv
+    \\ simp []
+  )
+  >- (
+    strip_tac \\ rveq
+    \\ simp []
+    \\ fs [gen_eval_inv_def] \\ rveq
+    \\ simp [dec_s_def, orac_s_def]
+  )
+QED
+
+Theorem certified_swap_states_establishes_s_rel_gen:
+  s_rel_gen g2c gen0 ci s t /\
+  (!j. 0 < j /\ j <= active_gen t ==> gen j = gen0 j) /\
+  (~cert ==> gen (active_gen t) = gen0 (active_gen t)) /\
+  (cert ==>
+     ci'.config_v ci'.init_state = ci.config_v ci.init_state /\
+     recorded_orac_wf (mk_compiler_fun_from_ci ci') (orac_s t.eval_state).oracle /\
+     (!j. j <= active_gen t ==> gen j <= gen_now) /\
+     gen_now + 1 <= gen (active_gen t)) ==>
+  s_rel_gen (certified_repl_upgrade cert ci' gen_now g2c) gen (cgate cert ci ci')
+    (cgate cert s (swap_eval_decs_state ci' s))
+    (cgate cert t (swap_eval_oracle_ci_state ci' t))
+Proof
+  Cases_on `cert` \\ simp [certified_repl_upgrade_def, cgate_def] \\ strip_tac
+  >- (
+    irule swap_eval_states_establishes_s_rel_gen
+    \\ rpt (first_assum (irule_at Any)) \\ simp []
+  )
+  >- (
+    fs [s_rel_gen_def]
+    \\ irule recorded_orac_wf_gen_cong
+    \\ first_assum (irule_at Any)
+    \\ fs [active_gen_def]
+  )
+QED
+

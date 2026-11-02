@@ -33,25 +33,56 @@ build_and_assert(){
   local tag="${d//\//_}"   # sanitize nested dirs (kernel/loebReduction) for the log path
   say "Tier 2.5: $d"
   cd "$SVENVS_ROOT/$d" || die "missing $SVENVS_ROOT/$d"
-  if [ "$CLEAN" = 1 ]; then
-    CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" cleanAll >/dev/null 2>&1 || true; rm -rf .hol
+  local targets=()
+  if [ "$d" = "selfUpgrade" ] && [ ! -f "$CAKEMLDIR/compiler/backend/proofs/.hol/objs/backendProofTheory.uo" ]; then
+    targets=(evalUpgradeBTheory.uo evalUpgradeOpTheory.uo selfUpgradeEndToEndTheory.uo selfUpgradeMultiSwapTheory.uo)
   fi
-  if ! CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS 2>&1 \
+  if [ "$CLEAN" = 1 ]; then
+    if [ "${#targets[@]}" -gt 0 ]; then
+      rm -f .hol/objs/evalUpgradeBTheory.* .hol/objs/evalUpgradeOpTheory.* \
+            .hol/objs/selfUpgradeEndToEndTheory.* .hol/objs/selfUpgradeMultiSwapTheory.*
+    else
+      CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" cleanAll >/dev/null 2>&1 || true; rm -rf .hol
+    fi
+  fi
+  if ! CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $SVENVS_HM_FLAGS "${targets[@]}" 2>&1 \
         | tee "$SVENVS_LOGS/t25-$tag.log" | tail -n 6; then
     die "Holmake failed in $d — full log: $SVENVS_LOGS/t25-$tag.log"
   fi
   local spec th nm
   for spec in "$@"; do
     th="${spec%%:*}"; nm="${spec#*:}"
+    if [ "$th" = "evalUpgradeReset" ] && [ ! -f "$SVENVS_ROOT/$d/.hol/objs/${th}Theory.sig" ] \
+       && [ ! -f "$CAKEMLDIR/compiler/backend/proofs/.hol/objs/backendProofTheory.uo" ]; then
+      warn "SKIP $d : $th.$nm (backendProofTheory.uo not built in \$CAKEMLDIR)"
+      continue
+    fi
     grep -aqE "val $nm" "$SVENVS_ROOT/$d/.hol/objs/${th}Theory.sig" 2>/dev/null \
       || die "$d: cited theorem $nm not found in ${th}Theory (see $SVENVS_LOGS/t25-$tag.log)"
     ok "$d : $th.$nm"
   done
 }
 
+# The open assumption loeb_reflection, REDUCED in-logic to the cited LCA
+# (Fallenstein-Kumar via hol-reflection) — plus the full holSyntax cv_compute
+# checker stack and bridge theorems.
+build_and_assert kernel/loebReduction \
+  "loebReduction:loeb_reflection_from_lca" \
+  "loebReduction:kernel_proves_satisfied" \
+  "loebReduction:type_ok_alist_eq" \
+  "loebReduction:term_ok_ctxt_check_eq" \
+  "loebReduction:ConstSpec_constrainable_cv" \
+  "loebReduction:check_updates_chain_sound" \
+  "loebReduction:init_ctxt_syntax_cv_verified" \
+  "loebReduction:lca_ext_ctxt_extends_init_cv"
+
 build_and_assert selfproverConcrete \
   "selfProverConcrete:frozen_checker_sound_candle" \
-  "selfProverConcrete:prover_self_improvement_is_safe_candle"
+  "selfProverConcrete:prover_self_improvement_is_safe_candle" \
+  "selfProverConcrete:hol4_checks_lca_ext_cv" \
+  "selfProverConcrete:hol4_checks_lca_ext_sound" \
+  "selfProverConcrete:wd_obl_tm_wellformed_cv" \
+  "selfProverConcrete:prover_self_improvement_watchdog_concrete"
 build_and_assert kernelMod \
   "kernelMod:sym_kernel_sound" \
   "inplaceUpdate:inplace_update_is_safe" \
@@ -71,36 +102,77 @@ build_and_assert loader \
 build_and_assert compilerOpt \
   "compilerOpt:optimise_correct" \
   "compilerOpt:optimise_let_nil_strict" \
+  "compilerOpt:evaluate_optimise" \
+  "compilerOpt:opt_evaluate_Call" \
+  "compilerOpt:semantics_optimise" \
+  "compilerOpt:optimise_prog_semantics" \
+  "compilerOpt:bvl_fold_correct" \
+  "compilerOpt:bvl_fold_is_ccorrect" \
+  "compilerOpt:evaluate_bvl_fold" \
+  "compilerOpt:bvl_fold_evaluate_Call" \
+  "compilerOpt:semantics_bvl_fold" \
+  "compilerOpt:bvl_fold_prog_semantics" \
+  "compilerOpt:compiler_pass_gate_preserves_ccorrect" \
+  "compilerOpt:sound_certifier_iff_compiler_pass_gate_safe" \
+  "compilerOpt:compiler_pass_loop_safe" \
+  "compilerOpt:compiler_pass_loop_safe_iff" \
+  "compilerOpt:bvl_fold_prog_cv_benchmark" \
   "compilerOpt:recursive_compiler_line_preserves_bvlSem"
 
-# The open assumption loeb_reflection, REDUCED in-logic to the cited LCA
-# (Fallenstein-Kumar via hol-reflection) — no longer a bare assumption.
-build_and_assert kernel/loebReduction \
-  "loebReduction:loeb_reflection_from_lca" \
-  "loebReduction:kernel_proves_satisfied"
+build_and_assert reflectsem \
+  "fueledBridge:eval_n_agrees" \
+  "fueledBridge:ast_mk_let_eval_n_agrees" \
+  "fueledBridge:ast_mk_app_eval_n_agrees" \
+  "fueledBridge:ast_mk_if_eval_n_agrees" \
+  "fueledBridge:ast_fold_oexp_evaluate" \
+  "fueledBridge:ast_fold_oexp_eval_n_agrees" \
+  "fueledBridge:ofold_evaluate_preserves" \
+  "fueledBridge:ofold_eval_n_agrees" \
+  "fueledBridge:ofold_fuel_nonincreasing" \
+  "fueledBridge:oexp_eval_n_fuel_correct" \
+  "fueledBridge:ofold_eval_n_fuel_preserves" \
+  "fueledBridge:ofold_cv_benchmark" \
+  "fueledBridge:demo_ouro_eval_n_cv_verified" \
+  "fueledBridge:demo_ouro_eval_n_fuel_cv_verified"
 
 # Toward a self-upgradable compiler: the per-generation eval-oracle invariant +
 # the swap-preservation lemma (a mid-run compiler swap keeps the invariant),
 # the single-swap end-to-end keystone, the multi-swap lift (the keystone
 # iterated over a schedule of arbitrarily many in-place compiler swaps), the
 # concrete per-generation eval op (do_eval_record_gen) + its exposed upgrade
-# entry point (repl_upgrade), and the heap-preserving reset-model upgrade proven
-# against the real backend (eval_upgrade_preserves_semantics — pulls backendProof,
-# built as part of the Tier-2 cake bootstrap).
+# entry point (repl_upgrade + proof_gated_repl_upgrade), and the heap-preserving
+# reset-model upgrade proven against the real backend.
 build_and_assert selfUpgrade \
   "evalUpgradeB:swap_preserves_recorded_orac_wf_gen" \
   "evalUpgradeB:recorded_orac_wf_gen_const" \
   "selfUpgradeEndToEnd:selfupgrade_eval_simulation_step" \
   "selfUpgradeEndToEnd:s_rel_gen_const" \
   "selfUpgradeEndToEnd:selfupgrade_collapses_to_eval_simulation" \
+  "selfUpgradeEndToEnd:swap_eval_compiler_transitions_gen_eval_inv" \
+  "selfUpgradeEndToEnd:swap_eval_states_establishes_s_rel" \
+  "selfUpgradeEndToEnd:swap_eval_states_establishes_s_rel_gen" \
+  "selfUpgradeEndToEnd:certified_eval_compiler_swap_transitions_gen_eval_inv" \
+  "selfUpgradeEndToEnd:certified_swap_states_establishes_s_rel_gen" \
   "selfUpgradeMultiSwap:selfupgrade_multi_swap_simulation" \
   "selfUpgradeMultiSwap:selfupgrade_oracle_semantics_prog_collapse" \
+  "selfUpgradeMultiSwap:swap_eval_states_discharges_keystone_pre" \
+  "selfUpgradeMultiSwap:selfupgrade_operational_step_simulation" \
+  "selfUpgradeMultiSwap:certified_operational_step_simulation" \
   "evalUpgradeOp:do_eval_record_gen_const" \
   "evalUpgradeOp:do_eval_record_gen_preserves_wf" \
   "evalUpgradeOp:do_eval_oracle_gen_step_preserves_wf" \
   "evalUpgradeOp:repl_upgrade_preserves_recorded_orac_wf_gen" \
   "evalUpgradeOp:repl_upgrade_then_eval_preserves_wf" \
   "evalUpgradeOp:apply_repl_upgrades_preserves_wf" \
+  "evalUpgradeOp:certified_repl_upgrade_preserves_wf" \
+  "evalUpgradeOp:gated_pass_upgrade_preserves_correct" \
+  "evalUpgradeOp:sound_certifier_iff_gated_pass_upgrade_safe" \
+  "evalUpgradeOp:lookup_gen_pass_ccorrect" \
+  "evalUpgradeOp:dispatch_lookup_gen_pass_step_eq_compiler_pass_gate" \
+  "evalUpgradeOp:dispatch_lookup_gen_pass_eq_gated_pass_upgrade" \
+  "evalUpgradeOp:eval_gen_bvl_trace_cv_benchmark" \
+  "evalUpgradeOp:proof_gated_repl_upgrade_preserves_wf" \
+  "evalUpgradeOp:proof_gated_repl_upgrade_keeps_good" \
   "evalUpgradeReset:eval_upgrade_preserves_semantics"
 
 say "TIER 2.5 REPRODUCED — every cited self-improvement-layer theorem re-proved against real CakeML/Candle, plus a new verified BVL optimization pass, the SYM binary-implements discharge, and the loeb_reflection->LCA reduction"

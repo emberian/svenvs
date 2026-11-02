@@ -48,8 +48,27 @@ say "starting a fresh Candle server on the re-architected kernel (loads hol.ml)"
 place_wait_ready
 ok "full HOL Light prover loaded on the swappable kernel interface"
 
-say "executing the in-process kernel-primitive swap (candle/kernel_swap_demo.ml)"
-"$here/place-submit.sh" "$SVENVS_ROOT/candle/kernel_swap_demo.ml" _SVENVS_KSWAP_DONE >/dev/null
+say "executing the in-process kernel-primitive swap"
+KSWAP_ML="$PLACE_DIR/kernel_swap_demo.ml"
+cat > "$KSWAP_ML" <<'EOF'
+let _ = (_apex_refl_uses := 0);;
+let T1 = ARITH_RULE `2 + 2 = 4`;;
+let uses_genesis = !_apex_refl_uses;;
+let refl_alt tm = Kernel.TRANS (Kernel.REFL tm) (Kernel.REFL tm);;
+let swap_ok = apex_swap_refl refl_alt [`x:num`; `2 + 2`; `T`; `p /\ q`];;
+let swaps_after = !_apex_refl_swaps;;
+let _ = (_apex_refl_uses := 0);;
+let T2 = ARITH_RULE `40 + 2 = 42`;;
+let uses_after_swap = !_apex_refl_uses;;
+let refl_bad tm = Kernel.REFL `T`;;
+let bad_ok = apex_swap_refl refl_bad [`x:num`; `2 + 2`];;
+let T3 = ARITH_RULE `1 + 1 = 2`;;
+let verdict =
+  if uses_genesis > 0 && swap_ok && swaps_after = 1 && uses_after_swap > 0
+     && not bad_ok && concl T2 = `40 + 2 = 42` && concl T3 = `1 + 1 = 2`
+  then "KERNEL_INPROCESS_SWAP_OK" else "FAILED";;
+EOF
+"$here/place-submit.sh" "$KSWAP_ML" _SVENVS_KSWAP_DONE >/dev/null
 grep -aE 'val uses_genesis = ' "$LOG" | tail -1 || true
 grep -aE 'val swap_ok = |val bad_ok = ' "$LOG" | tail -2 || true
 if grep -aqE 'val verdict = "KERNEL_INPROCESS_SWAP_OK"' "$LOG"; then

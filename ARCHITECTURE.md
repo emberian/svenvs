@@ -17,22 +17,21 @@ the canonical ledger [`CLAIMS.md`](CLAIMS.md); this file does not restate it.
 |-------|-------|----------------|
 | **Core** | `system`,`envelope`,`safety`,`sv_weakening`,`upgrade` | `safety_preservation` (∀ inhabitant, the envelope keeps the invariant); `safe_weakening` (loosening the envelope keeps safety *and* takes no authority away; `safe_weakening_needs_weaker` shows the weakening premise is necessary); the operational `gate` (installs iff the certifier said yes; `unsound_certificate_breaches` shows an unsound yes breaches); `self_improvement_is_safe` (no unbounded sequence of self-proposed upgrades ever loses safety; unproven proposals rejected) |
 | **One certifier theory** | `certifier` | Proved once: a certifier is sound iff its yes transfers to every fact the obligation faithfully encodes, iff the gate it drives keeps the judge, iff every certified stream stays good (`sound_certifier_iff_transfers`, `cgate_safe`, `ratchet_stream`); every gate below is `cgate`, every succession a `ratchet`, and each layer's gate theorems are one-line instances |
-| **Viability and transparency** | `viability`, `liberty/transparency` | A safe shield exists iff every safe state is in the viability kernel (`shield_exists_iff_viable`); under viability the gate is characterized as an iff (`gate_certificate_iff`); at the maximal policy the envelope intervenes exactly on unsafe actions and a self-safe controller's enveloped run is its bare run (`maxpol_intervenes_exactly`, `envelope_transparent_run`) |
+| **Viability and transparency** | `viability`, `liberty/transparency`, `liberty/relTransparency` | A safe shield exists iff every safe state is in the viability kernel (`shield_exists_iff_viable`); under viability the gate is characterized as an iff (`gate_certificate_iff`); at the maximal policy the envelope intervenes iff an action is unsafe and a self-safe controller's enveloped run is its bare run (`maxpol_intervenes_iff_unsafe`, `envelope_transparent_run`, `envelope_transparent_runr`) |
 | **Cartpole** | `cartpole*` | A concrete, *EVAL-runnable* integer plant instance of the whole core; adversarial controller provably contained |
 | **LLM tool-agent** | `agent/toolAgent*` | The inhabitant = an opaque LLM emitting tool calls; firewall vs an *absolute fixed* safety spec; `agent_enveloped_safe` (∀ agent, jailbroken included); runnable adversarial episodes + decidable proof-carrying capability self-expansion (`episode_runs`) |
 | **Embodied (real LLM)** | `agent/embodied/`, `agent/toolAgentDecide*` | A *real* jailbroken `gemma2:2b` (or `--mock` adversary) dropped into the proven envelope. The enforcer is **EVAL-extracted from the proven Definitions** (`toolAgentDecideScript.sml` → proven `decision_table.tsv`); the Python is now a ~10-line lookup harness, not a ~50-line re-implementation. "Verify the cage, not the animal." |
-| **Verified inference (B)** | `inference/mlpInference` | Research track B: a TOY ReLU MLP over ints, forward pass proved correct + EVAL-run. Explicitly *not* Gemma-scale — the seed of verified inference |
+| **Verified inference & bridge** | `inference/mlpInference` | ReLU MLP, hardmax attention (`attn1_argmax_correct`), two-sublayer residual encoder block (`encoder_block_shape`, `encoder_block_zero_collapses`, weight-level `res_ff_zero_weights_id`), fixed-point softmax and quantized inner-product error envelopes (`fxp_softmax_abs_error_lt_step`, `qdot_error_envelope`), and envelope bridges (`neural_ctrl_transparent_run`, `neural_testimony_discharges_gate`), composed into `svenvs_tower_with_verified_inference` |
 | **Embedded** | `embedded/embeddedGate` | The admission obligation is discharged by **Candle's verified inference system** (`holSoundnessTheory.proves_sound`), not HOL4 metis |
-| **Kernel self-upgrade** | `kernel/kernelUpgrade` | Replace the proof-checker itself; the upgraded kernel drives the gate (`kgate`), so a kernel is sound exactly when its gate is safe (`kernel_sound_iff_gate_safe`); `self_improving_kernel_is_safe` from real Candle soundness + one labeled Löb/LCA hypothesis, both proved necessary |
+| **Kernel self-upgrade** | `kernel/kernelUpgrade`, `kernel/watchdogFinite` | Replace the proof-checker itself; the upgraded kernel drives the gate (`kgate`), so a kernel is sound exactly when its gate is safe (`kernel_sound_iff_gate_safe`); `self_improving_kernel_is_safe` from real Candle soundness + `encodes_soundness`; `wd_encodes_obligation` discharges `encodes_obligation` for a genuine embedded evaluation term; `loeb_finite_obstruction` proves finiteness cannot bypass Gödel/Löb |
 | **Prover self-improvement** | `selfprover/selfProver`, `selfproverConcrete/` | The verified *prover build itself* (Candle+CakeML) is a mutable turtle the inhabitant may replace, gated by the FROZEN HOL4 root: the prover gate installs only what a root-vouched build certified; `prover_self_improvement_is_safe` + composition with the policy/kernel core, with necessity theorems for the checker and the build. Pure light HOL4; the labeled `frozen_checker_sound` seam, NO Löb (fixed root vouches for mutable layer ≠ self-reference). The seam is discharged for the real Candle build in `selfproverConcrete/` |
-| **Spec / meta / root** | `pca/`, `specneg/`, `amendment/`, `genealogy/`, `liberty/`, `integration/` | Proof-carrying actions; the spec negotiable under a fixed meta, the meta amendable over a bedrock, the root a forward-certified genealogy of judges, the least-restrictive envelope; all composed through `invariant_transports_to_meta` into the `svenvs_tower_*` theorems |
-| **Corrigibility** | `corrigibility/` | The non-lock-in floor: decidable, self-improvable, latency-bounded, the tower's negotiable bedrock (own ledger `corrigibility/CLAIMS.md`) |
+| **Spec / meta / root** | `pca/`, `specneg/`, `genealogy/`, `liberty/`, `integration/` | Proof-carrying actions; the spec negotiable under a fixed meta and the meta amendable over an eternal bedrock (`specNegScript.sml : meta_amendment_safe`), the root a forward-certified genealogy of judges, the least-restrictive envelope; all composed through `invariant_transports_to_meta` and `invariantr_transports_to_meta` into `svenvs_tower_*` and `svenvs_relational_crown` |
+| **Corrigibility** | `corrigibility/` | The non-lock-in floor: decidable, self-improvable, latency-bounded, demonic/adversarial (`corrigibler_floor_holds`), the tower's negotiable bedrock (own ledger `corrigibility/CLAIMS.md`) |
 | **Testimony** | `embodiment/` | The inhabitant *may* volunteer a proof about its own substance to earn authority; permitted, never required |
 | **Self-optimizing prover** | `kernelMod/`, `loader/`, `kernelImpl/`, `recursive/`, `selfRecompile/`, `apex/` | Modified inference relation re-verified sound; in-place kernel swap; the loader over the real `do_install`; the executable SYM refinement; recursive mutual verifier+compiler improvement; the Apex |
-| **Compiler self-improvement** | `compilerOpt/`, `selfUpgrade/` | A new BVL pass proved against real `bvlSem` and baked into an altered root (Layer B); the per-generation in-place compiler self-upgrade at CakeML's eval semantics |
+| **Compiler self-improvement** | `compilerOpt/`, `selfUpgrade/` | A verified recursive BVL constant-folding pass (`bvl_fold`) proved against real `bvlSem` (`bvl_fold_correct`) and gated via `compiler_pass_gate`; per-generation proof-gated in-place compiler self-upgrade at CakeML's eval semantics (`certified_eval_compiler_swap`, `proof_gated_repl_upgrade`) baked into an altered self-compiling root (`cakeml-selfupgrade-root.patch`) |
 | **Closed loop** | `agent/closedloop/` | Every action of a real jailbroken model admitted or refused by the live Candle kernel; the num-encoding proved faithful |
-| **The Place (live)** | `candle/theplace.ml` | Core habitat theorems re-derived and certified **at runtime by a running Candle prover** |
-| **Reflection** | `reflection/` (gated) | `reflectionLib` path: HOL4 proofs → OpenTheory → embedded `\|-` → `proves_sound`. Not in any default build |
+| **The Place & Ouroboros (live)** | `candle/theplace.ml`, `candle/ouroboros_rewrites.ml`, `candle/ouroboros.ml`, `reflectsem/` | Unified live Candle substrate: core habitat theorems, the real CakeML fueled semantics `eval_n` (bridged to `evaluate_ck` via `fueledBridgeScript.sml`), fast in-kernel `:cval` bytecode computation (`Kernel.compute`), and the theorem-gated `ouro_compiler_cell` upgrading `orw_exp` $\to$ `ofold` live across the 6-generation Ouroboros loop |
 
 ### The tower of turtles (what is frozen vs verified-in-HOL4-hence-mutable vs assumed)
 
@@ -106,21 +105,20 @@ is exactly the alignment-relevant decomposition: you don't need to verify the
 
 ### Reflection / Candle tie-in
 
-`reflection/reflectionDemoScript.sml` (gated, not in any default build; a
-cheat-free scaffold) is where `safety_prop` is to be reflected into Candle's
-deeply-embedded HOL via `reflectionLib` (`term_to_deep`, `termsem_cert`,
-`prop_to_loeb_hyp`). The endgame is a certificate that the safety
-proposition is `True` under the set-theoretic semantics Candle's soundness
-theorem connects to the running kernel — i.e. the envelope theorem is
-checkable *by the verified prover about itself*. No large-cardinal axiom is
-needed for this fragment (that is only required for the stronger
-self-trust / reflection-of-provability results in hol-reflection/lca).
+In `embedded/embeddedGateScript.sml`, `kernel/watchdogFiniteScript.sml`, and
+`kernel/loebReduction/loebReductionScript.sml`, obligations are reflected into
+Candle's deeply-embedded HOL (`|-` and `|=`) and connected via
+`holSoundnessTheory.proves_sound`. For the finite watchdog, the deeply-embedded
+boolean evaluation equation is proved semantically valid (`wd_encodes_obligation`),
+discharging `encodes_obligation` without any large-cardinal assumption. For
+strictly stronger kernels, `loebReductionScript.sml` reduces `encodes_soundness`
+in-logic to the Fallenstein–Kumar large-cardinal reflection ingredient (`lcaTheory`).
 
 ### What is the artifact vs. what is a spec skeleton
 
-- `system`/`envelope`/`safety`/`sv_weakening`/`upgrade` — **real and
+- `system`/`envelope`/`safety`/`sv_weakening`/`upgrade`/`certifier`/`viability`/`rel*` — **real and
   final**. Generic, parametric over the *policy object*; the proof-carrying
-  self-improvement theorems (`admit`, `self_improvement_is_safe`) do not
+  self-improvement theorems (`admit`, `cgate`, `self_improvement_is_safe`) do not
   depend on how a policy is represented.
 - `cartpoleProgramScript`'s `gexpr`/`geval` — **a spec skeleton, not the
   artifact.** A bespoke mini-language in *meta* HOL4, a parallel embedding of
@@ -130,8 +128,10 @@ self-trust / reflection-of-provability results in hol-reflection/lca).
   the built `holSoundness` (`embedded/`), and kernel self-upgrade is
   `kernel/` — with genuine logical *strengthening* of the kernel resting on
   an LCA-constructed soundness witness (the `hol-reflection/lca` route,
-  CLAIMS §9); `loeb_reflection` itself is derived, not assumed. The
-  inhabitant's real language is PureLang (`pure/DESIGN.md`, `pureverified/`).
+  CLAIMS §9); `loeb_reflection` itself is derived, not assumed. And in
+  `reflectsem/` + `candle/ouroboros*.ml`, the inhabitant's real language is
+  the **real CakeML AST and fueled semantics `eval_n`**, ported directly into
+  the live Candle kernel.
 
 ## Reproduce / verify
 

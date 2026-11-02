@@ -63,16 +63,6 @@ printed angle is inside `-3..3` after every tick, for every law you can write** 
 that is `cp_enveloped_safe`, made to run. (The program even carries an
 `INVARIANT VIOLATED` tripwire that the theorem guarantees can never fire.)
 
-> Note on theme: this is option (2) from the brief — a *freshly compiled*
-> x86-64 binary, built from scratch by the verified `cake` compiler, that
-> *evaluates user-typed code* through the proven envelope, rather than a
-> repackaging of the existing Candle binary. A clean `cake`-compile is fast and
-> genuinely produces a new ELF, which is what "build a real x86-64 Linux binary"
-> calls for. (Candle itself — the verified HOL Light kernel that reflects on
-> user-typed *theorems* — is the Tier-3 demo driven by `scripts/place-server.sh`
-> / `candle/theplace.ml`; that complementary "type a theorem, watch the verified
-> kernel certify it" gate already lives in the repo.)
-
 ## Build it
 
 On any x86-64 Linux box with `curl`, a C toolchain (`gcc`/`cc`), and `make`:

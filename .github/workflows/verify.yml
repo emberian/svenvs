@@ -11,11 +11,11 @@
 #
 # WHAT THIS DOES NOT PROVE:
 #   Tiers 2/3 (Candle-kernel-checked layers; the Place live in Candle) and the
-#   discharge of the open labeled assumption (loeb_reflection) are NOT
+#   LCA soundness-witness construction for a strictly stronger kernel are NOT
 #   exercised here — they need heavy/dedicated infra (CakeML candle chain, a
 #   Candle binary, hol-reflection/lca). See CLAIMS.md / ARCHITECTURE.md. The
 #   green check is a Tier-1 credibility artifact, not an end-to-end
-#   unconditional claim.
+#   Tier-2/3 reproduction.
 #
 # Pins (kept in lockstep with scripts/env.sh & scripts/INSTALL.md), all by
 # FULL commit SHA — a tag can be moved and a short id can collide:
@@ -172,7 +172,10 @@ jobs:
           set -euo pipefail
           code_only(){ perl -0777 -pe 's/\(\*.*?\*\)/ my $m = $&; $m =~ s#[^\n]# #g; $m /gse' "$1"; }
           cheats="$(for f in ./*.sml ./agent/*.sml ./agent/closedloop/*.sml ./recursive/*.sml \
-                      ./selfRecompile/*.sml ./apex/*.sml ./inference/mlpInferenceScript.sml; do
+                      ./selfRecompile/*.sml ./apex/*.sml ./pca/*.sml ./specneg/*.sml \
+                      ./selfprover/*.sml ./liberty/*.sml ./embodiment/*.sml \
+                      ./genealogy/*.sml ./corrigibility/*.sml ./integration/integrationScript.sml \
+                      ./inference/*.sml; do
                       [ -f "$f" ] || continue
                       { code_only "$f" | grep -nE '(^|[^[:alnum:]_])cheat([^[:alnum:]_]|$)' | sed "s|^|$f:|"; } || true
                     done)"
@@ -224,8 +227,8 @@ jobs:
             echo "- **decision table**: the committed enforcer table is the one EVAL re-derived"
             echo "- **cheat-scan gate**: no \`cheat\` tactic anywhere in Tier-1 sources"
             echo
-            echo "_Scope: this proves **Tier 1 only**. Tiers 2/3 and the discharge"
-            echo "of the open labeled assumption (loeb_reflection) need heavy/dedicated"
+            echo "_Scope: this proves **Tier 1 only** (including the composed pure-HOL4 tower and corrigibility). Tiers 2/3 and the"
+            echo "LCA soundness-witness construction need heavy/dedicated"
             echo "infra and are **not** exercised here. See CLAIMS.md / ARCHITECTURE.md"
             echo "for the honest epistemic status._"
           } >> "$GITHUB_STEP_SUMMARY"

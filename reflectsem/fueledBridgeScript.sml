@@ -15,9 +15,9 @@
    ========================================================================= *)
 Theory fueledBridge
 Ancestors
-  ast namespace semanticPrimitives evaluate fueledSem
+  ast namespace semanticPrimitives evaluate fueledSem integer cv_std
 Libs
-  bossLib BasicProvers fueledBridgeLib
+  bossLib BasicProvers fueledBridgeLib intLib cv_transLib
 
 (* ---- helper: a uniform fuel bound across a list (EVERY-style nests) ---- *)
 Theorem EVERY_agree_bound[local]:
@@ -474,4 +474,732 @@ Proof
   \\ Cases_on ‘evaluate_decs st env lds’ \\ Cases_on ‘r’
   >- (ih [‘q’,‘a’] \\ agree_close eval_defs)
   \\ agree_close eval_defs
+QED
+
+(* =========================================================================
+   AST SMART-CONSTRUCTOR OPTIMIZATIONS & OUROBOROS `ofold` PASS ON `eval_n`,
+   WITH IN-KERNEL `cv_eval` TRANSLATION AND BENCHMARKS.
+   ========================================================================= *)
+
+val sem_simps = [
+  evaluateTheory.evaluate_def, evaluateTheory.fix_clock_def,
+  semanticPrimitivesTheory.do_app_def, semanticPrimitivesTheory.check_type_def,
+  semanticPrimitivesTheory.do_arith_def, semanticPrimitivesTheory.do_test_def,
+  semanticPrimitivesTheory.do_eq_def, semanticPrimitivesTheory.lit_same_type_def,
+  semanticPrimitivesTheory.do_if_def,
+  namespaceTheory.nsOptBind_def,
+  semanticPrimitivesTheory.state_component_equality
+];
+
+Theorem Boolv_11[local,simp]:
+  (Boolv b1 = Boolv b2) ⇔ (b1 = b2)
+Proof
+  Cases_on ‘b1’ \\ Cases_on ‘b2’ \\ EVAL_TAC
+QED
+
+Theorem sem_env_with_v_self[local,simp]:
+  (env : 'v sem_env) with v := env.v = env
+Proof
+  rw [semanticPrimitivesTheory.sem_env_component_equality]
+QED
+
+Theorem state_with_refs_ffi_self[local,simp]:
+  (st : 'ffi state) with <|refs := st.refs; ffi := st.ffi|> = st
+Proof
+  rw [semanticPrimitivesTheory.state_component_equality]
+QED
+
+Definition ast_mk_let_def:
+  ast_mk_let xo (e1:ast$exp) (e2:ast$exp) =
+    case (xo, e1) of
+    | (NONE, Lit l) => e2
+    | _ => Let xo e1 e2
+End
+
+Theorem ast_mk_let_evaluate:
+  ∀(st:'ffi state) env xo e1 e2.
+    evaluate st env [ast_mk_let xo e1 e2] = evaluate st env [Let xo e1 e2]
+Proof
+  rw [ast_mk_let_def]
+  \\ every_case_tac \\ fs []
+  \\ rw sem_simps
+QED
+
+Theorem ast_mk_let_eval_n_agrees:
+  ∀(st:'ffi state) env xo e1 e2.
+    ∃k0. ∀k. k0 ≤ k ⇒
+      eval_n k (INL (st, env, [ast_mk_let xo e1 e2])) =
+      eval_n k (INL (st, env, [Let xo e1 e2]))
+Proof
+  rpt gen_tac
+  \\ qspecl_then [‘st’, ‘env’, ‘[ast_mk_let xo e1 e2]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qspecl_then [‘st’, ‘env’, ‘[Let xo e1 e2]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qexists_tac ‘MAX k0 k0'’
+  \\ rw [arithmeticTheory.MAX_LE, ast_mk_let_evaluate]
+QED
+
+Definition ast_dest_int_lit_def:
+  ast_dest_int_lit (Lit (IntLit i)) = SOME i ∧
+  ast_dest_int_lit _ = NONE
+End
+
+Theorem ast_dest_int_lit_SOME:
+  ∀e i. ast_dest_int_lit e = SOME i ⇔ e = Lit (IntLit i)
+Proof
+  Cases \\ simp [ast_dest_int_lit_def]
+  \\ Cases_on ‘l’ \\ simp [ast_dest_int_lit_def]
+QED
+
+Definition ast_mk_app_def:
+  ast_mk_app (op:ast$op) (es:ast$exp list) =
+    case es of
+    | [e1; e2] =>
+        (case (ast_dest_int_lit e1, ast_dest_int_lit e2) of
+         | (SOME m, SOME n) =>
+             if op = Arith Add IntT then Lit (IntLit (m + n))
+             else if op = Arith Sub IntT then Lit (IntLit (m - n))
+             else if op = Arith Mul IntT then Lit (IntLit (m * n))
+             else App op es
+         | _ => App op es)
+    | _ => App op es
+End
+
+Theorem ast_mk_app_evaluate:
+  ∀(st:'ffi state) env op es.
+    evaluate st env [ast_mk_app op es] = evaluate st env [App op es]
+Proof
+  rw [ast_mk_app_def]
+  \\ every_case_tac \\ fs [ast_dest_int_lit_SOME]
+  \\ rw sem_simps
+QED
+
+Theorem ast_mk_app_eval_n_agrees:
+  ∀(st:'ffi state) env op es.
+    ∃k0. ∀k. k0 ≤ k ⇒
+      eval_n k (INL (st, env, [ast_mk_app op es])) =
+      eval_n k (INL (st, env, [App op es]))
+Proof
+  rpt gen_tac
+  \\ qspecl_then [‘st’, ‘env’, ‘[ast_mk_app op es]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qspecl_then [‘st’, ‘env’, ‘[App op es]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qexists_tac ‘MAX k0 k0'’
+  \\ rw [arithmeticTheory.MAX_LE, ast_mk_app_evaluate]
+QED
+
+Definition ast_mk_if_def:
+  ast_mk_if (c:ast$exp) (e2:ast$exp) (e3:ast$exp) =
+    case c of
+    | App (Test Equal IntT) [e1; e1'] =>
+        (case (ast_dest_int_lit e1, ast_dest_int_lit e1') of
+         | (SOME m, SOME n) => if m = n then e2 else e3
+         | _ => If c e2 e3)
+    | _ => If c e2 e3
+End
+
+Theorem ast_mk_if_evaluate:
+  ∀(st:'ffi state) env c e2 e3.
+    evaluate st env [ast_mk_if c e2 e3] = evaluate st env [If c e2 e3]
+Proof
+  rw [ast_mk_if_def]
+  \\ every_case_tac \\ fs [ast_dest_int_lit_SOME]
+  \\ rw sem_simps
+QED
+
+Theorem ast_mk_if_eval_n_agrees:
+  ∀(st:'ffi state) env c e2 e3.
+    ∃k0. ∀k. k0 ≤ k ⇒
+      eval_n k (INL (st, env, [ast_mk_if c e2 e3])) =
+      eval_n k (INL (st, env, [If c e2 e3]))
+Proof
+  rpt gen_tac
+  \\ qspecl_then [‘st’, ‘env’, ‘[ast_mk_if c e2 e3]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qspecl_then [‘st’, ‘env’, ‘[If c e2 e3]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qexists_tac ‘MAX k0 k0'’
+  \\ rw [arithmeticTheory.MAX_LE, ast_mk_if_evaluate]
+QED
+
+(* ---- Recursive Ouroboros AST fragment (`oexp`) embedded in `ast$exp` ---- *)
+
+Datatype:
+  oexp = OVar
+       | OLit int
+       | OAdd oexp oexp
+       | OSub oexp oexp
+       | OMul oexp oexp
+       | OLetNil int oexp
+       | OIfEq int int oexp oexp
+End
+
+Definition oemb_def:
+  oemb OVar = Var (Short «x») ∧
+  oemb (OLit i) = Lit (IntLit i) ∧
+  oemb (OAdd p q) = App (Arith Add IntT) [oemb p; oemb q] ∧
+  oemb (OSub p q) = App (Arith Sub IntT) [oemb p; oemb q] ∧
+  oemb (OMul p q) = App (Arith Mul IntT) [oemb p; oemb q] ∧
+  oemb (OLetNil i p) = Let NONE (Lit (IntLit i)) (oemb p) ∧
+  oemb (OIfEq m n p q) =
+    If (App (Test Equal IntT) [Lit (IntLit m); Lit (IntLit n)])
+       (oemb p) (oemb q)
+End
+
+Definition oexp_eval_def:
+  oexp_eval (x_val:int) OVar = x_val ∧
+  oexp_eval x_val (OLit i) = i ∧
+  oexp_eval x_val (OAdd p q) = oexp_eval x_val p + oexp_eval x_val q ∧
+  oexp_eval x_val (OSub p q) = oexp_eval x_val p - oexp_eval x_val q ∧
+  oexp_eval x_val (OMul p q) = oexp_eval x_val p * oexp_eval x_val q ∧
+  oexp_eval x_val (OLetNil i p) = oexp_eval x_val p ∧
+  oexp_eval x_val (OIfEq m n p q) =
+    if m = n then oexp_eval x_val p else oexp_eval x_val q
+End
+
+Definition ocost_def:
+  ocost OVar = 1n ∧
+  ocost (OLit _) = 1n ∧
+  ocost (OAdd p q) = 1n + ocost p + ocost q ∧
+  ocost (OSub p q) = 1n + ocost p + ocost q ∧
+  ocost (OMul p q) = 1n + ocost p + ocost q ∧
+  ocost (OLetNil _ p) = 2n + ocost p ∧
+  ocost (OIfEq _ _ p q) = 4n + ocost p + ocost q
+End
+
+Definition ofuel_def:
+  ofuel OVar = 1n ∧
+  ofuel (OLit _) = 1n ∧
+  ofuel (OAdd p q) = MAX (ofuel p) (ofuel q) + 2n ∧
+  ofuel (OSub p q) = MAX (ofuel p) (ofuel q) + 2n ∧
+  ofuel (OMul p q) = MAX (ofuel p) (ofuel q) + 2n ∧
+  ofuel (OLetNil _ p) = ofuel p + 1n ∧
+  ofuel (OIfEq _ _ p q) = MAX (ofuel p) (ofuel q) + 4n
+End
+
+Theorem ofuel_pos:
+  ∀p. 1n ≤ ofuel p
+Proof
+  Induct \\ rw [ofuel_def, arithmeticTheory.MAX_DEF]
+QED
+
+Theorem oexp_evaluate_correct:
+  ∀p (st:'ffi state) env x_val.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit x_val)) ⇒
+    evaluate st env [oemb p] = (st, Rval [Litv (IntLit (oexp_eval x_val p))])
+Proof
+  gen_tac \\ rpt gen_tac \\ strip_tac
+  \\ Induct_on ‘p’
+  \\ rw ([oemb_def, oexp_eval_def] @ sem_simps)
+QED
+
+(* Recursive AST-level optimizer composing ast_mk_let, ast_mk_app, ast_mk_if *)
+Definition ast_fold_oexp_def:
+  ast_fold_oexp OVar = Var (Short «x») ∧
+  ast_fold_oexp (OLit i) = Lit (IntLit i) ∧
+  ast_fold_oexp (OAdd p q) =
+    ast_mk_app (Arith Add IntT) [ast_fold_oexp p; ast_fold_oexp q] ∧
+  ast_fold_oexp (OSub p q) =
+    ast_mk_app (Arith Sub IntT) [ast_fold_oexp p; ast_fold_oexp q] ∧
+  ast_fold_oexp (OMul p q) =
+    ast_mk_app (Arith Mul IntT) [ast_fold_oexp p; ast_fold_oexp q] ∧
+  ast_fold_oexp (OLetNil i p) =
+    ast_mk_let NONE (Lit (IntLit i)) (ast_fold_oexp p) ∧
+  ast_fold_oexp (OIfEq m n p q) =
+    ast_mk_if (App (Test Equal IntT) [Lit (IntLit m); Lit (IntLit n)])
+              (ast_fold_oexp p) (ast_fold_oexp q)
+End
+
+Theorem ast_fold_oexp_evaluate:
+  ∀p (st:'ffi state) env x_val.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit x_val)) ⇒
+    evaluate st env [ast_fold_oexp p] = evaluate st env [oemb p] ∧
+    evaluate st env [ast_fold_oexp p] =
+      (st, Rval [Litv (IntLit (oexp_eval x_val p))])
+Proof
+  gen_tac \\ rpt gen_tac \\ strip_tac
+  \\ drule oexp_evaluate_correct \\ strip_tac
+  \\ simp []
+  \\ Induct_on ‘p’
+  \\ rw [ast_fold_oexp_def, oexp_eval_def,
+         ast_mk_app_evaluate, ast_mk_let_evaluate, ast_mk_if_evaluate]
+  \\ rw sem_simps
+QED
+
+Theorem ast_fold_oexp_eval_n_agrees:
+  ∀p (st:'ffi state) env x_val.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit x_val)) ⇒
+    ∃k0. ∀k. k0 ≤ k ⇒
+      eval_n k (INL (st, env, [ast_fold_oexp p])) =
+        eval_n k (INL (st, env, [oemb p])) ∧
+      eval_n k (INL (st, env, [ast_fold_oexp p])) =
+        INL (st, Rval [Litv (IntLit (oexp_eval x_val p))])
+Proof
+  rpt strip_tac
+  \\ drule ast_fold_oexp_evaluate \\ strip_tac
+  \\ drule oexp_evaluate_correct \\ strip_tac
+  \\ qspecl_then [‘st’, ‘env’, ‘[ast_fold_oexp p]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qspecl_then [‘st’, ‘env’, ‘[oemb p]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qexists_tac ‘MAX k0 k0'’
+  \\ rw [arithmeticTheory.MAX_LE]
+QED
+
+Definition oadd_smart_def:
+  oadd_smart (a:oexp) (b:oexp) =
+    case (a, b) of
+    | (OLit m, OLit n) => OLit (m + n)
+    | (OLit m, _) => if m = 0 then b else OAdd a b
+    | (_, OLit n) => if n = 0 then a else OAdd a b
+    | _ => OAdd a b
+End
+
+Definition osub_smart_def:
+  osub_smart (a:oexp) (b:oexp) =
+    case (a, b) of
+    | (OLit m, OLit n) => OLit (m - n)
+    | (_, OLit n) => if n = 0 then a else OSub a b
+    | _ => OSub a b
+End
+
+Definition omul_smart_def:
+  omul_smart (a:oexp) (b:oexp) =
+    case (a, b) of
+    | (OLit m, OLit n) => OLit (m * n)
+    | (OLit m, _) =>
+        if m = 0 then OLit 0
+        else if m = 1 then b
+        else OMul a b
+    | (_, OLit n) =>
+        if n = 0 then OLit 0
+        else if n = 1 then a
+        else OMul a b
+    | _ => OMul a b
+End
+
+Definition ofold_def:
+  ofold OVar = OVar ∧
+  ofold (OLit i) = OLit i ∧
+  ofold (OAdd p q) = oadd_smart (ofold p) (ofold q) ∧
+  ofold (OSub p q) = osub_smart (ofold p) (ofold q) ∧
+  ofold (OMul p q) = omul_smart (ofold p) (ofold q) ∧
+  ofold (OLetNil _ p) = ofold p ∧
+  ofold (OIfEq m n p q) = if m = n then ofold p else ofold q
+End
+
+Theorem oadd_smart_eval[local]:
+  ∀a b x_val. oexp_eval x_val (oadd_smart a b) = oexp_eval x_val a + oexp_eval x_val b
+Proof
+  rw [oadd_smart_def] \\ every_case_tac \\ fs [oexp_eval_def]
+QED
+
+Theorem osub_smart_eval[local]:
+  ∀a b x_val. oexp_eval x_val (osub_smart a b) = oexp_eval x_val a - oexp_eval x_val b
+Proof
+  rw [osub_smart_def] \\ every_case_tac \\ fs [oexp_eval_def]
+QED
+
+Theorem omul_smart_eval[local]:
+  ∀a b x_val. oexp_eval x_val (omul_smart a b) = oexp_eval x_val a * oexp_eval x_val b
+Proof
+  rw [omul_smart_def] \\ every_case_tac \\ fs [oexp_eval_def]
+QED
+
+Theorem ofold_eval_correct:
+  ∀p x_val. oexp_eval x_val (ofold p) = oexp_eval x_val p
+Proof
+  Induct \\ rw [ofold_def, oexp_eval_def,
+                oadd_smart_eval, osub_smart_eval, omul_smart_eval]
+QED
+
+Theorem oadd_smart_cost[local]:
+  ∀a b. ocost (oadd_smart a b) ≤ 1n + ocost a + ocost b
+Proof
+  rw [oadd_smart_def] \\ every_case_tac \\ rw [ocost_def]
+QED
+
+Theorem osub_smart_cost[local]:
+  ∀a b. ocost (osub_smart a b) ≤ 1n + ocost a + ocost b
+Proof
+  rw [osub_smart_def] \\ every_case_tac \\ rw [ocost_def]
+QED
+
+Theorem omul_smart_cost[local]:
+  ∀a b. ocost (omul_smart a b) ≤ 1n + ocost a + ocost b
+Proof
+  rw [omul_smart_def] \\ every_case_tac \\ rw [ocost_def]
+QED
+
+Theorem ofold_cost_nonincreasing:
+  ∀p. ocost (ofold p) ≤ ocost p
+Proof
+  Induct \\ rw [ofold_def, ocost_def]
+  >- (
+    ‘ocost (oadd_smart (ofold p) (ofold p')) ≤ 1 + ocost (ofold p) + ocost (ofold p')’
+      by rw [oadd_smart_cost]
+    \\ decide_tac
+  )
+  >- (
+    ‘ocost (osub_smart (ofold p) (ofold p')) ≤ 1 + ocost (ofold p) + ocost (ofold p')’
+      by rw [osub_smart_cost]
+    \\ decide_tac
+  )
+  >- (
+    ‘ocost (omul_smart (ofold p) (ofold p')) ≤ 1 + ocost (ofold p) + ocost (ofold p')’
+      by rw [omul_smart_cost]
+    \\ decide_tac
+  )
+QED
+
+Theorem oadd_smart_fuel[local]:
+  ∀a b. ofuel (oadd_smart a b) ≤ MAX (ofuel a) (ofuel b) + 2n
+Proof
+  rw [oadd_smart_def] \\ every_case_tac
+  \\ rw [ofuel_def, arithmeticTheory.MAX_DEF]
+QED
+
+Theorem osub_smart_fuel[local]:
+  ∀a b. ofuel (osub_smart a b) ≤ MAX (ofuel a) (ofuel b) + 2n
+Proof
+  rw [osub_smart_def] \\ every_case_tac
+  \\ rw [ofuel_def, arithmeticTheory.MAX_DEF]
+QED
+
+Theorem omul_smart_fuel[local]:
+  ∀a b. ofuel (omul_smart a b) ≤ MAX (ofuel a) (ofuel b) + 2n
+Proof
+  rw [omul_smart_def] \\ every_case_tac
+  \\ rw [ofuel_def, arithmeticTheory.MAX_DEF]
+QED
+
+Theorem ofold_fuel_nonincreasing:
+  ∀p. ofuel (ofold p) ≤ ofuel p
+Proof
+  Induct \\ rw [ofold_def, ofuel_def]
+  >- (
+    ‘ofuel (oadd_smart (ofold p) (ofold p')) ≤
+       MAX (ofuel (ofold p)) (ofuel (ofold p')) + 2’
+      by rw [oadd_smart_fuel]
+    \\ fs [arithmeticTheory.MAX_DEF] \\ decide_tac
+  )
+  >- (
+    ‘ofuel (osub_smart (ofold p) (ofold p')) ≤
+       MAX (ofuel (ofold p)) (ofuel (ofold p')) + 2’
+      by rw [osub_smart_fuel]
+    \\ fs [arithmeticTheory.MAX_DEF] \\ decide_tac
+  )
+  >- (
+    ‘ofuel (omul_smart (ofold p) (ofold p')) ≤
+       MAX (ofuel (ofold p)) (ofuel (ofold p')) + 2’
+      by rw [omul_smart_fuel]
+    \\ fs [arithmeticTheory.MAX_DEF] \\ decide_tac
+  )
+  >- (fs [arithmeticTheory.MAX_DEF] \\ decide_tac)
+  >- (fs [arithmeticTheory.MAX_DEF] \\ decide_tac)
+QED
+
+Theorem ofold_evaluate_preserves:
+  ∀p (st:'ffi state) env x_val.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit x_val)) ⇒
+    evaluate st env [oemb (ofold p)] = evaluate st env [oemb p] ∧
+    evaluate st env [oemb (ofold p)] =
+      (st, Rval [Litv (IntLit (oexp_eval x_val p))])
+Proof
+  rpt strip_tac
+  \\ drule oexp_evaluate_correct
+  \\ simp [ofold_eval_correct]
+QED
+
+Theorem ofold_eval_n_agrees:
+  ∀p (st:'ffi state) env x_val.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit x_val)) ⇒
+    ∃k0. ∀k. k0 ≤ k ⇒
+      eval_n k (INL (st, env, [oemb (ofold p)])) =
+        eval_n k (INL (st, env, [oemb p])) ∧
+      eval_n k (INL (st, env, [oemb (ofold p)])) =
+        INL (st, Rval [Litv (IntLit (oexp_eval x_val p))])
+Proof
+  rpt strip_tac
+  \\ drule oexp_evaluate_correct \\ strip_tac
+  \\ qspecl_then [‘st’, ‘env’, ‘[oemb (ofold p)]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qspecl_then [‘st’, ‘env’, ‘[oemb p]’]
+       strip_assume_tac (CONJUNCT1 eval_n_agrees)
+  \\ qexists_tac ‘MAX k0 k0'’
+  \\ rw [arithmeticTheory.MAX_LE, ofold_eval_correct]
+QED
+
+Theorem eval_n_var_step:
+  ∀f (st:'ffi state) env x_val.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit x_val)) ⇒
+    eval_n (SUC f) (INL (st, env, [Var (Short «x»)])) =
+    INL (st, Rval [Litv (IntLit x_val)])
+Proof
+  rw [fueledSemTheory.eval_n_def]
+QED
+
+Theorem eval_n_lit_step:
+  ∀f (st:'ffi state) env i.
+    eval_n (SUC f) (INL (st, env, [Lit (IntLit i)])) =
+    INL (st, Rval [Litv (IntLit i)])
+Proof
+  rw [fueledSemTheory.eval_n_def]
+QED
+
+Theorem eval_n_pair_step[local]:
+  ∀f (st:'ffi state) env a b v1 v2.
+    eval_n f (INL (st, env, [a])) = INL (st, Rval [v1]) ∧
+    eval_n f (INL (st, env, [b])) = INL (st, Rval [v2]) ⇒
+    eval_n (SUC f) (INL (st, env, [a; b])) = INL (st, Rval [v1; v2])
+Proof
+  rw [Once fueledSemTheory.eval_n_def, evaluateTheory.fix_clock_def]
+QED
+
+Theorem do_app_n_arith_step[local]:
+  ∀f refs (ffi:'ffi ffi_state) m n.
+    do_app_n (SUC f) (refs, ffi) (Arith Add IntT) [Litv (IntLit m); Litv (IntLit n)] =
+      SOME ((refs, ffi), Rval (Litv (IntLit (m + n)))) ∧
+    do_app_n (SUC f) (refs, ffi) (Arith Sub IntT) [Litv (IntLit m); Litv (IntLit n)] =
+      SOME ((refs, ffi), Rval (Litv (IntLit (m - n)))) ∧
+    do_app_n (SUC f) (refs, ffi) (Arith Mul IntT) [Litv (IntLit m); Litv (IntLit n)] =
+      SOME ((refs, ffi), Rval (Litv (IntLit (m * n))))
+Proof
+  rw [fueledSemTheory.do_app_n_def, semanticPrimitivesTheory.check_type_def,
+      semanticPrimitivesTheory.do_arith_def]
+QED
+
+Theorem eval_n_arith_step:
+  ∀f (st:'ffi state) env a b m n.
+    eval_n f (INL (st, env, [a])) = INL (st, Rval [Litv (IntLit m)]) ∧
+    eval_n f (INL (st, env, [b])) = INL (st, Rval [Litv (IntLit n)]) ⇒
+    eval_n (SUC (SUC f)) (INL (st, env, [App (Arith Add IntT) [a; b]])) =
+      INL (st, Rval [Litv (IntLit (m + n))]) ∧
+    eval_n (SUC (SUC f)) (INL (st, env, [App (Arith Sub IntT) [a; b]])) =
+      INL (st, Rval [Litv (IntLit (m - n))]) ∧
+    eval_n (SUC (SUC f)) (INL (st, env, [App (Arith Mul IntT) [a; b]])) =
+      INL (st, Rval [Litv (IntLit (m * n))])
+Proof
+  rpt strip_tac
+  \\ ‘eval_n (SUC f) (INL (st, env, [b; a])) =
+        INL (st, Rval [Litv (IntLit n); Litv (IntLit m)])’
+       by metis_tac [eval_n_pair_step]
+  \\ rw [Once fueledSemTheory.eval_n_def, evaluateTheory.fix_clock_def,
+         astTheory.getOpClass_def, do_app_n_arith_step]
+QED
+
+Theorem eval_n_let_nil_step:
+  ∀f (st:'ffi state) env i a m.
+    0 < f ∧
+    eval_n f (INL (st, env, [a])) = INL (st, Rval [Litv (IntLit m)]) ⇒
+    eval_n (SUC f) (INL (st, env, [Let NONE (Lit (IntLit i)) a])) =
+      INL (st, Rval [Litv (IntLit m)])
+Proof
+  Cases \\ rw []
+  \\ rw [Once fueledSemTheory.eval_n_def, eval_n_lit_step,
+         evaluateTheory.fix_clock_def, namespaceTheory.nsOptBind_def]
+QED
+
+Theorem do_app_n_test_eq_step[local]:
+  ∀f refs (ffi:'ffi ffi_state) m n.
+    do_app_n (SUC (SUC (SUC f))) (refs, ffi) (Test Equal IntT)
+      [Litv (IntLit m); Litv (IntLit n)] =
+    SOME ((refs, ffi), Rval (Boolv (m = n)))
+Proof
+  rw [fueledSemTheory.do_app_n_def, fueledSemTheory.do_test_n_def,
+      fueledSemTheory.do_eq_n_def, semanticPrimitivesTheory.check_type_def,
+      semanticPrimitivesTheory.lit_same_type_def]
+QED
+
+Theorem eval_n_test_eq_step[local]:
+  ∀f (st:'ffi state) env m n.
+    eval_n (SUC (SUC (SUC (SUC f))))
+      (INL (st, env, [App (Test Equal IntT) [Lit (IntLit m); Lit (IntLit n)]])) =
+    INL (st, Rval [Boolv (m = n)])
+Proof
+  rpt gen_tac
+  \\ ‘eval_n (SUC (SUC (SUC f))) (INL (st, env, [Lit (IntLit n); Lit (IntLit m)])) =
+        INL (st, Rval [Litv (IntLit n); Litv (IntLit m)])’
+       by simp [eval_n_pair_step, eval_n_lit_step]
+  \\ rw [Once fueledSemTheory.eval_n_def, evaluateTheory.fix_clock_def,
+         astTheory.getOpClass_def, do_app_n_test_eq_step]
+QED
+
+Theorem eval_n_if_eq_step:
+  ∀f (st:'ffi state) env m n a b va vb.
+    4n ≤ f ∧
+    eval_n f (INL (st, env, [a])) = INL (st, Rval [va]) ∧
+    eval_n f (INL (st, env, [b])) = INL (st, Rval [vb]) ⇒
+    eval_n (SUC f)
+      (INL (st, env,
+            [If (App (Test Equal IntT) [Lit (IntLit m); Lit (IntLit n)]) a b])) =
+    INL (st, Rval [if m = n then va else vb])
+Proof
+  rpt strip_tac
+  \\ ‘∃f0. f = SUC (SUC (SUC (SUC f0)))’
+       by (qexists_tac ‘f - 4’ \\ decide_tac)
+  \\ gvs []
+  \\ rw [Once fueledSemTheory.eval_n_def, eval_n_test_eq_step,
+         evaluateTheory.fix_clock_def, semanticPrimitivesTheory.do_if_def]
+QED
+
+Theorem oexp_eval_n_fuel_correct:
+  ∀p (st:'ffi state) env x_val k.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit x_val)) ∧
+    ofuel p ≤ k ⇒
+    eval_n k (INL (st, env, [oemb p])) =
+      INL (st, Rval [Litv (IntLit (oexp_eval x_val p))])
+Proof
+  gen_tac \\ ntac 3 gen_tac
+  \\ qid_spec_tac ‘p’
+  \\ Induct \\ rw [oemb_def, ofuel_def]
+  >| [
+    ‘∃f. k = SUC f’ by (qexists_tac ‘k - 1’ \\ decide_tac)
+    \\ gvs []
+    \\ qspecl_then [‘f’, ‘st:'ffi state’, ‘env’, ‘x_val’] mp_tac eval_n_var_step
+    \\ simp [oexp_eval_def],
+    ‘∃f. k = SUC f’ by (qexists_tac ‘k - 1’ \\ decide_tac)
+    \\ gvs [eval_n_lit_step, oexp_eval_def],
+    ‘∃f. k = SUC (SUC f) ∧ ofuel p ≤ f ∧ ofuel p' ≤ f’
+      by (qexists_tac ‘k - 2’ \\ fs [arithmeticTheory.MAX_DEF] \\ decide_tac)
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ gvs [] \\ rpt strip_tac
+    \\ qspecl_then [‘f’, ‘st:'ffi state’, ‘env’, ‘oemb p’, ‘oemb p'’,
+                    ‘oexp_eval x_val p’, ‘oexp_eval x_val p'’]
+         mp_tac eval_n_arith_step
+    \\ impl_tac >| [simp [], strip_tac \\ simp [oexp_eval_def]],
+    ‘∃f. k = SUC (SUC f) ∧ ofuel p ≤ f ∧ ofuel p' ≤ f’
+      by (qexists_tac ‘k - 2’ \\ fs [arithmeticTheory.MAX_DEF] \\ decide_tac)
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ gvs [] \\ rpt strip_tac
+    \\ qspecl_then [‘f’, ‘st:'ffi state’, ‘env’, ‘oemb p’, ‘oemb p'’,
+                    ‘oexp_eval x_val p’, ‘oexp_eval x_val p'’]
+         mp_tac eval_n_arith_step
+    \\ impl_tac >| [simp [], strip_tac \\ simp [oexp_eval_def]],
+    ‘∃f. k = SUC (SUC f) ∧ ofuel p ≤ f ∧ ofuel p' ≤ f’
+      by (qexists_tac ‘k - 2’ \\ fs [arithmeticTheory.MAX_DEF] \\ decide_tac)
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ gvs [] \\ rpt strip_tac
+    \\ qspecl_then [‘f’, ‘st:'ffi state’, ‘env’, ‘oemb p’, ‘oemb p'’,
+                    ‘oexp_eval x_val p’, ‘oexp_eval x_val p'’]
+         mp_tac eval_n_arith_step
+    \\ impl_tac >| [simp [], strip_tac \\ simp [oexp_eval_def]],
+    ‘1n ≤ ofuel p’ by rw [ofuel_pos]
+    \\ ‘∃f. k = SUC f ∧ 0 < f ∧ ofuel p ≤ f’
+         by (qexists_tac ‘k - 1’ \\ decide_tac)
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ gvs [] \\ rpt strip_tac
+    \\ qspecl_then [‘f’, ‘st:'ffi state’, ‘env’, ‘i’, ‘oemb p’, ‘oexp_eval x_val p’]
+         mp_tac eval_n_let_nil_step
+    \\ impl_tac >| [simp [], strip_tac \\ simp [oexp_eval_def]],
+    ‘1n ≤ ofuel p ∧ 1n ≤ ofuel p'’ by rw [ofuel_pos]
+    \\ ‘∃f. k = SUC f ∧ 4n ≤ f ∧ ofuel p ≤ f ∧ ofuel p' ≤ f’
+         by (qexists_tac ‘k - 1’ \\ fs [arithmeticTheory.MAX_DEF] \\ decide_tac)
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ first_x_assum (qspec_then ‘f’ mp_tac)
+    \\ gvs [] \\ rpt strip_tac
+    \\ qspecl_then [‘f’, ‘st:'ffi state’, ‘env’, ‘i0’, ‘i’, ‘oemb p’, ‘oemb p'’,
+                    ‘Litv (IntLit (oexp_eval x_val p))’,
+                    ‘Litv (IntLit (oexp_eval x_val p'))’]
+         mp_tac eval_n_if_eq_step
+    \\ impl_tac >| [simp [], strip_tac \\ simp [oexp_eval_def] \\ rw []]
+  ]
+QED
+
+Theorem ofold_eval_n_fuel_preserves:
+  ∀p (st:'ffi state) env x_val k.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit x_val)) ∧
+    ofuel p ≤ k ⇒
+    eval_n k (INL (st, env, [oemb (ofold p)])) =
+      eval_n k (INL (st, env, [oemb p])) ∧
+    eval_n k (INL (st, env, [oemb (ofold p)])) =
+      INL (st, Rval [Litv (IntLit (oexp_eval x_val p))]) ∧
+    ofuel (ofold p) ≤ ofuel p
+Proof
+  rpt strip_tac
+  \\ ‘ofuel (ofold p) ≤ ofuel p’ by rw [ofold_fuel_nonincreasing]
+  \\ ‘ofuel (ofold p) ≤ k’ by decide_tac
+  \\ qspecl_then [‘p’, ‘st:'ffi state’, ‘env’, ‘x_val’, ‘k’]
+       mp_tac oexp_eval_n_fuel_correct
+  \\ qspecl_then [‘ofold p’, ‘st:'ffi state’, ‘env’, ‘x_val’, ‘k’]
+       mp_tac oexp_eval_n_fuel_correct
+  \\ simp [ofold_eval_correct]
+QED
+
+(* ---- In-kernel `cv_eval` translations and benchmarks ---- *)
+
+val () = cv_auto_trans oemb_def;
+val () = cv_auto_trans oexp_eval_def;
+val () = cv_auto_trans ocost_def;
+val () = cv_auto_trans ofuel_def;
+val () = cv_auto_trans oadd_smart_def;
+val () = cv_auto_trans osub_smart_def;
+val () = cv_auto_trans omul_smart_def;
+val () = cv_auto_trans ofold_def;
+
+Definition demo_ouro_exp_def:
+  demo_ouro_exp =
+    OLetNil 99
+      (OIfEq 5 5
+        (OSub
+          (OAdd (OAdd (OLit 3) (OLit 7))
+                (OMul (OAdd OVar (OLit 100)) (OLit 0)))
+          (OMul OVar (OLit 1)))
+        (OMul OVar (OLit 999)))
+End
+
+val () = cv_auto_trans demo_ouro_exp_def;
+
+Theorem ofold_cv_benchmark:
+  ofold demo_ouro_exp = OSub (OLit 10) OVar ∧
+  ocost demo_ouro_exp = 22 ∧
+  ocost (ofold demo_ouro_exp) = 3 ∧
+  ofuel demo_ouro_exp = 14 ∧
+  ofuel (ofold demo_ouro_exp) = 3 ∧
+  oexp_eval 7 demo_ouro_exp = 3 ∧
+  oexp_eval 7 (ofold demo_ouro_exp) = 3 ∧
+  oemb (ofold demo_ouro_exp) =
+    App (Arith Sub IntT) [Lit (IntLit 10); Var (Short «x»)]
+Proof
+  CONV_TAC cv_eval
+QED
+
+Theorem demo_ouro_eval_n_cv_verified:
+  ∀(st:'ffi state) env.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit 7)) ⇒
+    ∃k0. ∀k. k0 ≤ k ⇒
+      eval_n k (INL (st, env, [oemb (ofold demo_ouro_exp)])) =
+        eval_n k (INL (st, env, [oemb demo_ouro_exp])) ∧
+      eval_n k (INL (st, env, [oemb (ofold demo_ouro_exp)])) =
+        INL (st, Rval [Litv (IntLit 3)])
+Proof
+  rpt strip_tac
+  \\ qspecl_then [‘demo_ouro_exp’, ‘st:'ffi state’, ‘env’, ‘7’] mp_tac ofold_eval_n_agrees
+  \\ simp [ofold_cv_benchmark]
+QED
+
+Theorem demo_ouro_eval_n_fuel_cv_verified:
+  ∀(st:'ffi state) env.
+    nsLookup env.v (Short «x») = SOME (Litv (IntLit 7)) ⇒
+    (∀k. 3n ≤ k ⇒
+       eval_n k (INL (st, env, [oemb (ofold demo_ouro_exp)])) =
+         INL (st, Rval [Litv (IntLit 3)])) ∧
+    (∀k. 14n ≤ k ⇒
+       eval_n k (INL (st, env, [oemb (ofold demo_ouro_exp)])) =
+         eval_n k (INL (st, env, [oemb demo_ouro_exp])) ∧
+       eval_n k (INL (st, env, [oemb (ofold demo_ouro_exp)])) =
+         INL (st, Rval [Litv (IntLit 3)]))
+Proof
+  rpt strip_tac
+  \\ qspecl_then [‘ofold demo_ouro_exp’, ‘st:'ffi state’, ‘env’, ‘7’, ‘k’]
+       mp_tac oexp_eval_n_fuel_correct
+  \\ qspecl_then [‘demo_ouro_exp’, ‘st:'ffi state’, ‘env’, ‘7’, ‘k’]
+       mp_tac ofold_eval_n_fuel_preserves
+  \\ simp [ofold_cv_benchmark, ofuel_def, oemb_def, oexp_eval_def,
+           arithmeticTheory.MAX_DEF]
 QED

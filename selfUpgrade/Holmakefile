@@ -12,7 +12,8 @@ INCLUDES = $(HOLDIR)/examples/machine-code/multiword \
            $(CAKEMLDIR)/compiler/backend/proofs \
            $(CAKEMLDIR)/compiler/encoders/asm $(CAKEMLDIR)/compiler/backend/gc \
            $(CAKEMLDIR)/compiler/backend/reg_alloc $(CAKEMLDIR)/compiler/backend/reg_alloc/proofs \
-           $(HOLDIR)/examples/algorithms
+           $(HOLDIR)/examples/algorithms \
+           .. ../genealogy ../recursive ../compilerOpt
 OPTIONS = QUIT_ON_FAILURE
 ifdef POLY
 HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap

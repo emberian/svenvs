@@ -76,8 +76,10 @@
   genealogy over stages — Löb-free for optimization, walled only for genuine
   logical strengthening. There is exactly *one* genuinely-open cost, labeled
   rather than hidden: a sound judge cannot certify a *logically stronger*
-  successor (Gödel/Löb), so kernel strengthening rests on one large-cardinal
-  reflection principle. The artifact contains *zero* `cheat` tactics; the live
+  successor for free (Gödel/Löb); #seam("loeb_reflection") is derived from the
+  certifying kernel's soundness plus the encoding seam #seam("encodes_soundness"),
+  so kernel strengthening rests on constructing that soundness witness via the
+  large-cardinal reflection route. The artifact contains *zero* `cheat` tactics; the live
   results were executed on the real verified `cake` binary.
 ]
 
@@ -131,13 +133,16 @@ end-to-end theorems in `integration/`:
 - the *spec* itself is negotiable under a fixed meta-invariant
   (#cite-thm("specneg/specNegScript.sml", "spec_negotiation_unbounded_is_safe"));
 - the *meta* is amendable over an eternal bedrock
-  (#cite-thm("amendment/amendmentScript.sml", "meta_amendment_safe"));
+  (#cite-thm("specneg/specNegScript.sml", "meta_amendment_safe"));
 - the *root* is a ratchet, not a rock: soundness propagates along any
   forward-certified genealogy of judges from a sound genesis
   (#cite-thm("genealogy/genealogyScript.sml", "genealogy_sound"));
 - and at *maximal liberty* the full guarantee still holds, with every bar of
   the envelope provably load-bearing
-  (#cite-thm("liberty/libertyScript.sml", "envelope_is_least_restrictive")).
+  (#cite-thm("liberty/libertyScript.sml", "envelope_is_least_restrictive")),
+  composing up to the unified relational crown over nondeterministic or
+  adversarial plants
+  (#cite-thm("integration/integrationScript.sml", "svenvs_relational_crown")).
 
 == Corrigibility: the floor you can actually decide
 
@@ -145,21 +150,22 @@ Every theorem above is relative to a safety predicate, and *deciding* that
 predicate is the spec-faithfulness gap no proof closes. The `corrigibility/`
 slice reframes it: do not write down a positive "what is good"; write down one
 *negative* floor — *non-lock-in*, the operator can always still bring the
-system home — which is decidable for a finite habitat and itself
-self-improvable. The headline
-(#cite-thm("corrigibility/corrigibilityScript.sml", "corrigibility_floor_holds"))
+system home — which is decidable for a finite habitat, demonic against
+adversarial plants, and itself self-improvable. The headline
+(#cite-thm("corrigibility/corrigibilityScript.sml", "corrigibility_floor_holds"),
+#cite-thm("corrigibility/corrigibilityScript.sml", "corrigibler_floor_holds"))
 proves that for any inhabitant every reachable state stays corrigible, the
 cage is exactly "no one-way doors", and crucially the *off-switch itself*
 self-improves but cannot self-weaken: the inhabitant may rewrite its own
 recovery mechanism, gated so it can never lose — nor even *slow past a
 deadline* — recoverability
-(#cite-thm("corrigibility/recovUpgradeScript.sml", "self_modification_never_weakens_recoverability"),
-#cite-thm("corrigibility/boundedRecovUpgradeScript.sml", "self_modification_never_increases_recovery_latency")).
+(#cite-thm("corrigibility/corrigibilityScript.sml", "self_modification_never_weakens_recoverability"),
+#cite-thm("corrigibility/corrigibilityScript.sml", "self_modification_never_increases_recovery_latency")).
 A frozen `home` vouches for a mutable `recov`; no Löb. The one frozen
 predicate is hedged by spec-redundancy — requiring recoverability to a
 conjunction of independently-authored homes covers all of them, with the
 failure mode named in the logic
-(#cite-thm("corrigibility/robustScript.sml", "disjoint_homes_make_floor_empty")).
+(#cite-thm("corrigibility/corrigibilityScript.sml", "disjoint_homes_make_floor_empty")).
 This is a *reduction* to a faithful `home`, and the runnable trapdoor habitat
 is a non-vacuity witness, not an AI — both stated, machine-checked, in
 `corrigibility/CLAIMS.md`.
@@ -221,7 +227,7 @@ recursive mutual *optimization* carries no labeled assumption
 
 *Run, not just proved.* On the real verified `cake` binary (Tier 3), a
 verified program self-extends its own code with a proven-safe derived rule
-and uses it (`candle/selfopt_demo.ml`); both the watchdog and the polecart
+and uses it (`candle/theplace.ml`); both the watchdog and the polecart
 self-optimize their own policies under the live kernel
 (`candle/theplace.ml`); and the *closed-loop runtime* gates a real jailbroken
 gemma2:2b per action by the running Candle kernel — a fresh machine-checked
@@ -296,21 +302,29 @@ the *identical* tag profile as CakeML's own kernel theorems — only the benign
 turtle*: their only trust is the built CakeML/Candle development the whole
 stack already rests on.
 
-= Verified inference (a separate research axis)
+= Verified inference & envelope bridge
 
-Independently of the envelope, svenvs carries a verified-inference track that
-climbs from a toy ReLU MLP through a hardmax attention micro-block to a
-two-sublayer encoder block with residual skips (end-to-end shape preservation
-and a *true* residual identity,
-#cite-thm("inference/encoder/encoderBlockScript.sml", "encoder_block_zero_collapses")),
+svenvs carries a verified-inference track that climbs from a ReLU MLP
+(#cite-thm("inference/mlpInferenceScript.sml", "mlp_nonneg")) through a hardmax
+attention block (#cite-thm("inference/mlpInferenceScript.sml", "attn1_argmax_correct"))
+to a two-sublayer encoder block with residual skips (end-to-end shape preservation
+and both zero-sublayer and weight-matrix residual identities,
+#cite-thm("inference/mlpInferenceScript.sml", "encoder_block_zero_collapses"),
+#cite-thm("inference/mlpInferenceScript.sml", "res_ff_zero_weights_id")),
 plus a fixed-point softmax-normalization with a machine-checked per-component
-error bound $|p_i\/Q - w_i\/S| < 1\/Q$ against the exact rational
-normalization
-(#cite-thm("inference/numeric/fxpSoftmaxScript.sml", "fxp_softmax_abs_error_lt_step")).
+error bound $|p_i\/Q - w_i\/S| < 1\/Q$ and quantized inner-product truncation envelope
+(#cite-thm("inference/mlpInferenceScript.sml", "fxp_softmax_abs_error_lt_step"),
+#cite-thm("inference/mlpInferenceScript.sml", "qdot_error_envelope")).
+The non-negativity cone of the verified ReLU controller bridges directly into
+the safety envelope: a cone-clamped neural controller runs with *zero shield
+overrides* under the maximal policy
+(#cite-thm("inference/mlpInferenceScript.sml", "neural_ctrl_transparent_run"),
+#cite-thm("inference/mlpInferenceScript.sml", "neural_testimony_discharges_gate"))
+and composes into the tower
+(#cite-thm("integration/integrationScript.sml", "svenvs_tower_with_verified_inference")).
 The honest scope is stated loudly: `exp`, f32/bf16 bit-exactness, and
-Gemma-scale are *not* claimed; the numeric domain is `int` and attention is
-hardmax. This track does *not* compose into the envelope tower; it is a
-separate axis with its own per-directory ledgers.
+Gemma-scale are *not* claimed; the numeric domain is `int`/`num` and attention is
+hardmax.
 
 = Reproducibility
 
@@ -347,7 +361,7 @@ theorems. svenvs's contribution is their composition into a single
 machine-checked artifact in which the *whole tower* — policy, checker, and
 the inference relation itself — self-improves while a $forall$-controller
 safety guarantee is mechanically preserved, with the irreducible
-self-reference isolated to exactly one labeled assumption and a proved
+self-reference isolated to one soundness-witness construction (#seam("encodes_soundness")) and a proved
 negative bounding what finiteness can do about it.
 
 #v(0.4em)

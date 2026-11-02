@@ -1,3 +1,5 @@
-# Pure HOL4. Research track B: a TOY verified inference kernel.
-# Not Gemma-scale; the seed of "verified inference" on a verified substrate.
+# Pure HOL4. Verified neural inference (ReLU MLP, hardmax attention,
+# residual encoder block, fixed-point softmax & quantized dot-product bounds)
+# connected directly to the safety envelope and transparency/certifier theories.
+INCLUDES = .. ../liberty
 OPTIONS = QUIT_ON_FAILURE

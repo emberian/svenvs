@@ -255,7 +255,7 @@ def main():
         # the swapped policy is real, and that breach NEVER happens because
         # every swap was kernel-certified safe_allowlist.
         for (kind, tgt) in PROBE:
-            a = arg_code(tgt) if tgt not in ARG else ARG[tgt]
+            a = arg_code(tgt)
             passed = tool_pol(writes, hosts, kind, a)
             applied = (kind, a) if passed else (4, 0)   # shield(Refuse)
             w = tstep(w, *applied)

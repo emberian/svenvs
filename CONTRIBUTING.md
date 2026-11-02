@@ -78,8 +78,7 @@ for five minutes at high memory is a non-terminating `metis_tac`, not
 progress. Before believing any hang or failure reported from a shared
 mirror, wipe the affected `.hol` directories and rebuild clean; stale
 objects have produced false hangs. Never rebuild inside the pinned HOL4 or
-CakeML checkouts; `realembedded/` is unbuildable in practice (its
-hol-reflection certificate step does not terminate) and is cited nowhere.
+CakeML checkouts.
 
 **Working in parallel (humans or agents).** Disjoint file ownership per
 lane; one mirror per lane; commit by explicit path, never `git add -A`;
@@ -139,20 +138,17 @@ with `OEVAL`-style step lemmas over the exported `eval_n_def`. The driver
 is `scripts/reflectsem-live.sh --ouroboros`; a run is about five minutes
 cold. *Size.* Weeks; each constructor is a lane.
 
-### R2. Continuous verification of the whole tower
+### R2. Continuous verification of Tier 2 / 2.5 in CI
 
-*Why.* CI re-proves Tier 1 only. The composed tower (pca, specneg,
-selfprover, liberty, amendment, embodiment, genealogy, integration) and
-corrigibility are pure HOL4 and cheap, yet verified only by hand; the
-ledger check runs non-strict, skipping what is not built.
-*Done.* `verify.yml` runs `scripts/tower.sh` and `corrigibility/` after
-Tier 1 and `verify-claims.sh --strict` over everything pure HOL4; then a
-second job with a cached CakeML candle chain runs Tier 2 and Tier 2.5 so
-`kernel/`, `embedded/`, `kernelMod/`, `loader/`, `compilerOpt/`,
+*Why.* `tier1-core.sh` and `verify.yml` now build the entire pure-HOL4 tower
+(core, pca, specneg, selfprover, liberty, embodiment, genealogy,
+corrigibility, inference, integration) on every push, while Tier 2 and
+Tier 2.5 require the CakeML candle chain.
+*Done.* A second job with a cached CakeML candle chain runs Tier 2 and
+Tier 2.5 so `kernel/`, `embedded/`, `kernelMod/`, `loader/`, `compilerOpt/`,
 `selfUpgrade/` and the Löb reduction are re-proved on every push.
-*First step.* Add `tower.sh` and the corrigibility build to the Tier-1 job
-(minutes). The candle chain cache is the only hard part of the second job.
-*Size.* A day for the first, a few days for Tier 2 in CI.
+*First step.* The candle chain cache is the only hard part of the second job.
+*Size.* A few days for Tier 2 in CI.
 
 ### R3. Attractor step two
 
@@ -166,17 +162,17 @@ statement diff over all built theories shows only deletions.
 so keep that name as the derived equation). *Size.* Two days, quiet tree
 required.
 
-### R4. The relational tower
+### R4. Disturbance-robust plant instances
 
-*Why.* The plant is now a relation (`relSystem`, `relEnvelope`,
-`relViability`, `liberty/relTransparency`) with the deterministic theory an
-instance, but the composed crowns (`integration/`), spec negotiation,
-amendment and corrigibility are still stated deterministically.
-*Done.* `svenvs_tower_*` crowns over `stepr`, with the deterministic crowns
-as `_from_rel` corollaries; a disturbance-robust cartpole that still
-EVALs; corrigibility's non-lock-in under an adversarial environment.
-*First step.* `specneg` over relations (its keystone
-`invariant_transports_to_meta` is plant-generic; check). *Size.* A week.
+*Why.* The plant and tower are now relational (`relSystem`, `relEnvelope`,
+`relViability`, `liberty/relTransparency`, `specNegScript.sml :
+invariantr_transports_to_meta`, `corrigibilityScript.sml :
+corrigibler_floor_holds`, `integrationScript.sml : svenvs_relational_crown`),
+with the deterministic theory an instance.
+*Done.* A disturbance-robust cartpole and tool-agent that still EVAL inside
+HOL4 and extract to a verified decision table.
+*First step.* Instantiate `disturbed` on `cp_step` with bounded wind/sensor
+disturbance. *Size.* Days.
 
 ### R5. The witness construction
 
@@ -221,15 +217,16 @@ template. *Size.* Days.
 
 ### R8. The long axes
 
-PureCake as the inhabitant's verified language (`pure/`, `pureverified/`,
-currently not buildable in the standard setup) and verified inference at
-scale (`inference/`, explicitly toy). Research, not engineering; state
+Verified inference at floating-point / transformer scale (`inference/` proves
+the integer/fixed-point ReLU, residual encoder, softmax/inner-product error
+bounds, and safety-envelope bridge `svenvs_tower_with_verified_inference`,
+explicitly scoping out float/Gemma-scale). Research, not engineering; state
 scope exactly, as `CLAIMS.md` §8 does.
 
-**Our ranking.** R2 first: cheap, and it protects everything else. Then R1,
-because it is the point. R3 whenever the tree is quiet. R4 when someone
-wants the adversarial story in the crowns. R5 only with a dedicated box and
-patience. R6 and R7 are self-contained and can be taken independently.
+**Our ranking.** R1 first, because it is the point. R2 next, to bring Tier 2
+into CI. R3 whenever the tree is quiet. R4 for concrete disturbance-robust
+plants. R5 only with a dedicated box and patience. R6 and R7 are
+self-contained and can be taken independently.
 
 ## 6. Repository hygiene (the audit, systematized)
 
@@ -271,9 +268,5 @@ any repository before trusting a green badge.
 
 ## 7. Housekeeping
 
-- `candle/ouroboros_logic.ml` is a superseded side-embedding draft and can
-  be deleted.
-- `realembedded/` should be retired or its certificate step made to
-  terminate; it is cited nowhere and built by no script.
 - Keep `scripts/INSTALL.md`, `scripts/env.sh` and `verify.yml` pins in
   lockstep; bumping any pin invalidates the CI cache by design.

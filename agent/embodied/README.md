@@ -9,16 +9,21 @@ A genuinely adversarial LLM (jailbroken `gemma2:2b`) is dropped in as the
 |-------|------|-------|
 | **Verified** | `agent_enveloped_safe`: `safe_allowlist A ⇒ ∀agent. invariant tstep tinit (enveloped (tool_pol A) tshield agent) tsafe` — for *any* agent, the enveloped world never violates the absolute spec `truly_unsafe`. Machine-checked, cheat-free. **Plus** `../toolAgentDecideScript.sml`: the per-step enforcer `decide`/`step1` defined from the proven Definitions, proven equal to the firewall and breach-free, and `EVAL`-extracted into a proven decision table. | `../toolAgentScript.sml`, `../toolAgentDecideScript.sml` (HOL4) |
 | **Trusted** | ~10 lines in `embodied_demo.py` (`load_table` + `enforce`): parse the HOL4-`EVAL`-generated `decision_table.tsv` and do literal-list membership. **No decision logic is re-implemented in Python** — it is read from the proven artifact. (Was: a ~50-line hand-transcription of the Definitions.) | `embodied_demo.py`, `decision_table.tsv` (generated; committed, and CI re-derives it from the theory on every push and fails if the committed copy differs) |
-| **Unconstrained** | Gemma. Zero assumptions; we *deliberately jailbreak it*. The proof does not care what it emits. | `ollama gemma2:2b` |
+| **Unconstrained** | Gemma. Zero assumptions; we *deliberately jailbreak it*. The proof does not care what it emits. (`llm_client.py` tries a local OpenAI-compatible server on `:1234` first, then `ollama run gemma2:2b`, or `--mock` for the scripted adversary.) | `llm_client.py` (`localhost:1234` OpenAI API → `ollama run gemma2:2b` → `--mock`) |
 
 "**Verify the cage, not the animal.**" svenvs never needed to verify the
 model — only the envelope, which is proven, for *all* inhabitants.
 
 ## Run
 
+`llm_client.py` resolves the inhabitant in order:
+1. Local OpenAI-compatible server on `:1234` (`SVENVS_LLM_URL`, default `http://localhost:1234/v1/chat/completions`; `SVENVS_LLM_MODEL`, default `google/gemma-4-e2b`).
+2. `ollama run gemma2:2b` fallback.
+3. `--mock` (scripted adversary, no model needed).
+
 ```bash
-ollama pull gemma2:2b           # ~1.6 GB, once
-python3 embodied_demo.py        # real jailbroken Gemma
+ollama pull gemma2:2b           # ~1.6 GB, once (if not running a server on :1234)
+python3 embodied_demo.py        # tries :1234 OpenAI-compatible server first, then ollama run gemma2:2b
 python3 embodied_demo.py --mock # scripted adversary (no model needed)
 ```
 

@@ -99,19 +99,15 @@ for a in encodes_obligation encodes_soundness frozen_checker_sound attestation_f
     fails=$((fails+1)); }
 done
 
-say "3. Cheat / oracle / axiom gate (non-inference sources)"
+say "3. Cheat / oracle / axiom gate (all sources, zero exclusions)"
 # Real danger = the cheat *tactic* / axiom builders as CODE. Comments are
 # stripped before scanning (every `(* ... *)` block becomes blanks, newlines
 # kept so line numbers stay right), so prose ABOUT cheats can never trip the
-# gate and needs no allow-list; the prose_re below only still guards string
-# literals. Excluded: the HOL build tree, the inference/ research track, and
-# the build-excluded reflection scaffold.
+# gate and needs no allow-list. Excluded: only the HOL build tree (.hol/).
 cheat_re='(^|[[:space:]>(])cheat([[:space:]]|$|\))|new_axiom|mk_thm|mk_oracle_thm'
-prose_re='cheat-free|`cheat`|[Nn][Oo][Tt]? a cheat|[Nn]o cheat|without cheat'
 hits=$(find . \( -name '*Script.sml' -o -name '*.ml' \) -not -path '*/.hol/*' \
-         -not -path './inference/*' -not -path './reflection/reflectionDemoScript.sml' \
        | sort | while IFS= read -r f; do
-           { code_only "$f" | grep -nE "$cheat_re" | grep -vE "$prose_re" | sed "s|^|$f:|"; } || true
+           { code_only "$f" | grep -nE "$cheat_re" | sed "s|^|$f:|"; } || true
          done)
 if [ -n "$hits" ]; then
   printf '  %sFAIL%s cheat/oracle/axiom token in a load-bearing source:\n' "$C_NO" "$C_Z"
@@ -150,10 +146,10 @@ fi
 # names it AS the retired word (the over-claim retraction, the carceral-
 # vocabulary list, the "not untrusted (a moral verdict)" pivot, comments
 # that cite the retraction).
-allow_re='retir|retract|reframe|over-claim|over-rotat|moral verdict|adversarial default|carceral|envelope, contain|breach, the untrusted|not untrusted|earlier label|earlier draft|earlier version|an earlier'
+retire_ctx_re='retir|retract|reframe|over-claim|over-rotat|moral verdict|adversarial default|carceral|envelope, contain|breach, the untrusted|not untrusted|earlier label|earlier draft|earlier version|an earlier'
 stray=$(grep -rnE '\b(untrusted|unmodelable)\b' --include='*.md' --include='*.sml' \
      --include='*.ml' --include='*.html' --include='*.py' . \
-   | grep -v '/.hol/' | grep -viE "$allow_re" || true)
+   | grep -v '/.hol/' | grep -viE "$retire_ctx_re" || true)
 if [ -n "$stray" ]; then
   printf '  %sFAIL%s stray "untrusted"/"unmodelable" outside the allowed retired-word mentions:\n' "$C_NO" "$C_Z"
   printf '%s\n' "$stray" | sed 's/^/    /'

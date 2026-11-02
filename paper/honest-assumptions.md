@@ -45,7 +45,7 @@ Every layer of svenvs has the same shape:
   spec_negotiation_is_safe`, transported by the one keystone
   `invariant_transports_to_meta`.
 - The meta itself, amendable over an eternal bedrock —
-  `amendment/amendmentScript.sml : meta_amendment_safe`; the fixed-meta
+  `specneg/specNegScript.sml : meta_amendment_safe`; the fixed-meta
   trunk is a *corollary* (`amendment_subsumes_fixed_meta`), not a
   separate claim.
 - The prover build, gated by the frozen root —
@@ -195,16 +195,20 @@ tactics, zero oracle tags beyond the benign disk tag, zero added axioms.
 
 ## 8. Honest scope (what this note does NOT claim)
 
-- The general `loeb_reflection` seam is **not discharged**; it is the
-  labelled assumption + the proved honest negative. The heavy
-  `hol-reflection/lca` construction is a compute wall, autonomous, and
+- The LCA soundness-witness construction for a *strictly stronger* kernel
+  (`encodes_soundness` via `hol-reflection/lca`) is **not yet constructed**;
+  `loeb_reflection` itself is derived from soundness + `encodes_soundness`, and
+  the proved negative `loeb_finite_obstruction` bounds what finiteness can do.
+  The heavy `hol-reflection/lca` construction is a compute wall, autonomous, and
   may not complete on available hardware. We do not pretend otherwise.
 - The concrete real-Candle replay (`selfproverConcrete/`) and the live
   closed loop (`agent/closedloop/`) are done, but on the dedicated host:
   they are Tier 2/3 and reproduce only where CakeML/Candle is built
   (`CLAIMS.md` §5, §6).
-- The verified-inference track is a *separate research axis*; it does not
-  compose into `svenvs_tower_*` and is not claimed to.
+- The verified-inference track (`inference/mlpInferenceScript.sml`) proves
+  integer/fixed-point envelopes and bridges them into the tower
+  (`svenvs_tower_with_verified_inference`); floating-point / Gemma-scale
+  inference is not claimed.
 
 If anything in this note, or in `CLAIMS.md`, is found to exceed what is
 proved, that is a bug — file it. That sentence is not rhetoric; §2 and §4

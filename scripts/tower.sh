@@ -17,19 +17,19 @@ full=0; [ "${1:-}" = "--full" ] && full=1
 # DAG order: generic core -> the three composable slices -> integration.
 say "1. generic core (system/envelope/safety/sv_weakening/upgrade)"
 ( cd "$here" && "$HOL" $HM )
-for d in pca specneg selfprover liberty amendment embodiment genealogy; do
+for d in pca specneg selfprover liberty embodiment genealogy corrigibility inference recursive selfRecompile; do
   say "2. slice: $d"
   ( cd "$here/$d" && "$HOL" $HM )
 done
 say "3. composed tower (integration/)"
 if [ "$full" = 1 ]; then
   ( cd "$here/kernel" && "$HOL" $HM ) || { echo "kernel slice failed (Tier-2 candle chain absent?)"; exit 1; }
-  ( cd "$here/integration" && "$HOL" $HM )
-  crowns="svenvs_tower_unconditional svenvs_tower_at_maximal_liberty svenvs_tower_with_meta_amendment svenvs_tower_with_embodied_disclosure svenvs_tower_disclosure_is_optional svenvs_tower_with_prover_upgrade svenvs_tower_with_kernel_upgrade"
+  ( cd "$here/integration" && WITH_KERNEL=1 "$HOL" $HM )
+  crowns="svenvs_tower_unconditional svenvs_tower_at_maximal_liberty svenvs_tower_with_meta_amendment svenvs_tower_with_embodied_disclosure svenvs_tower_disclosure_is_optional svenvs_tower_with_prover_upgrade svenvs_tower_with_verified_inference svenvs_relational_crown svenvs_tower_with_self_recompile svenvs_tower_with_kernel_upgrade svenvs_tower_with_compiler_self_upgrade svenvs_certified_compiler_swap_crown"
 else
   # build only the pure trunk+prover theory, skip the Tier-2 kernel crown
   ( cd "$here/integration" && "$HOL" $HM integrationTheory.uo )
-  crowns="svenvs_tower_unconditional svenvs_tower_at_maximal_liberty svenvs_tower_with_meta_amendment svenvs_tower_with_embodied_disclosure svenvs_tower_disclosure_is_optional svenvs_tower_with_prover_upgrade"
+  crowns="svenvs_tower_unconditional svenvs_tower_at_maximal_liberty svenvs_tower_with_meta_amendment svenvs_tower_with_embodied_disclosure svenvs_tower_disclosure_is_optional svenvs_tower_with_prover_upgrade svenvs_tower_with_verified_inference svenvs_relational_crown svenvs_tower_with_self_recompile"
 fi
 
 say "COMPOSED THEOREMS (the artifact, not a pile)"
@@ -41,9 +41,11 @@ for thm in $crowns; do
     echo "  MISSING $thm"; ok=0
   fi
 done
-# cheat/oracle gate on the composed theory itself
-if grep -rnE '(^|[[:space:]>(])cheat([[:space:]]|$|\))|new_axiom|mk_thm|mk_oracle_thm' \
-     "$here"/integration/*Script.sml | grep -vqE 'cheat-free|`cheat`|hidden|gap|forced'; then
+# cheat/oracle gate on the composed theory itself (comments stripped via code_only)
+tower_cheats="$(for f in "$here"/integration/*Script.sml; do
+                  { code_only "$f" | grep -nE '(^|[[:space:]>(])cheat([[:space:]]|$|\))|new_axiom|mk_thm|mk_oracle_thm' | sed "s|^|$f:|"; } || true
+                done)"
+if [ -n "$tower_cheats" ]; then
   echo "  !! cheat/oracle token in integration source"; ok=0
 else
   echo "  cheat/oracle scan: clean"

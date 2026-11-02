@@ -1,0 +1,32 @@
+diff --git a/candle/compute.ml b/candle/compute.ml
+index 87cad1a..c693362 100644
+--- a/candle/compute.ml
++++ b/candle/compute.ml
+@@ -56,7 +56,7 @@ let cexp_less_def = define
+ 
+ let cexp_if_def = define
+   `(Cexp_if (Cexp_num (SUC m)) (p1: cval) (q1: cval) = p1) /\
+-   (Cexp_if (Cexp_pair p2 q2) p1 q1 = p1) /\
++   (Cexp_if (Cexp_pair p2 q2) p1 q1 = q1) /\
+    (Cexp_if (Cexp_num 0) p1 q1 = q1)`;;
+ 
+ let cexp_fst_def = define
+@@ -234,13 +234,11 @@ do_list overload_interface
+ (* -------------------------------------------------------------------------- *)
+ 
+ let cexp_if = prove (
+-  `Cexp_if n p q = if ~(n = numc 0) then p else q`,
+-  COND_CASES_TAC THEN ASM_REWRITE_TAC [cexp_if_def; ONE] THEN
+-  POP_ASSUM MP_TAC THEN
+-  STRUCT_CASES_TAC (SPEC `n:cval` (cases "cval")) THEN
+-  SIMP_TAC [injectivity "cval"; ONE] THEN
+-  STRUCT_CASES_TAC (SPEC `a:num` num_CASES) THEN
+-  REWRITE_TAC [NOT_SUC; SUC_INJ; cexp_if_def]);;
++  `Cexp_if n p q = if ~(n = numc 0) /\ ispairc n = numc 0 then p else q`,
++  STRUCT_CASES_TAC (SPEC `n:cval` (cases "cval")) THENL
++  [STRUCT_CASES_TAC (SPEC `a:num` num_CASES) THEN
++   REWRITE_TAC [cexp_if_def; cexp_ispair_def; injectivity "cval"; NOT_SUC; ONE];
++   REWRITE_TAC [cexp_if_def; cexp_ispair_def; injectivity "cval"; NOT_SUC; ONE]]);;
+ 
+ let cval_size_def = define
+   `(cval_size (numc n) = 1) /\

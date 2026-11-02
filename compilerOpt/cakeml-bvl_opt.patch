@@ -98,7 +98,7 @@ new file mode 100644
 index 000000000..1068f0b82
 --- /dev/null
 +++ b/compiler/backend/proofs/bvl_optProofScript.sml
-@@ -0,0 +1,319 @@
+@@ -0,0 +1,379 @@
 +(*
 +  Correctness proof for bvl_opt (empty-Let elimination), svenvs Layer B.
 +
@@ -106,10 +106,9 @@ index 000000000..1068f0b82
 +  cv_translator-friendly mutually-recursive pair; optimise_sing = optimise_one.
 +  optimise_correct proves per-list semantics preservation against the real
 +  bvlSem$evaluate; evaluate_optimise lifts it to a code-rel forward simulation;
-+  opt_evaluate_Call to a per-Call statement under the optimise_cc oracle.  (The
-+  whole-program semantics_optimise lemma — a clone of
-+  bvl_inlineProof.semantics_let_op — has one residual FFI-trace subgoal; see the
-+  note at the end.)
++  opt_evaluate_Call to a per-Call statement under the optimise_cc oracle; and
++  semantics_optimise / optimise_prog_semantics close the whole-program FFI-trace
++  and outcome preservation theorem.
 +*)
 +Theory bvl_optProof
 +Ancestors
@@ -401,21 +400,82 @@ index 000000000..1068f0b82
 +  \\ fs [FUN_EQ_THM,FORALL_PROD]
 +QED
 +
-+(* ---------------------------------------------------------------------------
-+   RESIDUAL (svenvs Layer B).  The whole-program lemma semantics_optimise (a
-+   clone of bvl_inlineProof.semantics_let_op) and its (fromAList) corollary
-+   optimise_prog_semantics are NOT closed here.  Everything ABOVE is proven with
-+   zero cheats / no oracles:
-+     - optimise_correct       : per-list preservation vs the real bvlSem
-+     - optimise_one_correct / optimise_sing_correct : single-exp corollaries
-+     - evaluate_optimise      : code-rel forward simulation (full congruence)
-+     - opt_evaluate_Call      : per-Call lifting under the optimise_cc oracle
-+     - find_code_optimise, MAP_FST_optimise_prog, optimise_prog_names
-+   The single open obstruction is one FFI-trace-equality subgoal
-+       outcome' = outcome /\ s'.ffi.io_events = s.ffi.io_events
-+   in the value-uniqueness branch of the semantics clone, where the
-+   (s'.ffi = s.ffi) fact from opt_evaluate_Call must be re-threaded.  See the
-+   Layer-B report. *)
++Theorem opt_evaluate_Call_no_Fail[local]:
++  (!k. FST (evaluate ([Call 0 (SOME start) []], [],
++              initial_state ffi0 prog co (optimise_cc cc) k)) <>
++       Rerr (Rabort Rtype_error)) ==>
++  !k.
++    FST (evaluate ([Call 0 (SOME start) []], [],
++           initial_state ffi0 (map (I ## optimise_one) prog)
++             ((I ## MAP (I ## I ## optimise_one)) o co) cc k)) =
++      FST (evaluate ([Call 0 (SOME start) []], [],
++             initial_state ffi0 prog co (optimise_cc cc) k)) /\
++    (SND (evaluate ([Call 0 (SOME start) []], [],
++            initial_state ffi0 (map (I ## optimise_one) prog)
++              ((I ## MAP (I ## I ## optimise_one)) o co) cc k))).ffi =
++      (SND (evaluate ([Call 0 (SOME start) []], [],
++              initial_state ffi0 prog co (optimise_cc cc) k))).ffi
++Proof
++  strip_tac \\ gen_tac
++  \\ first_x_assum (qspec_then `k` mp_tac)
++  \\ Cases_on `evaluate ([Call 0 (SOME start) []], [],
++                 initial_state ffi0 prog co (optimise_cc cc) k)`
++  \\ fs [] \\ strip_tac
++  \\ drule_all opt_evaluate_Call
++  \\ strip_tac \\ fs []
++QED
++
++Theorem semantics_optimise:
++  semantics ffi prog co (optimise_cc cc) start <> Fail ==>
++  semantics ffi (map (I ## optimise_one) prog)
++    ((I ## MAP (I ## I ## optimise_one)) o co) cc start =
++  semantics (ffi:'ffi ffi_state) prog co (optimise_cc cc) start
++Proof
++  simp [semantics_def]
++  \\ IF_CASES_TAC \\ fs []
++  \\ drule opt_evaluate_Call_no_Fail
++  \\ strip_tac \\ fs []
++  \\ `(some res.
++        ?k s r outcome.
++          evaluate ([Call 0 (SOME start) []],[],
++            initial_state ffi (map (I ## optimise_one) prog)
++              ((I ## MAP (I ## I ## optimise_one)) o co) cc k) = (r,s) /\
++          (case r of
++           | Rerr (Rabort Rtimeout_error) => F
++           | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
++           | _ => outcome = Success) /\
++          res = Terminate outcome s.ffi.io_events) =
++      (some res.
++        ?k s r outcome.
++          evaluate ([Call 0 (SOME start) []],[],
++            initial_state ffi prog co (optimise_cc cc) k) = (r,s) /\
++          (case r of
++           | Rerr (Rabort Rtimeout_error) => F
++           | Rerr (Rabort (Rffi_error e)) => outcome = FFI_outcome e
++           | _ => outcome = Success) /\
++          res = Terminate outcome s.ffi.io_events)`
++    by (AP_TERM_TAC \\ rw [FUN_EQ_THM]
++        \\ eq_tac \\ rw []
++        \\ first_x_assum (qspec_then `k` mp_tac)
++        \\ Cases_on `evaluate ([Call 0 (SOME start) []],[],
++                       initial_state ffi prog co (optimise_cc cc) k)`
++        \\ Cases_on `evaluate ([Call 0 (SOME start) []],[],
++                       initial_state ffi (map (I ## optimise_one) prog)
++                         ((I ## MAP (I ## I ## optimise_one)) o co) cc k)`
++        \\ fs [] \\ rw [] \\ qexists_tac `k` \\ fs [])
++  \\ simp []
++QED
++
++Theorem optimise_prog_semantics:
++  semantics ffi (fromAList prog) co (optimise_cc cc) start <> Fail ==>
++  semantics ffi (fromAList (optimise_prog prog))
++    ((I ## MAP (I ## I ## optimise_one)) o co) cc start =
++  semantics (ffi:'ffi ffi_state) (fromAList prog) co (optimise_cc cc) start
++Proof
++  strip_tac
++  \\ drule semantics_optimise
++  \\ simp [map_fromAList_optimise, MAP_I_I_optimise_eq_optimise_prog]
++QED
 +
 +val _ = export_theory ();
 diff --git a/cv_translator/to_data_cvScript.sml b/cv_translator/to_data_cvScript.sml

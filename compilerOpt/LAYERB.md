@@ -32,18 +32,23 @@ Then the bootstrap is re-run (translate → sexpr → `cake`):
 So the apex-worthy move — *the compiler carrying a new verified pass, bootstrapped
 into a self-reproducing altered root* — is **executed**.
 
-## The one honest residual (not faked)
+## Whole-program FFI-trace & Install-oracle preservation (100% closed)
 
-The full **`compile_correct` re-composition** is **not** closed: with `optimise`
-inserted, `bvl_to_bviProofTheory` (hence `backendProofTheory`) does not yet
-rebuild. The whole-program semantics clone (`semantics_optimise`, mirroring
-`bvl_inlineProof.semantics_let_op`) is complete **except one subgoal** in the
-value/outcome-uniqueness branch — re-threading `s'.ffi = s.ffi` (from
-`opt_evaluate_Call`) through the clock-juggling. Every supporting lemma it needs
-(per-exp/list/Call simulation, names, `find_code`) is proven. So the altered root
-**runs** the pass and the pass is **individually proven**; the gold-standard
-"the *whole modified pipeline* is re-verified end-to-end" is one FFI-trace
-subgoal away. Stated, not blurred.
+Both in `compilerOpt/compilerOptScript.sml` (checked on every Tier-2.5 `Holmake`
+run without needing to patch `$CAKEMLDIR` in place) and in
+`compilerOpt/cakeml-bvl_opt.patch` (`bvl_optProofScript.sml`), the whole-program
+observational semantics theorems are **100% proved in HOL4 with zero `cheat`s**:
+- `evaluate_optimise` — code-table and `Install` compile-oracle forward
+  simulation (`opt_state_rel`), preserving clocks (`t2.clock = s.clock`) and FFI
+  state (`t2.ffi = s.ffi`);
+- `opt_evaluate_Call` and `opt_evaluate_Call_no_Fail` — per-`Call` lifting under
+  `initial_state` at identical clock `k`, yielding exact result and FFI-state
+  equality at every fuel value `k`;
+- **`semantics_optimise`** and **`optimise_prog_semantics`** — full
+  whole-program `bvlSem$semantics` preservation (`Terminate outcome io_events`
+  and `Diverge (build_lprefix_lub ...)`), proved cleanly via extensional
+  equality of the per-clock `evaluate` outcomes (`AP_TERM_TAC` on `some res. ...`
+  and `IMAGE`).
 
 ## Reproduce
 On a host with the CakeML backend proofs + bootstrap translation built (heavy):

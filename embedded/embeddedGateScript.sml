@@ -53,6 +53,22 @@ Definition encodes_obligation_def:
     ((thy,[]) |= obl ⇒ admissible step safe oldp newp)
 End
 
+(* Strong biconditional obligation encoding: the obligation term is entailed
+   in [thy] IF AND ONLY IF the policy upgrade is admissible. Eliminates the
+   material-implication vacuity where an independently true consequent or an
+   unsatisfied antecedent makes the encoding hold regardless of [obl]. *)
+Definition encodes_obligation_iff_def:
+  encodes_obligation_iff ^mem thy obl step safe old_p new_p ⇔
+    ((thy,[]) |= obl ⇔ admissible step safe old_p new_p)
+End
+
+Theorem encodes_obligation_iff_imp:
+  encodes_obligation_iff ^mem thy obl step safe old_p new_p ⇒
+  encodes_obligation ^mem thy obl step safe old_p new_p
+Proof
+  rw[encodes_obligation_iff_def, encodes_obligation_def]
+QED
+
 (* Candle's verified kernel really does only certify semantic truths. *)
 Theorem kernel_admits_is_sound:
   kernel_admits ^mem thy obl ⇒ (thy,[]) |= obl
@@ -88,7 +104,8 @@ QED
    obligation term. The decision is syntactic (a `|-` derivation), never
    the semantic `admissible`; `proves_sound` is what connects the two. *)
 Definition kernel_gate_def:
-  kernel_gate ^mem thy obl oldp newp = gate (kernel_admits ^mem thy obl) oldp newp
+  kernel_gate ^mem thy obl (oldp:('s,'a) policy) newp =
+    gate (kernel_admits ^mem thy obl) oldp newp
 End
 
 (* THE THEOREM: the enveloped system stays safe for ANY controller through
@@ -157,6 +174,46 @@ Proof
   irule proves_REFL >> simp[init_theory_ok] >>
   assume_tac (MATCH_MP theory_ok_sig init_theory_ok) >>
   fs[is_std_sig_def, term_ok_def, type_ok_def]
+QED
+
+(* Under the strong biconditional encoding `encodes_obligation_iff`, a false
+   (inadmissible) obligation CANNOT be encoded by `x === x`, and an unentailed
+   term CANNOT encode a true (admissible) obligation. *)
+Theorem false_obligation_not_encoded_by_refl_iff:
+  is_set_theory ^mem ∧ ¬admissible step safe old_p new_p ⇒
+  ¬encodes_obligation_iff ^mem (thyof init_ctxt) (Var x Bool === Var x Bool)
+                          step safe old_p new_p
+Proof
+  rw[encodes_obligation_iff_def] >>
+  metis_tac[proves_sound, candle_refl_witness]
+QED
+
+Theorem unentailed_not_encoding_admissible_iff:
+  admissible step safe old_p new_p ∧ ¬((thy,[]) |= obl) ⇒
+  ¬encodes_obligation_iff ^mem thy obl step safe old_p new_p
+Proof
+  rw[encodes_obligation_iff_def]
+QED
+
+Theorem embedded_admit_preserves_safety_iff:
+  init_safe init safe ∧
+  safe_shield step safe shield ∧
+  sound_policy step safe old_p ∧
+  encodes_obligation_iff ^mem thy obl step safe old_p new_p ⇒
+  ∀ctrl. invariant step init
+            (enveloped (kernel_gate ^mem thy obl old_p new_p) shield ctrl) safe
+Proof
+  rpt strip_tac >> irule embedded_admit_preserves_safety >>
+  metis_tac[encodes_obligation_iff_imp]
+QED
+
+Theorem embedded_admit_installs_iff:
+  kernel_admits ^mem thy obl ∧
+  encodes_obligation_iff ^mem thy obl step safe old_p new_p ⇒
+  kernel_gate ^mem thy obl old_p new_p = new_p ∧
+  admissible step safe old_p new_p
+Proof
+  metis_tac[embedded_admit_installs, encodes_obligation_iff_imp]
 QED
 
 (* NECESSITY of the faithful encoding: with a set theory present, the Candle

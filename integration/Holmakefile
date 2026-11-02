@@ -1,18 +1,21 @@
-# The composed svenvs tower. Opens the independently-built slices and
-# composes them via specNeg's selector-generic transport keystone.
-#
-#   integrationScript        — pure HOL4 trunk + prover crown
-#                              (core + pca + specneg + selfprover)
-#   integrationKernelScript  — Tier-2 kernel crown (pulls candle
-#                              semantics via kernelUpgradeTheory)
-#
-# kernelUpgradeTheory is already built here, so its candle deps resolve.
+# Composed svenvs tower (integration).
+#   integrationScript        — pure HOL4 trunk + prover + inference + self-recompile + relational crown
+#   integrationKernelScript  — Tier-2/2.5 kernel + compiler-opt + reflectsem + self-upgrade crown (pass WITH_KERNEL=1)
+ifdef WITH_KERNEL
 ifndef CAKEMLDIR
 CAKEMLDIR = $(HOME)/dev/CakeML
 endif
 HOLHOL = $(CAKEMLDIR)/candle
-INCLUDES = .. ../pca ../specneg ../selfprover ../liberty ../amendment ../embodiment ../kernel ../embedded \
+KERNEL_INCLUDES = ../kernel ../embedded \
+           ../compilerOpt ../reflectsem ../selfUpgrade \
            $(CAKEMLDIR)/misc $(CAKEMLDIR)/basis/pure \
+           $(CAKEMLDIR)/semantics $(CAKEMLDIR)/semantics/ffi \
+           $(CAKEMLDIR)/semantics/proofs \
+           $(CAKEMLDIR)/compiler/backend \
+           $(CAKEMLDIR)/compiler/backend/semantics \
+           $(CAKEMLDIR)/compiler/backend/proofs \
            $(HOLHOL)/syntax-lib $(HOLHOL)/set-theory \
            $(HOLHOL)/standard/syntax $(HOLHOL)/standard/semantics
+endif
+INCLUDES = .. ../pca ../specneg ../selfprover ../liberty ../embodiment ../corrigibility ../inference ../genealogy ../recursive ../selfRecompile $(KERNEL_INCLUDES)
 OPTIONS = QUIT_ON_FAILURE

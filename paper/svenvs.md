@@ -36,8 +36,10 @@ theorem, and whose recursive mutual verifier⊕compiler self-improvement is a
 genealogy over stages — Löb-free for optimization, walled only for genuine
 logical strengthening. There is exactly **one** genuinely-open cost, labeled
 rather than hidden: a sound judge cannot certify a *logically stronger*
-successor (Gödel/Löb), so kernel strengthening rests on one large-cardinal
-reflection principle. The artifact contains **zero `cheat` tactics**; the live
+successor for free (Gödel/Löb); `loeb_reflection` is derived from the
+certifying kernel's soundness plus the encoding seam `encodes_soundness`, so
+kernel strengthening rests on constructing that soundness witness via the
+large-cardinal reflection route. The artifact contains **zero `cheat` tactics**; the live
 results were executed on the real verified `cake` binary.
 
 ---
@@ -87,16 +89,18 @@ not — can ever make the system unsafe, for any controller. The same gate
 repeats at every level, composing through one selector-generic keystone
 (`specneg/specNegScript.sml : invariant_transports_to_meta`):
 
-- the **spec** is negotiable under a fixed meta (`specNegScript.sml :
+- the **spec** is negotiable under a fixed meta (`specneg/specNegScript.sml :
   spec_negotiation_unbounded_is_safe`);
-- the **meta** is amendable over an eternal bedrock (`amendment/amendmentScript.sml :
+- the **meta** is amendable over an eternal bedrock (`specneg/specNegScript.sml :
   meta_amendment_safe`);
 - the **root** is a ratchet, not a rock — soundness propagates along any
   forward-certified genealogy of judges from a sound genesis
   (`genealogy/genealogyScript.sml : genealogy_sound`);
 - and at **maximal liberty** the full guarantee still holds, every bar
   provably load-bearing (`liberty/libertyScript.sml :
-  envelope_is_least_restrictive`).
+  envelope_is_least_restrictive`), composing up to the unified relational
+  crown over nondeterministic/adversarial plants
+  (`integration/integrationScript.sml : svenvs_relational_crown`).
 
 ### 2.1 Corrigibility: the floor you can actually decide
 
@@ -104,17 +108,17 @@ Every theorem above is relative to a safety predicate, and *deciding* it is
 the spec-faithfulness gap no proof closes. The `corrigibility/` slice reframes
 it: do not write down a positive "what is good"; write down one *negative*
 floor — **non-lock-in**, the operator can always still bring the system home —
-decidable for a finite habitat and itself self-improvable
-(`corrigibility/corrigibilityScript.sml : corrigibility_floor_holds`). The
+decidable for a finite habitat, demonic against adversarial plants
+(`corrigibility/corrigibilityScript.sml : corrigibility_floor_holds, corrigibler_floor_holds`),
+and itself self-improvable. The
 cage is exactly "no one-way doors", and the **off-switch itself self-improves
 but cannot self-weaken**: the inhabitant may rewrite its own recovery
 mechanism, gated so it can never lose — nor even *slow past a deadline* —
-recoverability (`recovUpgradeScript.sml :
-self_modification_never_weakens_recoverability`;
-`boundedRecovUpgradeScript.sml :
+recoverability (`corrigibility/corrigibilityScript.sml :
+self_modification_never_weakens_recoverability,
 self_modification_never_increases_recovery_latency`). A frozen `home` vouches
 for a mutable `recov`; no Löb. The one frozen predicate is hedged by
-spec-redundancy, with the failure mode named in the logic (`robustScript.sml :
+spec-redundancy, with the failure mode named in the logic (`corrigibility/corrigibilityScript.sml :
 disjoint_homes_make_floor_empty`). This is a *reduction* to a faithful `home`,
 and the trapdoor habitat is a non-vacuity witness, not an AI — both stated in
 `corrigibility/CLAIMS.md`.
@@ -158,7 +162,7 @@ link is re-verified against this **real** development.
 
 **Run, not just proved.** On the real `cake` binary (Tier 3): a verified
 program self-extends its own code with a proven-safe derived rule and uses it
-(`candle/selfopt_demo.ml`); the watchdog and polecart self-optimize their
+(`candle/theplace.ml`); the watchdog and polecart self-optimize their
 policies under the live kernel (`candle/theplace.ml`); and the **closed-loop
 runtime** gates a real jailbroken gemma2:2b per action by the running Candle
 kernel (`agent/closedloop/`, `ADMIT_SOUND`/`SHIELD_SAFE` certified live).
@@ -221,16 +225,23 @@ The CakeML-semantics theorems (the loader, the executable-SYM refinement) carry
 the *identical* tag profile as CakeML's own kernel theorems — only `DISK_THM`,
 zero oracles, zero added axioms. **No new turtle.**
 
-## 5. Verified inference (a separate research axis)
+## 5. Verified inference & envelope bridge
 
-A toy ReLU MLP → a hardmax attention micro-block → a two-sublayer encoder block
-with residual skips (end-to-end shape + a *true* residual identity,
-`inference/encoder/encoderBlockScript.sml : encoder_block_zero_collapses`),
+A ReLU MLP (`inference/mlpInferenceScript.sml : mlp_nonneg`) → a hardmax
+attention block (`attn1_argmax_correct`) → a two-sublayer encoder block
+with residual skips (end-to-end shape + both zero-sublayer and weight-matrix
+residual identities,
+`inference/mlpInferenceScript.sml : encoder_block_zero_collapses, res_ff_zero_weights_id`),
 plus a fixed-point softmax-normalization with a machine-checked per-component
-error bound `|pᵢ/Q − wᵢ/S| < 1/Q` (`inference/numeric/fxpSoftmaxScript.sml :
-fxp_softmax_abs_error_lt_step`). The honest scope is stated loudly: `exp`,
-f32/bf16, and Gemma-scale are **not** claimed; the domain is `int` and
-attention is hardmax. This track does *not* compose into the envelope tower.
+error bound `|pᵢ/Q − wᵢ/S| < 1/Q` and quantized inner-product truncation envelope
+(`inference/mlpInferenceScript.sml : fxp_softmax_abs_error_lt_step, qdot_error_envelope`).
+Unlike disconnected toy networks, the non-negativity cone of the verified ReLU
+controller bridges directly into the safety envelope: a cone-clamped neural
+controller runs with **zero shield overrides** under the maximal policy
+(`inference/mlpInferenceScript.sml : neural_ctrl_transparent_run, neural_testimony_discharges_gate`)
+and composes into the tower (`integration/integrationScript.sml : svenvs_tower_with_verified_inference`).
+The honest scope is stated loudly: `exp`, f32/bf16, and Gemma-scale are **not**
+claimed; the domain is `int`/`num` and attention is hardmax.
 
 ## 6. Reproducibility
 
@@ -258,8 +269,8 @@ Candle, reused as verified substrates — `proves_sound` and `do_install` enter
 the proofs as cited theorems). The contribution is their composition into a
 single artifact in which the *whole tower* — policy, checker, and the inference
 relation itself — self-improves while a `∀`-controller guarantee is mechanically
-preserved, with the irreducible self-reference isolated to one labeled
-assumption and a proved negative bounding what finiteness can do about it.
+preserved, with the irreducible self-reference isolated to one soundness-witness
+construction (`encodes_soundness`) and a proved negative bounding what finiteness can do about it.
 
 ---
 

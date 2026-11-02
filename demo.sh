@@ -83,14 +83,15 @@ val _ = OS.Process.exit OS.Process.success;
 EOF
 )"
 
-# toy verified inference — from inference/
+# verified inference + envelope bridge — from inference/
 hol_inf="$(cd "$SVENVS_ROOT/inference" && timeout 180 "$HOL" 2>/dev/null <<EOF || true
-val _ = loadPath := "./.hol/objs" :: "../.hol/objs" :: !loadPath;
+val _ = loadPath := "./.hol/objs" :: "../liberty/.hol/objs" :: "../.hol/objs" :: !loadPath;
 $SML_HELPER
 val _ = load "mlpInferenceTheory";
-val _ = S "inf" "demo_forward_eval" mlpInferenceTheory.demo_forward_eval;
-val _ = S "inf" "demo_relu_clamps" mlpInferenceTheory.demo_relu_clamps;
 val _ = S "inf" "mlp_nonneg" mlpInferenceTheory.mlp_nonneg;
+val _ = S "inf" "res_ff_zero_weights_id" mlpInferenceTheory.res_ff_zero_weights_id;
+val _ = S "inf" "fxp_softmax_abs_error_lt_step" mlpInferenceTheory.fxp_softmax_abs_error_lt_step;
+val _ = S "inf" "neural_ctrl_transparent_run" mlpInferenceTheory.neural_ctrl_transparent_run;
 val _ = OS.Process.exit OS.Process.success;
 EOF
 )"
@@ -149,10 +150,11 @@ fi
 
 # ----------------------------------------------------------------------
 say "4/5  What is proven vs trusted vs assumed"
-echo "  This demo showed only the UNCONDITIONAL, machine-checked Tier-1 core"
-echo "  (zero cheats). The two explicit, labeled assumptions"
-echo "  (loeb_reflection, encodes_obligation) are NOT used by anything above;"
-echo "  they gate only the heavier kernel-self-upgrade discharge."
+echo "  This demo showed the UNCONDITIONAL, machine-checked Tier-1 core"
+echo "  (zero cheats). The historical seams (encodes_obligation, frozen_checker_sound)"
+echo "  are discharged in Tier 2/2.5, and loeb_reflection is derived from"
+echo "  soundness + encodes_soundness (only the LCA witness construction for a"
+echo "  strictly stronger kernel remains open)."
 echo "  Precise breakdown, with file:theorem citations:  CLAIMS.md"
 
 # ----------------------------------------------------------------------

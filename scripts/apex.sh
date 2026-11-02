@@ -11,7 +11,7 @@
 #         regime -> a different binary that is still a correct compiler
 #       (correctness = CakeML's verified compiler-correctness theorem, CITED)
 #
-#   II. THE PROVER IMPROVES ITSELF, proof-gated (candle/self_recompile.ml)
+#   II. THE PROVER IMPROVES ITSELF, proof-gated (candle/theplace.ml)
 #       - a running compute routine is recompiled+hot-swapped at runtime, each
 #         swap GATED by a live Candle kernel equivalence proof; swaps accumulate
 #         (path-dependent); an unprovable swap is REJECTED (semantics can't break)
@@ -70,8 +70,8 @@ fi
 say "APEX II — the prover improves itself, proof-gated (live Candle)"
 LOG="$PLACE_LOG"
 place_ensure_server
-"$here/place-submit.sh" "$SVENVS_ROOT/candle/self_recompile.ml" _SVENVS_APEX_RECOMPILE >/dev/null
-for thm in GATE1 GATE2; do
+"$here/place-submit.sh" "$SVENVS_ROOT/candle/theplace.ml" _SVENVS_APEX_RECOMPILE >/dev/null
+for thm in GATE1 GATE2 GATE_B GATE_C; do
   grep -aE "val $thm = " "$LOG" | tail -1 | grep -q '|-' || die "$thm not certified by live Candle"
 done
 if grep -aqE 'val verdict = "APEX_SUBSTRATE_OK"' "$LOG"; then

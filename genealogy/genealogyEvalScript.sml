@@ -12,9 +12,11 @@
   ceiling. Everything is closed by computation / arithmetic, reusing
   genealogyTheory verbatim.
 *)
-open HolKernel boolLib bossLib BasicProvers arithmeticTheory genealogyTheory;
+open HolKernel boolLib bossLib BasicProvers arithmeticTheory
+     cv_transLib cv_stdTheory genealogyTheory;
 
 val _ = new_theory "genealogyEval";
+val _ = numLib.prefer_num ();
 
 Definition gj_sound_def:
   gj_sound (j:num) ⇔ j ≤ 5
@@ -27,6 +29,10 @@ End
 Definition gj_succ_def:
   gj_succ (n:num) = MIN n 5
 End
+
+val () = cv_auto_trans gj_sound_def;
+val () = cv_auto_trans gj_vouches_def;
+val () = cv_auto_trans gj_succ_def;
 
 (* The forward-step seam is a THEOREM here (the eval discipline): a sound
    judge that vouches for b implies b sound, by construction. *)
@@ -77,7 +83,14 @@ Theorem gj_succession_runs:
   gj_succ 0 = 0 ∧ gj_succ 3 = 3 ∧ gj_succ 10 = 5 ∧
   gj_sound (gj_succ 100)
 Proof
-  rw[gj_succ_def, gj_sound_def, MIN_DEF]
+  CONV_TAC cv_eval
+QED
+
+Theorem gj_succession_cv_eval:
+  gj_succ 0 = 0 ∧ gj_succ 3 = 3 ∧ gj_succ 10000 = 5 ∧
+  gj_sound (gj_succ 10000) ∧ gj_vouches (gj_succ 9999) (gj_succ 10000)
+Proof
+  CONV_TAC cv_eval
 QED
 
 val _ = export_theory ();

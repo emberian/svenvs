@@ -56,10 +56,42 @@ build_dir "closed-loop num-encoding faithfulness (gate can't be fooled)" "$SVENV
   encFaith
 
 if [ "$QUICK" = 0 ]; then
-  build_dir "toy verified-inference kernel" "$SVENVS_ROOT/inference" inf \
+  build_dir "verified-inference kernel + encoder + softmax + envelope bridge" "$SVENVS_ROOT/inference" inf \
     mlpInference
 else
   warn "skipping optional verified-inference track (--quick)"
+fi
+
+build_dir "proof-carrying actions (PCA)" "$SVENVS_ROOT/pca" pca \
+  pca pcaShield pcaSubsumption pcaCartpole
+
+build_dir "spec negotiation + constitutional meta-amendment" "$SVENVS_ROOT/specneg" specneg \
+  specNeg specNegEval
+
+build_dir "prover self-improvement (frozen root)" "$SVENVS_ROOT/selfprover" selfprover \
+  selfProver
+
+build_dir "maximal liberty + minimal intervention (det & rel)" "$SVENVS_ROOT/liberty" liberty \
+  liberty transparency relTransparency
+
+build_dir "voluntary testimony (embodiment)" "$SVENVS_ROOT/embodiment" embodiment \
+  embodiment embodimentEval
+
+build_dir "forward-certified genealogy of judges" "$SVENVS_ROOT/genealogy" genealogy \
+  genealogy genealogyEval
+
+build_dir "corrigibility floor (det, bounded, self-modifying, relational)" "$SVENVS_ROOT/corrigibility" corrigibility \
+  corrigibility corrigibilityEval
+
+if [ "$QUICK" = 0 ]; then
+  say "Tier 1: composed tower trunk + relational crown (integrationTheory)"
+  cd "$SVENVS_ROOT/integration" || die "missing directory $SVENVS_ROOT/integration"
+  [ "$CLEAN" = 1 ] && { "$HOLMAKE" cleanAll >/dev/null 2>&1 || true; rm -rf .hol; }
+  if ! "$HOLMAKE" $SVENVS_HM_FLAGS integrationTheory.uo 2>&1 | tee "$SVENVS_LOGS/t1-integration.log" | tail -n 6; then
+    die "Holmake failed in integration — full log: $SVENVS_LOGS/t1-integration.log"
+  fi
+  built "$SVENVS_ROOT/integration" integration || die "integration: integrationTheory not built"
+  ok "composed tower trunk + relational crown: integrationTheory machine-checked"
 fi
 
 # integrity: a real 'cheat' tactic must appear nowhere in Tier 1 sources
@@ -69,7 +101,11 @@ fi
 cheats="$(for f in "$SVENVS_ROOT"/*.sml "$SVENVS_ROOT"/agent/*.sml \
             "$SVENVS_ROOT"/agent/closedloop/*.sml "$SVENVS_ROOT"/recursive/*.sml \
             "$SVENVS_ROOT"/selfRecompile/*.sml "$SVENVS_ROOT"/apex/*.sml \
-            "$SVENVS_ROOT"/inference/mlpInferenceScript.sml; do
+            "$SVENVS_ROOT"/pca/*.sml "$SVENVS_ROOT"/specneg/*.sml \
+            "$SVENVS_ROOT"/selfprover/*.sml "$SVENVS_ROOT"/liberty/*.sml \
+            "$SVENVS_ROOT"/embodiment/*.sml "$SVENVS_ROOT"/genealogy/*.sml \
+            "$SVENVS_ROOT"/corrigibility/*.sml "$SVENVS_ROOT"/integration/integrationScript.sml \
+            "$SVENVS_ROOT"/inference/*.sml; do
             [ -f "$f" ] || continue
             { code_only "$f" | grep -nE '(^|[^[:alnum:]_])cheat([^[:alnum:]_]|$)' | sed "s|^|$f:|"; } || true
           done)"

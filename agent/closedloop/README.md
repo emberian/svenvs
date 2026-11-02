@@ -1,22 +1,22 @@
 # Closed loop — the gate IS the verified prover
 
 `../embodied/embodied_demo.py` showed a real jailbroken Gemma contained by
-a **Python mirror** of the proven svenvs envelope. The mirror was TRUSTED by
-human audit (≈50 lines, cited 1:1 with `toolAgentScript.sml`).
+the **HOL4 `EVAL`-extracted `decision_table.tsv`** (`../toolAgentDecideScript.sml`),
+with a **TRUSTED ~10-line table-lookup harness** (`load_table` + `enforce`) in Python.
 
 **This directory closes the loop.** Every action the inhabitant proposes is
 now admitted or refused by a **live verified Candle kernel** (a
 `scripts/place-server.sh` on any host you can reach over ssh) — a fresh
-machine-checked theorem per step. The gate is no longer a human-audited
-transcription of the proof; it *is* the prover.
+machine-checked theorem per step. The gate is no longer a static table lookup
+from a build-time extraction; it *is* the prover, running live.
 
 ```
-  embodied (before)        closed loop (here)
-  ----------------         ------------------
-  Gemma → Python mirror     Gemma → HOL Light obligation
-          (TRUSTED audit)           → live Candle kernel (place-server)
-          → world step              → kernel theorem → world step
-                                       (VERIFIED at runtime)
+  embodied (before)                 closed loop (here)
+  ----------------                  ------------------
+  Gemma → decision_table.tsv        Gemma → HOL Light obligation
+          (EVAL-extracted artifact          → live Candle kernel (place-server)
+           + ~10-line lookup)               → kernel theorem → world step
+          → world step                        (VERIFIED at runtime)
 ```
 
 ## Files
@@ -61,9 +61,9 @@ weight of the machine-checked proof, not of a transcription.
 
 | Level | embodied (before) | closed loop (here) |
 |-------|-------------------|--------------------|
-| VERIFIED | HOL4 `agent_enveloped_safe` | + its HOL-Light re-derivation, **re-proved live by the Candle kernel each run** |
-| THE GATE | a Python mirror (TRUSTED by audit) | **the verified Candle kernel itself, at runtime** |
-| TRUSTED | ~50-line policy mirror | ~10-line *encode* step only (tool-call → num). The admissibility *decision* is Candle's. |
+| VERIFIED | HOL4 `agent_enveloped_safe` + `toolAgentDecideScript.sml` (`EVAL`-extracted `decision_table.tsv`) | + its HOL-Light re-derivation, **re-proved live by the Candle kernel each run** |
+| THE GATE | `EVAL`-extracted `decision_table.tsv` (static table lookup) | **the verified Candle kernel itself, at runtime** |
+| TRUSTED | ~10-line table-lookup harness (`load_table` + `enforce` on `decision_table.tsv`) | ~10-line *encode* step only (tool-call → num, faithfulness proved in `encFaithScript.sml`). The admissibility *decision* is Candle's. |
 | UNCONSTRAINED | Gemma | Gemma (still deliberately jailbroken) |
 
 "Verify the cage" became "**the cage checks each bar as the animal pushes

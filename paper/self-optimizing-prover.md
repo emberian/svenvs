@@ -40,10 +40,9 @@ the supporting lemmas behind its rows, and one label the root table does not def
 | The in-place swap keeps the heap; SYM is a sound extension of Candle. | **PROVED** | `kernelMod/inplaceUpdateScript.sml : inplace_swap_preserves_heap, sym_extends_candle` |
 | The self-optimization loop loses no theorem; one verified relocating hot-swap step. | **PROVED** | `kernelMod/selfOptimizeScript.sml : self_optimization_is_safe, verified_hot_swap_safe, sym_is_sound_extension` |
 | The runtime checker's soundness is the single genesis fact. | **PROVED** | `kernelMod/genesisRuntimeScript.sml : sym_checker_is_sound` |
-| A toy-but-real verified *relocator* (position-independence) discharging the abstract `reloc_correct`. | **PROVED** | `kernelMod/relocatorScript.sml : relocator_preserves_semantics, reloc_correct_discharged` |
 | Compiler-correctness (the recompiled binary refines its source); `do_install` *requires* it. | **CITED** | CakeML compiler-correctness; `closSem$do_install`'s `compile_oracle` check |
 | The recursive seam decomposes into the genealogy (verifier line) and selfprover (compiler line); recompile preserves code at every step. | **PROVED** | `recursive/recursiveImprovementScript.sml : stage_seam_decomposes, recursive_recompile_preserves_code_throughout` |
-| The live self-extension, sentinel by sentinel. | **RAN** | `candle/selfopt_demo.ml` (`SYM_LEMMA`, `SYM_RULE`, `FACT1_SYM`, `FACT1_ROUNDTRIP`) |
+| The live self-extension, sentinel by sentinel. | **RAN** | `candle/theplace.ml` (`SYM_LEMMA`, `SYM_RULE`, `FACT1_SYM`, `FACT1_ROUNDTRIP`) |
 | The compiler's self-recompilation, mechanically: self-host, fixpoint via `cmp`, self-optimize via `--inline_size`/`--max_app`. | **RAN** | `scripts/apex.sh` (APEX I) |
 | Succession structure cannot dissolve the strengthening seam (a second negative beside `loeb_finite_obstruction`): a forward-certified genealogy from a sound genesis with a non-`vouch_sound` vouching goes unsound at step one, and with total vouching the seam is equivalent to "every such genealogy stays sound". | **PROVED (negative)** | `genealogy/genealogyScript.sml : genealogy_irrelevant_to_vouch_sound, vouch_sound_is_necessary` |
 
@@ -66,7 +65,7 @@ assumption** (`recursive_mutual_optimization_is_unconditional`); only verifier
 - **Run live:** (a) a verified program self-*extending its own code* (proven
   derived rules), via the same verified `Install`/`do_install` the loader
   theorem is about; and (b) a full **proof-gated recompile→swap→resume loop**
-  (`candle/self_recompile.ml`): the running system replaces its own executing
+  (`candle/theplace.ml`, `candle/ouroboros.ml`): the running system replaces its own executing
   *compute* code with a freshly-compiled version (the in-binary CakeML compiler
   compiles the new closure; the real `do_install` installs it), but only after
   the live kernel *proves* the new version equal to the old; swaps accumulate

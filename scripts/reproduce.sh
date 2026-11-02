@@ -28,12 +28,12 @@ done
 say "svenvs reproduction  (pins: HOL4 $SVENVS_HOL4_COMMIT, CakeML $SVENVS_CAKEML_COMMIT, PolyML $SVENVS_POLYML_VERSION)"
 
 bash "$here/tier1-core.sh"          "${ARGS[@]:-}"
-bash "$here/tier2-candle-layers.sh" "${ARGS[@]:-}" || true
-bash "$here/tier2.5-cited-layers.sh" "${ARGS[@]:-}" || true
-bash "$here/tier3-place-candle.sh"  "${ARGS[@]:-}" || true
-bash "$here/apex-compiler-cell.sh"  "${ARGS[@]:-}" || true
-bash "$here/apex-compiler-cell-candle.sh" "${ARGS[@]:-}" || true
-bash "$here/apex-selfupgrade-root.sh" "${ARGS[@]:-}" || true
+bash "$here/tier2-candle-layers.sh" "${ARGS[@]:-}"
+bash "$here/tier2.5-cited-layers.sh" "${ARGS[@]:-}"
+bash "$here/tier3-place-candle.sh"  "${ARGS[@]:-}"
+bash "$here/apex-compiler-cell.sh"  "${ARGS[@]:-}"
+bash "$here/apex-compiler-cell-candle.sh" "${ARGS[@]:-}"
+bash "$here/apex-selfupgrade-root.sh" "${ARGS[@]:-}"
 
 say "REPRODUCTION SUMMARY"
 yn(){ "$@" >/dev/null 2>&1 && printf yes || printf 'no (skipped — prereq absent)'; }
@@ -46,7 +46,7 @@ grep -aqE 'val WD_HABITAT_SAFE = .*\|-' "$PLACE_LOG" 2>/dev/null && t3=yes
 acc=no
 grep -aq COMPILER_CELL_UPGRADE_OK "$SVENVS_WORK/ccu/ccu.out" 2>/dev/null && acc=yes
 accc=no
-grep -aqE 'val verdict = "COMPILER_CELL_CANDLE_OK"' "$PLACE_LOG" 2>/dev/null && accc=yes
+grep -aqE 'val compiler_cell_verdict = "COMPILER_CELL_CANDLE_OK"' "$PLACE_LOG" 2>/dev/null && accc=yes
 sur=no
 [ -x "$SVENVS_WORK/selfupgrade-root/cake-selfupgrade" ] && sur='built (compiles fib->55; --repl env-blocked)'
 

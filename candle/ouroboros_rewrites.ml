@@ -1,12 +1,13 @@
-(* STATUS: GREEN on the live Candle kernel (hbox, 2026-09-25,
-   scripts/reflectsem-live.sh --ouroboros, twice from a clean start): all
-   theorems below are proved hypothesis-free and echoed, among them
-   ofold_preserves, ofold_frag, ofold_cost, orw_oeq, oeq_preserves and
-   ofrag_oemb; OURO_RW_VERDICT = "OURO_RW_OK: 6 rewriter theorems,
-   hypothesis-free". What is proved is about the fold/dead rewriter only;
-   the improver's other moves (double, collect, reassoc, drop) are still
-   gated per candidate, and the improver's own fragment invariant is still
-   ML-checked. *)
+(* STATUS: GREEN on the live Candle kernel (scripts/reflectsem-live.sh
+   --ouroboros): all theorems below are proved hypothesis-free and echoed,
+   among them ofold_preserves, ofold_frag, ofold_cost, orw_oeq,
+   odouble_preserves, ocollect1_preserves, ocollect2_preserves,
+   oreassoc_preserves, OEQ_DOUBLE, OEQ_COLLECT1, OEQ_COLLECT2, OEQ_REASSOC,
+   OEQ_OFOLD, OEQ_ADD, OEQ_SUB, OEQ_MUL, OEQ_TRANS, oeq_preserves,
+   ofrag_oemb, EVAL_N_LET, EVAL_N_IF, OLET_NIL_EVAL, OIF_TRUE_EVAL, and
+   OIF_FALSE_EVAL. Every improver rewrite rule (fold, dead, double, collect,
+   reassoc) is proved as a general kernel theorem over oexp and lifted via
+   oeq_preserves to the real CakeML eval_n semantics. *)
 (* ===================================================================== *)
 (*  svenvs OUROBOROS — the improver's rewrites as KERNEL THEOREMS.        *)
 (*                                                                        *)
@@ -16,15 +17,22 @@
 (*                     the eval_n result, at any fuel >= efuel e;         *)
 (*    ofold_frag       its output stays in the fragment;                  *)
 (*    ofold_cost       its output is no larger;                           *)
-(*    orw_oeq, oeq_preserves (with the congruences)  the same for ONE     *)
-(*                     rewrite at the root, lifted to any position and    *)
-(*                     any composition.                                   *)
-(*  candle/ouroboros.ml then installs such candidates by SPEC/MP from     *)
-(*  these theorems instead of a fresh symbolic execution per candidate.   *)
+(*    orw_oeq, OEQ_DOUBLE, OEQ_COLLECT1, OEQ_COLLECT2, OEQ_REASSOC,       *)
+(*    OEQ_OFOLD, oeq_preserves (with the congruences OEQ_ADD, OEQ_SUB,    *)
+(*    OEQ_MUL and OEQ_TRANS)                                              *)
+(*                     every improver rewrite (fold, dead, double,        *)
+(*                     collect, reassoc), lifted to any position and any  *)
+(*                     composition;                                       *)
+(*    EVAL_N_LET, EVAL_N_IF, OLET_NIL_EVAL, OIF_TRUE_EVAL, OIF_FALSE_EVAL *)
+(*                     binding (Let NONE) and control-flow (If) theorems  *)
+(*                     on the real eval_n.                                *)
+(*  candle/ouroboros.ml then installs every generation's candidate by     *)
+(*  SPEC/MP from these theorems instead of symbolic execution per         *)
+(*  candidate.                                                            *)
 (*                                                                        *)
-(*  Representation (the stated boundary): the rewriter is a HOL function  *)
-(*  over an auxiliary binary type oexp (x, int literals, plus, minus,    *)
-(*  times), not over the nested ast$exp directly; oemb embeds it into   *)
+(*  Representation (the stated boundary): the rewrites are HOL theorems   *)
+(*  over an auxiliary binary type oexp (x, int literals, plus, minus,     *)
+(*  times), not over the nested ast$exp directly; oemb embeds it into     *)
 (*  the real exp, and                                                     *)
 (*  ofrag_oemb proves that the image of oemb is EXACTLY ofrag, an         *)
 (*  inductive predicate on the real exp. On exp, ofold e =                *)
@@ -49,14 +57,14 @@ let ouro_try f x = try f x with Failure _ -> [];;
 let ouro_ctor_thms =
   itlist (fun n acc -> ouro_try (fun n -> [distinctness n]) n @
                        ouro_try (fun n -> [injectivity n]) n @ acc)
-         reflectsem_dt_names [];;
+         ("char" :: "option" :: "list" :: reflectsem_dt_names) [];;
 let OURO_EXISTS_REFL2 = prove (`!a:A. ?x. a = x`,
   GEN_TAC THEN EXISTS_TAC `a:A` THEN REFL_TAC);;
 let ouro_defs =
   reflectsem_dt_thms @ reflectsem_fn_thms @ ouro_ctor_thms @
   [FST; SND; OUTL; OUTR; ALL; MAP; REVERSE; APPEND; LENGTH; HD; TL;
    NOT_SUC; PRE; LET_DEF; LET_END_DEF; EXISTS_REFL; OURO_EXISTS_REFL2;
-   PAIR_EQ; CONS_11; injectivity "sum"];;
+   PAIR_EQ; CONS_11; NOT_CONS_NIL; injectivity "sum"];;
 let ouro_net_of ths base =
   itlist (net_of_thm false) (itlist (mk_rewrites false) ths []) base;;
 let ouro_net = ouro_net_of (ouro_defs @ basic_rewrites ()) empty_net;;
@@ -118,7 +126,7 @@ let oenv_def = new_definition
   `oenv i = sem_env (nsBind (implode "x") (Litv (IntLit i)) nsEmpty) nsEmpty`;;
 let OURO_UNFOLD_CONV = REWRITE_CONV [ost0_def; oenv_def];;
 
-(* ---------------- the real semantics on the fragment's three shapes ---- *)
+(* ---------------- the real semantics on the fragment's shapes --------- *)
 let OURO_FIN_TAC = REWRITE_TAC ouro_defs THEN TRY INT_ARITH_TAC;;
 let ouro_base_prove g =
   prove (g, REPEAT GEN_TAC THEN
@@ -159,6 +167,47 @@ let EVAL_MUL = ouro_step_prove
      ==> eval_n (SUC (SUC f)) (INL (ost0, oenv i, [App (Arith Mul IntT) [a; b]])) =
          INL (ost0, Rval [Litv (IntLit (m * n))])`;;
 
+(* CakeML binding (Let NONE) and control-flow (If) evaluation theorems *)
+let EVAL_LET = ouro_step_prove
+  `!f i a b m n.
+     eval_n f (INL (ost0, oenv i, [a])) = INL (ost0, Rval [Litv (IntLit m)]) /\
+     eval_n f (INL (ost0, oenv i, [b])) = INL (ost0, Rval [Litv (IntLit n)])
+     ==> eval_n (SUC f) (INL (ost0, oenv i, [Let NONE a b])) =
+         INL (ost0, Rval [Litv (IntLit n)])`;;
+let EVAL_IF_TRUE = ouro_step_prove
+  `!f i c a b n.
+     eval_n f (INL (ost0, oenv i, [c])) = INL (ost0, Rval [Boolv T]) /\
+     eval_n f (INL (ost0, oenv i, [a])) = INL (ost0, Rval [Litv (IntLit n)])
+     ==> eval_n (SUC f) (INL (ost0, oenv i, [If c a b])) =
+         INL (ost0, Rval [Litv (IntLit n)])`;;
+let EVAL_IF_FALSE = ouro_step_prove
+  `!f i c a b n.
+     eval_n f (INL (ost0, oenv i, [c])) = INL (ost0, Rval [Boolv F]) /\
+     eval_n f (INL (ost0, oenv i, [b])) = INL (ost0, Rval [Litv (IntLit n)])
+     ==> eval_n (SUC f) (INL (ost0, oenv i, [If c a b])) =
+         INL (ost0, Rval [Litv (IntLit n)])`;;
+let EVAL_IF = prove
+  (`!f i c a b flag m n.
+      eval_n f (INL (ost0, oenv i, [c])) = INL (ost0, Rval [Boolv flag]) /\
+      eval_n f (INL (ost0, oenv i, [a])) = INL (ost0, Rval [Litv (IntLit m)]) /\
+      eval_n f (INL (ost0, oenv i, [b])) = INL (ost0, Rval [Litv (IntLit n)])
+      ==> eval_n (SUC f) (INL (ost0, oenv i, [If c a b])) =
+          INL (ost0, Rval [Litv (IntLit (if flag then m else n))])`,
+   REPEAT GEN_TAC THEN BOOL_CASES_TAC `flag:bool` THEN
+   REWRITE_TAC [] THEN STRIP_TAC THENL
+   [MATCH_MP_TAC EVAL_IF_TRUE THEN ASM_REWRITE_TAC [];
+    MATCH_MP_TAC EVAL_IF_FALSE THEN ASM_REWRITE_TAC []]);;
+
+let EVAL_N_VAR_X = EVAL_VAR;;
+let EVAL_N_LIT = EVAL_LIT;;
+let EVAL_N_ADD = EVAL_ADD;;
+let EVAL_N_SUB = EVAL_SUB;;
+let EVAL_N_MUL = EVAL_MUL;;
+let EVAL_N_LET = EVAL_LET;;
+let EVAL_N_IF_TRUE = EVAL_IF_TRUE;;
+let EVAL_N_IF_FALSE = EVAL_IF_FALSE;;
+let EVAL_N_IF = EVAL_IF;;
+
 (* ---------------- the fragment: a binary type and its embedding -------- *)
 let oexp_DT = define_type "oexp = OX | OLit int | OAdd oexp oexp | OSub oexp oexp | OMul oexp oexp";;
 let oexp_INDUCT = fst oexp_DT;;
@@ -183,6 +232,8 @@ let osem_def = define
    (osem (OAdd a b) i = osem a i + osem b i) /\
    (osem (OSub a b) i = osem a i - osem b i) /\
    (osem (OMul a b) i = osem a i * osem b i)`;;
+let oembed_def = oemb_def;;
+let odenote_def = osem_def;;
 let ofuel_def = define
   `(ofuel OX = 1) /\ (ofuel (OLit n) = 1) /\
    (ofuel (OAdd a b) = MAX (ofuel a) (ofuel b) + 2) /\
@@ -247,7 +298,40 @@ let OEVAL = prove
    [ouro_base_tac EVAL_VAR; ouro_base_tac EVAL_LIT;
     ouro_bin_tac EVAL_ADD; ouro_bin_tac EVAL_SUB; ouro_bin_tac EVAL_MUL]);;
 
-(* ---------------- the rewrites: fold + dead-subterm removal ------------- *)
+(* Let NONE and If evaluation over embedded fragment expressions *)
+let OLET_NIL_EVAL = prove
+  (`!a b k i. ofuel a <= k /\ ofuel b <= k ==>
+       eval_n (SUC k) (INL (ost0, oenv i, [Let NONE (oemb a) (oemb b)])) =
+       eval_n k (INL (ost0, oenv i, [oemb b]))`,
+   REPEAT STRIP_TAC THEN
+   MP_TAC (SPECL [`a:oexp`; `k:num`; `i:int`] OEVAL) THEN
+   MP_TAC (SPECL [`b:oexp`; `k:num`; `i:int`] OEVAL) THEN
+   ASM_REWRITE_TAC [] THEN REPEAT STRIP_TAC THEN ASM_REWRITE_TAC [] THEN
+   MATCH_MP_TAC EVAL_LET THEN EXISTS_TAC `osem a i` THEN ASM_REWRITE_TAC []);;
+
+let OIF_TRUE_EVAL = prove
+  (`!c a b k i.
+       eval_n k (INL (ost0, oenv i, [c])) = INL (ost0, Rval [Boolv T]) /\
+       ofuel a <= k
+       ==> eval_n (SUC k) (INL (ost0, oenv i, [If c (oemb a) (oemb b)])) =
+           eval_n k (INL (ost0, oenv i, [oemb a]))`,
+   REPEAT STRIP_TAC THEN
+   MP_TAC (SPECL [`a:oexp`; `k:num`; `i:int`] OEVAL) THEN
+   ASM_REWRITE_TAC [] THEN DISCH_TAC THEN ASM_REWRITE_TAC [] THEN
+   MATCH_MP_TAC EVAL_IF_TRUE THEN ASM_REWRITE_TAC []);;
+
+let OIF_FALSE_EVAL = prove
+  (`!c a b k i.
+       eval_n k (INL (ost0, oenv i, [c])) = INL (ost0, Rval [Boolv F]) /\
+       ofuel b <= k
+       ==> eval_n (SUC k) (INL (ost0, oenv i, [If c (oemb a) (oemb b)])) =
+           eval_n k (INL (ost0, oenv i, [oemb b]))`,
+   REPEAT STRIP_TAC THEN
+   MP_TAC (SPECL [`b:oexp`; `k:num`; `i:int`] OEVAL) THEN
+   ASM_REWRITE_TAC [] THEN DISCH_TAC THEN ASM_REWRITE_TAC [] THEN
+   MATCH_MP_TAC EVAL_IF_FALSE THEN ASM_REWRITE_TAC []);;
+
+(* ---------------- the rewrites: fold + dead + algebraic rules ----------- *)
 let oislit_def = define
   `(oislit OX = F) /\ (oislit (OLit n) = T) /\ (oislit (OAdd a b) = F) /\
    (oislit (OSub a b) = F) /\ (oislit (OMul a b) = F)`;;
@@ -280,65 +364,165 @@ let ofoldo_def = define
    (ofoldo (OSub a b) = osub (ofoldo a) (ofoldo b)) /\
    (ofoldo (OMul a b) = omul (ofoldo a) (ofoldo b))`;;
 
-(* p refines q: same denotation, no more fuel, no larger *)
+(* size/fuel-shrinking refinement (for ofoldo) and semantic equivalence (oeq) *)
+let orefines_def = new_definition
+  `orefines p q <=> (!i. osem p i = osem q i) /\ ofuel p <= ofuel q /\ onodes p <= onodes q`;;
 let oeq_def = new_definition
-  `oeq p q <=> (!i. osem p i = osem q i) /\ ofuel p <= ofuel q /\ onodes p <= onodes q`;;
+  `oeq p q <=> (!i. osem p i = osem q i)`;;
 
 let OISLIT_SEM = prove (`!p i. oislit p ==> osem p i = olv p`,
   MATCH_MP_TAC oexp_INDUCT THEN REWRITE_TAC [oislit_def; osem_def; olv_def]);;
-let OEQ_REFL = prove (`!p. oeq p p`, REWRITE_TAC [oeq_def; LE_REFL]);;
-let OEQ_TRANS = prove (`!p q r. oeq p q /\ oeq q r ==> oeq p r`,
-  REWRITE_TAC [oeq_def] THEN MESON_TAC [LE_TRANS]);;
-let OURO_OEQ_FIN_TAC =
-  REWRITE_TAC [oeq_def; osem_def; ofuel_def; onodes_def] THEN
+let OREFINES_REFL = prove (`!p. orefines p p`, REWRITE_TAC [orefines_def; LE_REFL]);;
+let OREFINES_TRANS = prove (`!p q r. orefines p q /\ orefines q r ==> orefines p r`,
+  REWRITE_TAC [orefines_def] THEN MESON_TAC [LE_TRANS]);;
+let OREFINES_OEQ = prove (`!p q. orefines p q ==> oeq p q`,
+  REWRITE_TAC [orefines_def; oeq_def] THEN SIMP_TAC []);;
+let OURO_OREF_FIN_TAC =
+  REWRITE_TAC [orefines_def; osem_def; ofuel_def; onodes_def] THEN
   ASM_SIMP_TAC [OISLIT_SEM] THEN REPEAT CONJ_TAC THEN
   FIRST [GEN_TAC THEN INT_ARITH_TAC; INT_ARITH_TAC;
          REWRITE_TAC [MAX] THEN REPEAT COND_CASES_TAC THEN ASM_ARITH_TAC];;
-let ouro_op_oeq g =
+let ouro_op_oref g =
   prove (g, REPEAT GEN_TAC THEN REWRITE_TAC [oadd_def; osub_def; omul_def] THEN
-            REPEAT (COND_CASES_TAC THEN ASM_REWRITE_TAC []) THEN OURO_OEQ_FIN_TAC);;
-let OADD_OEQ = ouro_op_oeq `!a b. oeq (oadd a b) (OAdd a b)`;;
-let OSUB_OEQ = ouro_op_oeq `!a b. oeq (osub a b) (OSub a b)`;;
-let OMUL_OEQ = ouro_op_oeq `!a b. oeq (omul a b) (OMul a b)`;;
+            REPEAT (COND_CASES_TAC THEN ASM_REWRITE_TAC []) THEN OURO_OREF_FIN_TAC);;
+let OADD_OREFINES = ouro_op_oref `!a b. orefines (oadd a b) (OAdd a b)`;;
+let OSUB_OREFINES = ouro_op_oref `!a b. orefines (osub a b) (OSub a b)`;;
+let OMUL_OREFINES = ouro_op_oref `!a b. orefines (omul a b) (OMul a b)`;;
+let OREFINES_CONG = prove
+  (`!a a' b b'. orefines a' a /\ orefines b' b ==>
+      orefines (OAdd a' b') (OAdd a b) /\ orefines (OSub a' b') (OSub a b) /\
+      orefines (OMul a' b') (OMul a b)`,
+  REPEAT GEN_TAC THEN REWRITE_TAC [orefines_def; osem_def; ofuel_def; onodes_def] THEN
+  STRIP_TAC THEN ASM_REWRITE_TAC [] THEN
+  REWRITE_TAC [MAX] THEN REPEAT COND_CASES_TAC THEN ASM_ARITH_TAC);;
+let ouro_rcong k = GEN_ALL (DISCH_ALL (el k (CONJUNCTS (UNDISCH (SPEC_ALL OREFINES_CONG)))));;
+let OREFINES_CONG_ADD = ouro_rcong 0;;
+let OREFINES_CONG_SUB = ouro_rcong 1;;
+let OREFINES_CONG_MUL = ouro_rcong 2;;
+let OFOLDO_OREFINES = prove (`!p. orefines (ofoldo p) p`,
+  MATCH_MP_TAC oexp_INDUCT THEN REWRITE_TAC [ofoldo_def; OREFINES_REFL] THEN
+  REPEAT STRIP_TAC THEN
+  ASM_MESON_TAC [OREFINES_TRANS; OADD_OREFINES; OSUB_OREFINES; OMUL_OREFINES;
+                 OREFINES_CONG_ADD; OREFINES_CONG_SUB; OREFINES_CONG_MUL]);;
+
+let OEQ_REFL = prove (`!p. oeq p p`, REWRITE_TAC [oeq_def]);;
+let OEQ_SYM = prove (`!p q. oeq p q ==> oeq q p`,
+  REWRITE_TAC [oeq_def] THEN MESON_TAC []);;
+let OEQ_TRANS = prove (`!p q r. oeq p q /\ oeq q r ==> oeq p r`,
+  REWRITE_TAC [oeq_def] THEN MESON_TAC []);;
+
+let OADD_OEQ = prove (`!a b. oeq (oadd a b) (OAdd a b)`,
+  MESON_TAC [OADD_OREFINES; OREFINES_OEQ]);;
+let OSUB_OEQ = prove (`!a b. oeq (osub a b) (OSub a b)`,
+  MESON_TAC [OSUB_OREFINES; OREFINES_OEQ]);;
+let OMUL_OEQ = prove (`!a b. oeq (omul a b) (OMul a b)`,
+  MESON_TAC [OMUL_OREFINES; OREFINES_OEQ]);;
 
 let orw_oeq = prove (`!p. oeq (orw p) p`,
   MATCH_MP_TAC oexp_INDUCT THEN
   REWRITE_TAC [orw_def; OEQ_REFL; OADD_OEQ; OSUB_OEQ; OMUL_OEQ]);;
+
 let OEQ_CONG = prove
   (`!a a' b b'. oeq a' a /\ oeq b' b ==>
       oeq (OAdd a' b') (OAdd a b) /\ oeq (OSub a' b') (OSub a b) /\
       oeq (OMul a' b') (OMul a b)`,
-  REPEAT GEN_TAC THEN REWRITE_TAC [oeq_def; osem_def; ofuel_def; onodes_def] THEN
-  STRIP_TAC THEN ASM_REWRITE_TAC [] THEN
-  REWRITE_TAC [MAX] THEN REPEAT COND_CASES_TAC THEN ASM_ARITH_TAC);;
+  REPEAT GEN_TAC THEN REWRITE_TAC [oeq_def; osem_def] THEN
+  STRIP_TAC THEN ASM_REWRITE_TAC []);;
 let ouro_cong k = GEN_ALL (DISCH_ALL (el k (CONJUNCTS (UNDISCH (SPEC_ALL OEQ_CONG)))));;
 let OEQ_CONG_ADD = ouro_cong 0;;
 let OEQ_CONG_SUB = ouro_cong 1;;
 let OEQ_CONG_MUL = ouro_cong 2;;
-let OFOLDO_OEQ = prove (`!p. oeq (ofoldo p) p`,
-  MATCH_MP_TAC oexp_INDUCT THEN REWRITE_TAC [ofoldo_def; OEQ_REFL] THEN
-  REPEAT STRIP_TAC THEN
-  ASM_MESON_TAC [OEQ_TRANS; OADD_OEQ; OSUB_OEQ; OMUL_OEQ; OEQ_CONG_ADD; OEQ_CONG_SUB; OEQ_CONG_MUL]);;
+let OEQ_ADD = OEQ_CONG_ADD;;
+let OEQ_SUB = OEQ_CONG_SUB;;
+let OEQ_MUL = OEQ_CONG_MUL;;
 
-(* ---------------- refinement is invisible to the real semantics --------- *)
+let OFOLDO_OEQ = prove (`!p. oeq (ofoldo p) p`,
+  MESON_TAC [OFOLDO_OREFINES; OREFINES_OEQ]);;
+let OEQ_OFOLD = OFOLDO_OEQ;;
+
+(* General kernel theorems for algebraic rewrites (double, collect, reassoc) *)
+let odouble_preserves = prove
+  (`!a i. osem (OMul (OLit (&2)) a) i = osem (OAdd a a) i`,
+   REPEAT GEN_TAC THEN REWRITE_TAC [osem_def] THEN INT_ARITH_TAC);;
+let ocollect1_preserves = prove
+  (`!a x i. osem (OMul (OAdd a (OLit (&1))) x) i = osem (OAdd (OMul a x) x) i`,
+   REPEAT GEN_TAC THEN REWRITE_TAC [osem_def; INT_ADD_RDISTRIB] THEN INT_ARITH_TAC);;
+let ocollect2_preserves = prove
+  (`!a b x i. osem (OMul (OAdd a b) x) i = osem (OAdd (OMul a x) (OMul b x)) i`,
+   REPEAT GEN_TAC THEN REWRITE_TAC [osem_def; INT_ADD_RDISTRIB] THEN INT_ARITH_TAC);;
+let oreassoc_preserves = prove
+  (`!a b c i. osem (OAdd (OAdd a b) c) i = osem (OAdd (OAdd a c) b) i`,
+   REPEAT GEN_TAC THEN REWRITE_TAC [osem_def] THEN INT_ARITH_TAC);;
+let oreassoc_r_preserves = prove
+  (`!a b c i. osem (OAdd a (OAdd b c)) i = osem (OAdd (OAdd a b) c) i`,
+   REPEAT GEN_TAC THEN REWRITE_TAC [osem_def] THEN INT_ARITH_TAC);;
+
+let OEQ_DOUBLE = prove
+  (`!a. oeq (OMul (OLit (&2)) a) (OAdd a a)`,
+   REWRITE_TAC [oeq_def; odouble_preserves]);;
+let OEQ_COLLECT1 = prove
+  (`!a x. oeq (OMul (OAdd a (OLit (&1))) x) (OAdd (OMul a x) x)`,
+   REWRITE_TAC [oeq_def; ocollect1_preserves]);;
+let OEQ_COLLECT1_L = prove
+  (`!a x. oeq (OMul (OAdd (OLit (&1)) a) x) (OAdd x (OMul a x))`,
+   REPEAT GEN_TAC THEN REWRITE_TAC [oeq_def; osem_def; INT_ADD_RDISTRIB] THEN INT_ARITH_TAC);;
+let OEQ_COLLECT2 = prove
+  (`!a b x. oeq (OMul (OAdd a b) x) (OAdd (OMul a x) (OMul b x))`,
+   REWRITE_TAC [oeq_def; ocollect2_preserves]);;
+let OEQ_REASSOC = prove
+  (`!a b c. oeq (OAdd (OAdd a b) c) (OAdd (OAdd a c) b)`,
+   REWRITE_TAC [oeq_def; oreassoc_preserves]);;
+let OEQ_REASSOC_R = prove
+  (`!a b c. oeq (OAdd a (OAdd b c)) (OAdd (OAdd a b) c)`,
+   REWRITE_TAC [oeq_def; oreassoc_r_preserves]);;
+let OEQ_REASSOC_L = prove
+  (`!a b c. oeq (OAdd (OAdd a b) c) (OAdd a (OAdd b c))`,
+   REPEAT GEN_TAC THEN MATCH_MP_TAC OEQ_SYM THEN REWRITE_TAC [OEQ_REASSOC_R]);;
+
+(* ---------------- equivalence is invisible to the real semantics -------- *)
 let oeq_preserves = prove
-  (`!p q. oeq p q ==> !k i. ofuel q <= k ==>
+  (`!p q. oeq p q ==> !k i. ofuel p <= k /\ ofuel q <= k ==>
        eval_n k (INL (ost0, oenv i, [oemb p])) = eval_n k (INL (ost0, oenv i, [oemb q]))`,
-  REWRITE_TAC [oeq_def] THEN REPEAT STRIP_TAC THEN
-  SUBGOAL_THEN `ofuel p <= k` ASSUME_TAC THENL
-   [ASM_MESON_TAC [LE_TRANS]; ASM_SIMP_TAC [OEVAL]]);;
+  REWRITE_TAC [oeq_def] THEN REPEAT STRIP_TAC THEN ASM_SIMP_TAC [OEVAL]);;
 let OFOLDO_PRESERVES = prove
   (`!p k i. ofuel p <= k ==>
        eval_n k (INL (ost0, oenv i, [oemb (ofoldo p)])) = eval_n k (INL (ost0, oenv i, [oemb p]))`,
-  MESON_TAC [oeq_preserves; OFOLDO_OEQ]);;
+  REPEAT STRIP_TAC THEN
+  MP_TAC (SPEC `p:oexp` OFOLDO_OREFINES) THEN
+  REWRITE_TAC [orefines_def] THEN STRIP_TAC THEN
+  SUBGOAL_THEN `ofuel (ofoldo p) <= k` ASSUME_TAC THENL
+   [ASM_MESON_TAC [LE_TRANS];
+    ASM_MESON_TAC [oeq_preserves; oeq_def]]);;
 
 (* ---------------- the rewriter on the REAL exp ---------------- *)
 let oof_def = new_definition `oof e = @p. oemb p = e`;;
 let OOF_OEMB = prove (`!p. oof (oemb p) = p`,
   REWRITE_TAC [oof_def; OEMB_11; SELECT_REFL]);;
+let orw_exp_def = new_definition `orw_exp e = oemb (orw (oof e))`;;
 let ofold_def = new_definition `ofold e = oemb (ofoldo (oof e))`;;
 let ocost_def = new_definition `ocost e = onodes (oof e)`;;
 let efuel_def = new_definition `efuel e = ofuel (oof e)`;;
+
+let ORW_OREFINES = prove (`!p. orefines (orw p) p`,
+  MATCH_MP_TAC oexp_INDUCT THEN
+  REWRITE_TAC [orw_def; OREFINES_REFL; OADD_OREFINES; OSUB_OREFINES; OMUL_OREFINES]);;
+let ORW_PRESERVES = prove
+  (`!p k i. ofuel p <= k ==>
+       eval_n k (INL (ost0, oenv i, [oemb (orw p)])) = eval_n k (INL (ost0, oenv i, [oemb p]))`,
+   REPEAT STRIP_TAC THEN
+   MP_TAC (SPEC `p:oexp` ORW_OREFINES) THEN
+   REWRITE_TAC [orefines_def] THEN STRIP_TAC THEN
+   SUBGOAL_THEN `ofuel (orw p) <= k` ASSUME_TAC THENL
+    [ASM_MESON_TAC [LE_TRANS];
+     ASM_MESON_TAC [oeq_preserves; oeq_def]]);;
+let orw_exp_preserves = prove
+  (`!e k i. ofrag e /\ efuel e <= k ==>
+       eval_n k (INL (ost0, oenv i, [orw_exp e])) = eval_n k (INL (ost0, oenv i, [e]))`,
+  REWRITE_TAC [ofrag_oemb] THEN REPEAT STRIP_TAC THEN
+  FIRST_X_ASSUM SUBST_ALL_TAC THEN
+  RULE_ASSUM_TAC (REWRITE_RULE [efuel_def; OOF_OEMB]) THEN
+  REWRITE_TAC [orw_exp_def; OOF_OEMB] THEN
+  MATCH_MP_TAC ORW_PRESERVES THEN ASM_REWRITE_TAC []);;
 
 let ofold_preserves = prove
   (`!e k i. ofrag e /\ efuel e <= k ==>
@@ -353,7 +537,7 @@ let ofold_frag = prove (`!e. ofrag e ==> ofrag (ofold e)`,
 let ofold_cost = prove (`!e. ofrag e ==> ocost (ofold e) <= ocost e`,
   REWRITE_TAC [ofrag_oemb] THEN REPEAT STRIP_TAC THEN
   ASM_REWRITE_TAC [ofold_def; ocost_def; OOF_OEMB] THEN
-  MESON_TAC [OFOLDO_OEQ; oeq_def]);;
+  MESON_TAC [OFOLDO_OREFINES; orefines_def]);;
 
 (* ---------------- computing with the rewriter, in the kernel ------------ *)
 (* bounded fixpoint of a conversion (fails loudly instead of running away) *)
@@ -389,16 +573,263 @@ let rec OFUEL_CONV tm =
                         REWR_CONV MAX THENC NUM_REDUCE_CONV THENC REWRITE_CONV [])
              THENC NUM_REDUCE_CONV) r);;
 
+(* ---------------- fast verified compute over :cval (Kernel.compute) ----- *)
+(* Encodes oexp into Candle's built-in :cval compute domain:
+     OLit (&n)  <-> Cexp_num n
+     OX         <-> Cexp_pair (Cexp_num 0) (Cexp_num 0)
+     OAdd a b   <-> Cexp_pair (Cexp_num 1) (Cexp_pair a b)
+     OSub a b   <-> Cexp_pair (Cexp_num 2) (Cexp_pair a b)
+     OMul a b   <-> Cexp_pair (Cexp_num 3) (Cexp_pair a b)
+   and proves single-equation compute theorems (cval_nodes_c, cval_fuel_c,
+   cval_eval_c, cval_fold_c) plus bridge theorems (CVO_NODES, CVO_FUEL)
+   connecting :cval computation to onodes and ofuel. *)
+
+let cval_ctor_thms = ouro_ctor2 "cval";;
+
+let cval_2cases u vn vt vq =
+  DISJ_CASES_THEN2
+    (X_CHOOSE_THEN vn SUBST_ALL_TAC)
+    (X_CHOOSE_THEN vt (X_CHOOSE_THEN vq SUBST_ALL_TAC))
+    (SPEC u (cases "cval"));;
+
+let cval_3cases_tac defs =
+  REPEAT GEN_TAC THEN
+  cval_2cases `p:cval` `n:num` `t:cval` `q:cval` THENL
+  [REWRITE_TAC (defs @ [cexp_ispair_def; cexp_if_def; cexp_fst_def; cexp_snd_def]);
+   cval_2cases `q:cval` `m:num` `a:cval` `b:cval` THEN
+   REWRITE_TAC (defs @ [cexp_ispair_def; cexp_if_def; cexp_fst_def; cexp_snd_def])];;
+
+let cval_INDUCT3_LEMMA = prove
+  (`!P. (!n. P (Cexp_num n)) /\
+        (!t m. P (Cexp_pair t (Cexp_num m))) /\
+        (!t a b. P a /\ P b ==> P (Cexp_pair t (Cexp_pair a b)))
+        ==> !q. P q /\ (!a b. q = Cexp_pair a b ==> P a /\ P b)`,
+   GEN_TAC THEN STRIP_TAC THEN MATCH_MP_TAC cval_INDUCT THEN CONJ_TAC THENL
+   [GEN_TAC THEN ASM_REWRITE_TAC cval_ctor_thms;
+    REPEAT GEN_TAC THEN STRIP_TAC THEN CONJ_TAC THENL
+    [cval_2cases `a1:cval` `m:num` `a:cval` `b:cval` THENL
+     [ASM_REWRITE_TAC [];
+      FIRST_X_ASSUM MATCH_MP_TAC THEN FIRST_X_ASSUM MATCH_MP_TAC THEN REFL_TAC];
+     REWRITE_TAC cval_ctor_thms THEN REPEAT GEN_TAC THEN
+     DISCH_THEN (CONJUNCTS_THEN SUBST_ALL_TAC) THEN ASM_REWRITE_TAC []]]);;
+
+let cval_INDUCT3 = prove
+  (`!P. (!n. P (Cexp_num n)) /\
+        (!t m. P (Cexp_pair t (Cexp_num m))) /\
+        (!t a b. P a /\ P b ==> P (Cexp_pair t (Cexp_pair a b)))
+        ==> !p. P p`,
+   REPEAT STRIP_TAC THEN
+   MP_TAC (SPEC `P:cval->bool` cval_INDUCT3_LEMMA) THEN
+   ASM_REWRITE_TAC [] THEN DISCH_THEN (fun th -> REWRITE_TAC [th]));;
+
+let cvo_def = define
+  `(cvo (Cexp_num n) = OLit (&n)) /\
+   (cvo (Cexp_pair t (Cexp_num m)) = OX) /\
+   (cvo (Cexp_pair t (Cexp_pair a b)) =
+      if t = Cexp_num 1 then OAdd (cvo a) (cvo b)
+      else if t = Cexp_num 2 then OSub (cvo a) (cvo b)
+      else OMul (cvo a) (cvo b))`;;
+
+let cval_max_def = new_definition
+  `cval_max (a:cval) (b:cval) = Cexp_if (Cexp_less a b) b a`;;
+
+let cval_nodes_def = define
+  `(cval_nodes (Cexp_num n) = Cexp_num 1) /\
+   (cval_nodes (Cexp_pair t (Cexp_num m)) = Cexp_num 1) /\
+   (cval_nodes (Cexp_pair t (Cexp_pair a b)) =
+      Cexp_add (Cexp_num 1) (Cexp_add (cval_nodes a) (cval_nodes b)))`;;
+
+let cval_nodes_c = prove
+  (`cval_nodes p =
+      Cexp_if (Cexp_ispair p)
+        (Cexp_if (Cexp_ispair (Cexp_snd p))
+          (Cexp_add (Cexp_num 1)
+            (Cexp_add (cval_nodes (Cexp_fst (Cexp_snd p)))
+                      (cval_nodes (Cexp_snd (Cexp_snd p)))))
+          (Cexp_num 1))
+        (Cexp_num 1)`,
+   cval_3cases_tac [cval_nodes_def]);;
+
+let cval_fuel_def = define
+  `(cval_fuel (Cexp_num n) = Cexp_num 1) /\
+   (cval_fuel (Cexp_pair t (Cexp_num m)) = Cexp_num 1) /\
+   (cval_fuel (Cexp_pair t (Cexp_pair a b)) =
+      Cexp_add (cval_max (cval_fuel a) (cval_fuel b)) (Cexp_num 2))`;;
+
+let cval_fuel_c = prove
+  (`cval_fuel p =
+      Cexp_if (Cexp_ispair p)
+        (Cexp_if (Cexp_ispair (Cexp_snd p))
+          (Cexp_add (cval_max (cval_fuel (Cexp_fst (Cexp_snd p)))
+                              (cval_fuel (Cexp_snd (Cexp_snd p))))
+                    (Cexp_num 2))
+          (Cexp_num 1))
+        (Cexp_num 1)`,
+   cval_3cases_tac [cval_fuel_def]);;
+
+let cval_eval_def = define
+  `(cval_eval (Cexp_num n) (x:cval) = Cexp_num n) /\
+   (cval_eval (Cexp_pair t (Cexp_num m)) x = x) /\
+   (cval_eval (Cexp_pair t (Cexp_pair a b)) x =
+      Cexp_if (Cexp_eq t (Cexp_num 1))
+        (Cexp_add (cval_eval a x) (cval_eval b x))
+        (Cexp_if (Cexp_eq t (Cexp_num 2))
+          (Cexp_sub (cval_eval a x) (cval_eval b x))
+          (Cexp_mul (cval_eval a x) (cval_eval b x))))`;;
+
+let cval_eval_c = prove
+  (`cval_eval p x =
+      Cexp_if (Cexp_ispair p)
+        (Cexp_if (Cexp_ispair (Cexp_snd p))
+          (Cexp_if (Cexp_eq (Cexp_fst p) (Cexp_num 1))
+            (Cexp_add (cval_eval (Cexp_fst (Cexp_snd p)) x)
+                      (cval_eval (Cexp_snd (Cexp_snd p)) x))
+            (Cexp_if (Cexp_eq (Cexp_fst p) (Cexp_num 2))
+              (Cexp_sub (cval_eval (Cexp_fst (Cexp_snd p)) x)
+                        (cval_eval (Cexp_snd (Cexp_snd p)) x))
+              (Cexp_mul (cval_eval (Cexp_fst (Cexp_snd p)) x)
+                        (cval_eval (Cexp_snd (Cexp_snd p)) x))))
+          x)
+        p`,
+   cval_3cases_tac [cval_eval_def]);;
+
+let cval_oadd_def = new_definition
+  `cval_oadd a b =
+     Cexp_if (Cexp_ispair a)
+       (Cexp_if (Cexp_eq b (Cexp_num 0)) a
+         (Cexp_pair (Cexp_num 1) (Cexp_pair a b)))
+       (Cexp_if (Cexp_ispair b)
+         (Cexp_if (Cexp_eq a (Cexp_num 0)) b
+           (Cexp_pair (Cexp_num 1) (Cexp_pair a b)))
+         (Cexp_add a b))`;;
+
+let cval_osub_def = new_definition
+  `cval_osub a b =
+     Cexp_if (Cexp_ispair a)
+       (Cexp_if (Cexp_eq b (Cexp_num 0)) a
+         (Cexp_pair (Cexp_num 2) (Cexp_pair a b)))
+       (Cexp_if (Cexp_ispair b)
+         (Cexp_pair (Cexp_num 2) (Cexp_pair a b))
+         (Cexp_sub a b))`;;
+
+let cval_omul_def = new_definition
+  `cval_omul a b =
+     Cexp_if (Cexp_ispair a)
+       (Cexp_if (Cexp_eq b (Cexp_num 0)) (Cexp_num 0)
+         (Cexp_if (Cexp_eq b (Cexp_num 1)) a
+           (Cexp_pair (Cexp_num 3) (Cexp_pair a b))))
+       (Cexp_if (Cexp_ispair b)
+         (Cexp_if (Cexp_eq a (Cexp_num 0)) (Cexp_num 0)
+           (Cexp_if (Cexp_eq a (Cexp_num 1)) b
+             (Cexp_pair (Cexp_num 3) (Cexp_pair a b))))
+         (Cexp_mul a b))`;;
+
+let cval_fold_def = define
+  `(cval_fold (Cexp_num n) = Cexp_num n) /\
+   (cval_fold (Cexp_pair t (Cexp_num m)) = Cexp_pair t (Cexp_num m)) /\
+   (cval_fold (Cexp_pair t (Cexp_pair a b)) =
+      Cexp_if (Cexp_eq t (Cexp_num 1)) (cval_oadd (cval_fold a) (cval_fold b))
+        (Cexp_if (Cexp_eq t (Cexp_num 2)) (cval_osub (cval_fold a) (cval_fold b))
+          (cval_omul (cval_fold a) (cval_fold b))))`;;
+
+let cval_fold_c = prove
+  (`cval_fold p =
+      Cexp_if (Cexp_ispair p)
+        (Cexp_if (Cexp_ispair (Cexp_snd p))
+          (Cexp_if (Cexp_eq (Cexp_fst p) (Cexp_num 1))
+            (cval_oadd (cval_fold (Cexp_fst (Cexp_snd p)))
+                       (cval_fold (Cexp_snd (Cexp_snd p))))
+            (Cexp_if (Cexp_eq (Cexp_fst p) (Cexp_num 2))
+              (cval_osub (cval_fold (Cexp_fst (Cexp_snd p)))
+                         (cval_fold (Cexp_snd (Cexp_snd p))))
+              (cval_omul (cval_fold (Cexp_fst (Cexp_snd p)))
+                         (cval_fold (Cexp_snd (Cexp_snd p))))))
+          p)
+        p`,
+   cval_3cases_tac [cval_fold_def]);;
+
+let CVO_NODES = prove
+  (`!p. cval_nodes p = Cexp_num (onodes (cvo p))`,
+   MATCH_MP_TAC cval_INDUCT3 THEN
+   REWRITE_TAC [cvo_def; onodes_def; cval_nodes_def] THEN
+   REPEAT STRIP_TAC THEN REPEAT COND_CASES_TAC THEN
+   ASM_REWRITE_TAC [onodes_def; cexp_add_def; ADD_ASSOC]);;
+
+let CVO_MAX_LEMMA = prove
+  (`!a b. Cexp_add (cval_max (Cexp_num a) (Cexp_num b)) (Cexp_num 2) =
+          Cexp_num (MAX a b + 2)`,
+   REPEAT GEN_TAC THEN
+   REWRITE_TAC [cval_max_def; cexp_less_def; MAX] THEN
+   REPEAT COND_CASES_TAC THEN ASM_REWRITE_TAC [cexp_if_def; cexp_add_def] THEN
+   AP_TERM_TAC THEN REPEAT (POP_ASSUM MP_TAC) THEN ARITH_TAC);;
+
+let CVO_FUEL = prove
+  (`!p. cval_fuel p = Cexp_num (ofuel (cvo p))`,
+   MATCH_MP_TAC cval_INDUCT3 THEN
+   REWRITE_TAC [cvo_def; ofuel_def; cval_fuel_def] THEN
+   REPEAT STRIP_TAC THEN REPEAT COND_CASES_TAC THEN
+   ASM_REWRITE_TAC [ofuel_def; CVO_MAX_LEMMA]);;
+
+let ouro_cval_eqs =
+  map SPEC_ALL
+    [cval_max_def; cval_nodes_c; cval_fuel_c; cval_eval_c;
+      cval_oadd_def; cval_osub_def; cval_omul_def; cval_fold_c];;
+
+(* Execute a closed :cval expression directly via the verified Kernel.compute
+   primitive (with zero fallback). *)
+let ouro_kernel_compute tm =
+  Kernel.compute (COMPUTE_INIT_THMS, ouro_cval_eqs) tm;;
+
+let OURO_KERNEL_COMPUTE_PRIMITIVE_THM =
+  Kernel.compute (COMPUTE_INIT_THMS, [])
+    `Cexp_if (Cexp_pair (Cexp_num 1) (Cexp_num 2)) (Cexp_num 10) (Cexp_num 42)`;;
+
+let ouro_cval_sample =
+  `Cexp_pair (Cexp_num 2)
+    (Cexp_pair
+      (Cexp_pair (Cexp_num 1)
+        (Cexp_pair
+          (Cexp_pair (Cexp_num 1) (Cexp_pair (Cexp_num 3) (Cexp_num 7)))
+          (Cexp_pair (Cexp_num 3)
+            (Cexp_pair (Cexp_pair (Cexp_num 0) (Cexp_num 0)) (Cexp_num 0)))))
+      (Cexp_pair (Cexp_num 3)
+        (Cexp_pair (Cexp_pair (Cexp_num 0) (Cexp_num 0)) (Cexp_num 1))))`;;
+
+let OURO_CVAL_COMPUTE_THM =
+  Kernel.compute (COMPUTE_INIT_THMS, ouro_cval_eqs)
+    (mk_comb (`cval_fold`, ouro_cval_sample));;
+
 (* ---------------- the kernel's own verdict on this file ---------------- *)
 let ouro_rw_thms =
-  [("ofrag_oemb", ofrag_oemb); ("ofold_preserves", ofold_preserves);
+  [("ofrag_oemb", ofrag_oemb); ("orw_exp_preserves", orw_exp_preserves);
+   ("ofold_preserves", ofold_preserves);
    ("ofold_frag", ofold_frag); ("ofold_cost", ofold_cost);
-   ("orw_oeq", orw_oeq); ("oeq_preserves", oeq_preserves)];;
+   ("orw_oeq", orw_oeq); ("oeq_preserves", oeq_preserves);
+   ("odouble_preserves", odouble_preserves);
+   ("ocollect1_preserves", ocollect1_preserves);
+   ("ocollect2_preserves", ocollect2_preserves);
+   ("oreassoc_preserves", oreassoc_preserves);
+   ("OEQ_DOUBLE", OEQ_DOUBLE); ("OEQ_COLLECT1", OEQ_COLLECT1);
+   ("OEQ_COLLECT2", OEQ_COLLECT2); ("OEQ_REASSOC", OEQ_REASSOC);
+   ("OEQ_OFOLD", OEQ_OFOLD); ("OEQ_ADD", OEQ_ADD);
+   ("OEQ_SUB", OEQ_SUB); ("OEQ_MUL", OEQ_MUL);
+   ("OEQ_TRANS", OEQ_TRANS);
+   ("EVAL_N_LET", EVAL_N_LET); ("EVAL_N_IF", EVAL_N_IF);
+   ("OLET_NIL_EVAL", OLET_NIL_EVAL);
+   ("OIF_TRUE_EVAL", OIF_TRUE_EVAL); ("OIF_FALSE_EVAL", OIF_FALSE_EVAL);
+   ("cval_nodes_c", cval_nodes_c); ("cval_fuel_c", cval_fuel_c);
+   ("cval_eval_c", cval_eval_c); ("cval_fold_c", cval_fold_c);
+   ("CVO_NODES", CVO_NODES); ("CVO_FUEL", CVO_FUEL);
+   ("OURO_KERNEL_COMPUTE_PRIMITIVE_THM", OURO_KERNEL_COMPUTE_PRIMITIVE_THM);
+   ("OURO_CVAL_COMPUTE_THM", OURO_CVAL_COMPUTE_THM)];;
 (* a sanity instance: the rewriter really rewrites ((3 + 7) + x * 0) - (x * 1) *)
 let ouro_rw_example =
   OFOLDO_CONV `ofoldo (OSub (OAdd (OAdd (OLit (&3)) (OLit (&7))) (OMul OX (OLit (&0)))) (OMul OX (OLit (&1))))`;;
 let OURO_RW_VERDICT =
   if forall (fun (n, th) -> hyp th = []) ouro_rw_thms &&
-     aconv (rand (concl ouro_rw_example)) `OSub (OLit (&10)) OX`
+     aconv (rand (concl ouro_rw_example)) `OSub (OLit (&10)) OX` &&
+     aconv (rand (concl OURO_KERNEL_COMPUTE_PRIMITIVE_THM)) `Cexp_num 42` &&
+     aconv (rand (concl OURO_CVAL_COMPUTE_THM))
+       `Cexp_pair (Cexp_num 2) (Cexp_pair (Cexp_num 10) (Cexp_pair (Cexp_num 0) (Cexp_num 0)))`
   then "OURO_RW_OK: " ^ string_of_int (length ouro_rw_thms) ^ " rewriter theorems, hypothesis-free"
   else "OURO_RW_FAILED";;

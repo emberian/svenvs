@@ -211,6 +211,184 @@ let CP_OPT_PREMISES = prove
 
 let CP_SELF_OPTIMIZED_SAFE = MATCH_MP SAFE_WEAKENING CP_OPT_PREMISES;;
 
-(* The REPL itself echoes each `val NAME = |- ... : thm` above — that is the
-   witness that Candle's verified kernel certified these. (No Printf: Candle
-   runs on CakeML, not OCaml.) *)
+(* ===================================================================== *)
+(*  FUSED SELF-OPTIMIZING DERIVED RULE (SYM_RULE)                        *)
+(* ===================================================================== *)
+let SYM_LEMMA = prove
+ (`!(x:A) (y:A). (x = y) <=> (y = x)`,
+  REPEAT GEN_TAC THEN EQ_TAC THEN DISCH_TAC THEN
+   FIRST_ASSUM (fun th -> CONV_TAC (RAND_CONV (REWR_CONV th))) THEN
+  REFL_TAC);;
+
+let SYM_RULE th =
+  let l,r = dest_eq (concl th) in
+  EQ_MP (ISPECL [l; r] SYM_LEMMA) th;;
+
+let FACT1 = prove (`2 + 3 = 5`, ARITH_TAC);;
+let FACT1_SYM = SYM_RULE FACT1;;
+let SYM_TWICE = prove
+ (`!(a:num) b. a = b ==> a = b`,
+  REPEAT GEN_TAC THEN DISCH_TAC THEN
+  FIRST_ASSUM (fun th -> ACCEPT_TAC (SYM_RULE (SYM_RULE th))));;
+let FACT1_ROUNDTRIP = SYM_RULE FACT1_SYM;;
+
+(* ===================================================================== *)
+(*  FUSED PROOF-CARRYING CODE REPLACEMENT & COMPILER CELL                *)
+(* ===================================================================== *)
+let sum_spec = new_definition
+  `sum_spec (n:num) = (n * (n + 1)) DIV 2`;;
+let cand0_def = new_definition
+  `cand0 (n:num) = ((n * n) + n) DIV 2`;;
+let cand1_def = new_definition
+  `cand1 (n:num) = (n * (n + 1)) DIV 2`;;
+let cand2_def = new_definition
+  `cand2 (n:num) = ((n + 1) * n) DIV 2`;;
+
+let active_code : (int -> int) ref = ref (fun n -> ((n * n) + n) / 2);;
+let active_gen  : int ref          = ref 0;;
+let active_thm  : thm option ref   = ref None;;
+
+let check_code_gate cand_const (th : thm) : bool =
+  hyp th = [] &&
+  (try
+     let v, body = dest_forall (concl th) in
+     let lhs, rhs = dest_eq body in
+     let f_l, x_l = dest_comb lhs in
+     let f_r, x_r = dest_comb rhs in
+     aconv f_l cand_const && aconv x_l v &&
+     aconv f_r `sum_spec` && aconv x_r v
+   with Failure _ -> false);;
+
+let install_if_proved cand_const (th : thm) (exec : int -> int) : bool =
+  if check_code_gate cand_const th then
+    (active_code := exec;
+     active_gen  := !active_gen + 1;
+     active_thm  := Some th;
+     true)
+  else false;;
+
+let GATE1 = prove
+ (`!n:num. cand1 n = sum_spec n`,
+  REWRITE_TAC[cand1_def; sum_spec]);;
+
+let swap1 = install_if_proved `cand1` GATE1 (fun n -> (n * (n + 1)) / 2);;
+let gen1 = !active_gen;;
+let out1 = (!active_code) 100;;
+
+let bad_cand_def = new_definition
+  `bad_cand (n:num) = 0`;;
+let BAD_NON_GATE = prove (`bad_cand 0 = sum_spec 0`,
+  REWRITE_TAC[bad_cand_def; sum_spec] THEN ARITH_TAC);;
+let bad_gate_ok = check_code_gate `bad_cand` BAD_NON_GATE;;
+let bad_swap = install_if_proved `bad_cand` BAD_NON_GATE (fun _ -> 0);;
+let gen_after_bad = !active_gen;;
+let out_after_bad = (!active_code) 100;;
+
+let MUL_COMM_SELF = prove (`!a b:num. (a + 1) * b = b * (a + 1)`, ARITH_TAC);;
+let GATE2 = prove
+ (`!n:num. cand2 n = sum_spec n`,
+  REWRITE_TAC[cand2_def; sum_spec; MUL_COMM_SELF]);;
+let swap2 = install_if_proved `cand2` GATE2 (fun n -> ((n + 1) * n) / 2);;
+let gen2 = !active_gen;;
+let out2 = (!active_code) 100;;
+
+let recompile_verdict =
+  if swap1 && not bad_swap && swap2 &&
+     gen1 = 1 && gen_after_bad = 1 && gen2 = 2 &&
+     out1 = 5050 && out_after_bad = 5050 && out2 = 5050
+  then "APEX_SUBSTRATE_OK" else "FAIL";;
+
+(* Proof-gated compiler cell with history-preserving generation map (cmap) *)
+let eval_spec = new_definition
+  `eval_spec (e:num) (x:num) = e * x + e`;;
+let compA_def = new_definition
+  `compA (e:num) (x:num) = e * x + e`;;
+let compB_def = new_definition
+  `compB (e:num) (x:num) = e * (x + 1)`;;
+let compC_def = new_definition
+  `compC (e:num) (x:num) = (x + 1) * e`;;
+
+let compiler_cell : (int -> int -> int) ref = ref (fun e x -> e * x + e);;
+let cell_gen      : int ref                 = ref 0;;
+let cell_thm      : thm option ref          = ref None;;
+let cmap          : (int -> int -> int -> int) ref =
+  ref (fun _ -> (fun e x -> e * x + e));;
+
+let check_compiler_gate cand_const (th : thm) : bool =
+  hyp th = [] &&
+  (try
+     let v1, body1 = dest_forall (concl th) in
+     let v2, body2 = dest_forall body1 in
+     let lhs, rhs = dest_eq body2 in
+     let fe_l, x_l = dest_comb lhs in
+     let f_l,  e_l = dest_comb fe_l in
+     let fe_r, x_r = dest_comb rhs in
+     let f_r,  e_r = dest_comb fe_r in
+     aconv f_l cand_const  && aconv e_l v1 && aconv x_l v2 &&
+     aconv f_r `eval_spec` && aconv e_r v1 && aconv x_r v2
+   with Failure _ -> false);;
+
+let upgrade_compiler cand_const (th : thm) (exec : int -> int -> int) : bool =
+  if check_compiler_gate cand_const th then
+    (let g1 = !cell_gen + 1 in
+     let prev = !cmap in
+     compiler_cell := exec;
+     cell_gen      := g1;
+     cell_thm      := Some th;
+     cmap          := (fun g -> if g = g1 then exec else prev g);
+     true)
+  else false;;
+
+let outA_7  = (!compiler_cell) 7 10;;
+let outA_12 = (!compiler_cell) 12 5;;
+
+let GATE_B = prove
+ (`!e:num x:num. compB e x = eval_spec e x`,
+  REWRITE_TAC[compB_def; eval_spec] THEN ARITH_TAC);;
+let upB     = upgrade_compiler `compB` GATE_B (fun e x -> e * (x + 1));;
+let gen_B   = !cell_gen;;
+let outB_7  = (!compiler_cell) 7 10;;
+let outB_12 = (!compiler_cell) 12 5;;
+
+let compBad_def = new_definition
+  `compBad (e:num) (x:num) = 0`;;
+let BAD_AT_ZERO = prove
+ (`compBad 0 0 = eval_spec 0 0`,
+  REWRITE_TAC[compBad_def; eval_spec] THEN ARITH_TAC);;
+let bad_ok      = check_compiler_gate `compBad` BAD_AT_ZERO;;
+let upBad       = upgrade_compiler `compBad` BAD_AT_ZERO (fun _ _ -> 0);;
+let gen_after   = !cell_gen;;
+let out_after_7 = (!compiler_cell) 7 10;;
+
+let GATE_C = prove
+ (`!e:num x:num. compC e x = eval_spec e x`,
+  REWRITE_TAC[compC_def; eval_spec] THEN ARITH_TAC);;
+let upC     = upgrade_compiler `compC` GATE_C (fun e x -> (x + 1) * e);;
+let gen     = !cell_gen;;
+let outC_7  = (!compiler_cell) 7 10;;
+let outC_12 = (!compiler_cell) 12 5;;
+let hist1_7 = (!cmap) 1 7 10;;
+let hist2_7 = (!cmap) 2 7 10;;
+
+let compiler_cell_verdict =
+  if upB && not bad_ok && not upBad && upC &&
+     gen_B = 1 && gen_after = 1 && gen = 2 &&
+     outA_7 = 77 && outB_7 = 77 && out_after_7 = 77 && outC_7 = 77 &&
+     outA_12 = 72 && outB_12 = 72 && outC_12 = 72 &&
+     hist1_7 = 77 && hist2_7 = 77
+  then "COMPILER_CELL_CANDLE_OK" else "FAIL";;
+
+let THEPLACE_COMPUTE_THM =
+  Kernel.compute (COMPUTE_INIT_THMS, [])
+    `Cexp_if (Cexp_pair (Cexp_num 1) (Cexp_num 2))
+             (Cexp_num 10)
+             (Cexp_add (Cexp_num 20) (Cexp_num 22))`;;
+let theplace_compute_ok =
+  hyp THEPLACE_COMPUTE_THM = [] &&
+  aconv (rand (concl THEPLACE_COMPUTE_THM)) `Cexp_num 42`;;
+
+let verdict =
+  if recompile_verdict = "APEX_SUBSTRATE_OK" &&
+     compiler_cell_verdict = "COMPILER_CELL_CANDLE_OK" &&
+     theplace_compute_ok
+  then "APEX_SUBSTRATE_OK" else "FAIL";;

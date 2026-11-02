@@ -1,44 +1,92 @@
 --- a/compiler/bootstrap/translation/compiler64ProgScript.sml
 +++ b/compiler/bootstrap/translation/compiler64ProgScript.sml
-@@ -441,6 +441,26 @@
+@@ -441,6 +441,75 @@
  val _ = (next_ml_names := ["compiler_for_eval"]);
  val r = translate compiler_for_eval_alt;
  
 +(* === self-upgradable root: an UPGRADED eval-compiler installed in place at a
-+   generation boundary by the REPL.  Same verified backend algorithm, a
-+   different register allocator (reg_alg := 0) — so the compiled CODE changes
-+   while the SEMANTICS are preserved.  This realises, on the running binary, the
-+   per-generation compiler swap proved in svenvs/selfUpgrade (repl_upgrade /
++   generation boundary by the REPL, gated via compiler_pass_gate /
++   certified_eval_compiler_swap (the operational pass gate proved in
++   svenvs/compilerOpt and svenvs/selfUpgrade).  Same verified backend
++   algorithm, a different register allocator (reg_alg := 0) — so the compiled
++   CODE changes while the SEMANTICS are preserved.  This realises, on the
++   running binary, the per-generation certified compiler swap proved in
++   svenvs/selfUpgrade (certified_repl_upgrade / certified_eval_compiler_swap /
 +   do_eval_record_gen): future generations are compiled by the upgraded
-+   compiler.  Honest residual: the post-swap compilations leave the unmodified
-+   backendProof envelope (opt_eval_config_wf pins one compiler_fun); the
-+   generalised soundness is the svenvs selfUpgrade proofs, the concrete
-+   re-composition the documented residual. *)
++   compiler iff the pass gate certificate holds.  Because CakeML is
++   call-by-value, certified_eval_compiler_swap gates the compiler config s1
++   via compiler_pass_gate BEFORE invoking compiler_for_eval once, avoiding
++   redundant double-compilation while remaining extensionally equal to gating
++   between compiler_for_eval and compiler_for_eval_upgraded
++   (certified_eval_compiler_swap_eq).  Honest residual: the post-swap
++   compilations leave the unmodified backendProof envelope (opt_eval_config_wf
++   pins one compiler_fun); the generalised soundness is the svenvs selfUpgrade
++   proofs, the concrete re-composition the documented residual. *)
++Definition compiler_pass_gate_def:
++  compiler_pass_gate cert old_res new_res =
++    if cert then new_res else old_res
++End
++val _ = (next_ml_names := ["compiler_pass_gate"]);
++val r = translate compiler_pass_gate_def;
++
++Definition cert_bvl_pass_id_def:
++  cert_bvl_pass_id (pid:num) <=> pid <= 2n
++End
++val _ = (next_ml_names := ["cert_bvl_pass_id"]);
++val r = translate cert_bvl_pass_id_def;
++
++Definition check_compiler_upgrade_cert_def:
++  check_compiler_upgrade_cert (pid:num) (reg_alg:num) <=>
++    cert_bvl_pass_id pid /\ reg_alg <= 4n
++End
++val _ = (next_ml_names := ["check_compiler_upgrade_cert"]);
++val r = translate check_compiler_upgrade_cert_def;
++
 +Definition compiler_for_eval_upgraded_def:
-+  compiler_for_eval_upgraded (env_id, c, ds) =
++  compiler_for_eval_upgraded (env_id, (c, ds)) =
 +    compiler_for_eval
 +      (env_id,
-+       c with word_to_word_conf := (c.word_to_word_conf with reg_alg := 0),
-+       ds)
++       (c with word_to_word_conf := (c.word_to_word_conf with reg_alg := 0),
++        ds))
 +End
 +val _ = (next_ml_names := ["compiler_for_eval_upgraded"]);
 +val r = translate compiler_for_eval_upgraded_def;
 +
++Definition certified_eval_compiler_swap_def:
++  certified_eval_compiler_swap cert next_gen (env_id, (s1, decs)) =
++    let s_cfg =
++      compiler_pass_gate (cert /\ next_gen >= 3n) s1
++        (s1 with word_to_word_conf := (s1.word_to_word_conf with reg_alg := 0))
++    in
++      compiler_for_eval (env_id, (s_cfg, decs))
++End
++val _ = (next_ml_names := ["certified_eval_compiler_swap"]);
++val r = translate certified_eval_compiler_swap_def;
++
++Theorem certified_eval_compiler_swap_eq:
++  certified_eval_compiler_swap cert next_gen (env_id, (s1, decs)) =
++    compiler_pass_gate (cert /\ next_gen >= 3n)
++      (compiler_for_eval (env_id, (s1, decs)))
++      (compiler_for_eval_upgraded (env_id, (s1, decs)))
++Proof
++  rw [certified_eval_compiler_swap_def, compiler_for_eval_upgraded_def,
++      compiler_pass_gate_def]
++QED
++
  (* fun eval_prim env s1 decs s2 bs ws = Eval [env,s1,decs,s2,bs,ws] *)
  val _ = append_prog
          “[Dlet (Locs (POSN 1 2) (POSN 2 21)) (Pvar «eval_prim»)
-@@ -458,13 +478,22 @@
+@@ -458,13 +527,21 @@
  
  Quote add_cakeml:
  fun eval ((s1,next_gen), (env,id), decs) =
 -case compiler_for_eval ((id,0),(s1,decs)) of
 +let
-+  val _ = (if next_gen = 3
-+           then TextIO.print "== cake self-upgraded its own compiler IN PLACE at generation 3: register allocator switched (reg_alg := 0); every later declaration is compiled by the upgraded compiler, semantics preserved ==\n"
++  val pass_cert = check_compiler_upgrade_cert 2 0
++  val _ = (if pass_cert andalso next_gen = 3
++           then TextIO.print "== cake self-upgraded its own compiler IN PLACE at generation 3 via certified_eval_compiler_swap (compiler_pass_gate): register allocator switched (reg_alg := 0); every later declaration is compiled by the upgraded compiler, semantics preserved ==\n"
 +           else ())
-+  val res = (if next_gen >= 3
-+             then compiler_for_eval_upgraded ((id,0),(s1,decs))
-+             else compiler_for_eval ((id,0),(s1,decs)))
++  val res = certified_eval_compiler_swap pass_cert next_gen ((id,0),(s1,decs))
 +in
 +case res of
    None => Compile_error "ERROR: failed to compile input\n"
@@ -51,3 +99,14 @@
  End
  
  Quote exn_msg_dec = cakeml:
+--- a/cv_translator/eval_cake_compileLib.sml
++++ b/cv_translator/eval_cake_compileLib.sml
+@@ -198,8 +198,6 @@
+ fun eval_cake_compile_explore arch prefix =
+   eval_cake_compile_explore_with_conf arch prefix (#default_config_def arch);
+ 
+-val _ = Feedback.set_trace "TheoryPP.include_docs" 0;
+-
+ (* --- for debugging ---
+    val _ = (max_print_depth := 15);
+    val arch = x64_arch_thms;

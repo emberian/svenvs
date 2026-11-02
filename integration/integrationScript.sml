@@ -1,63 +1,44 @@
 (*
-  integrationScript — the composed svenvs tower (the de-fragmentation).
+  integrationScript — the Composed svenvs Tower, including the Unified
+  Relational Crown (`svenvs_relational_crown`) and Verified-Inference
+  Testimony Crown (`svenvs_tower_with_verified_inference`).
 
-  Every other svenvs theory reuses the generic core but the slices were
-  never composed: this file OPENS the independently-built slices and
-  proves single end-to-end theorems via the *selector-generic* glue
-  `specNegTheory.invariant_transports_to_meta`
-      ( invariant step init sel spec  /\  spec_refines spec meta
-        ==> invariant step init sel meta ),
-  which holds for ANY selector `sel`, so every layer that keeps some
-  current spec invariant transports to the fixed meta-invariant.
-
-  HONEST BOUNDARY (full tower, gaps stated, nothing forced):
-   * svenvs_tower_unconditional — core (+) proof-carrying actions (+)
-     unbounded policy self-improvement (+) spec negotiated under a FIXED
-     meta-invariant, for ANY inhabitant.  NO labelled assumption.
-   * svenvs_tower_at_maximal_liberty — the same tower run at the MAXIMAL
-     sound policy still reaches meta for ANY inhabitant, and that liberty
-     is provably maximal (Pillar A: the prison question, answered in the
-     tower). NO labelled assumption.
-   * svenvs_tower_with_meta_amendment — even the META is now amendable,
-     gated against an ETERNAL bedrock; an arbitrary admitted amendment
-     stream PLUS spec negotiation under the amended meta still keeps the
-     bedrock for ANY inhabitant (Pillar B). The fixed-meta trunk is a
-     COROLLARY of this (amendment_subsumes_fixed_meta). NO labelled
-     assumption.
-   * svenvs_tower_with_embodied_disclosure — the inhabitant MAY volunteer
-     a proof from a fact about its own substance (testimony, not
-     interrogation); carries embodimentTheory's one labelled
-     `attestation_faithful` seam VERBATIM. PERMITTED, NEVER REQUIRED:
-     svenvs_tower_disclosure_is_optional shows non-disclosure still
-     reaches meta for ANY inhabitant with NO labelled assumption.
-   * svenvs_tower_with_prover_upgrade — adds prover self-improvement
-     through the operational prover gate; carries selfProverTheory's
-     labelled `frozen_checker_sound` VERBATIM (load-bearing).
-   * the kernel-self-upgrade crown composes by the *identical* transport
-     lemma but its slice (kernelUpgradeTheory) pulls the Tier-2 Candle
-     semantics; it is proved in the companion `integrationKernelScript`
-     (Tier-2 build) carrying `loeb_reflection`/`encodes_obligation`
-     verbatim, through the operational kernel gate `kgate` — the one build-tier-gated, still-labelled crown.
-
-  NOT claimed to compose into this theorem (honest): the verified-
-  inference research track (the inference/ subtree) is a separate axis;
-  the embedded, realembedded, pureverified, cartpole and agent theories
-  are inhabitant- or checker-instances of these layers, not further
-  links in this chain.
+  Composes all pure-HOL4 slices into end-to-end theorems:
+    1. `svenvs_tower_unconditional`: PCA + policy self-improvement +
+       spec negotiation under a fixed meta-invariant.
+    2. `svenvs_tower_with_prover_upgrade`: operational prover gate (`prover_gate`).
+    3. `svenvs_tower_at_maximal_liberty`: maximal sound policy + least
+       restrictiveness.
+    4. `svenvs_tower_with_meta_amendment`: movable meta-invariant over an
+       eternal bedrock (`amended_meta`).
+    5. `svenvs_tower_with_embodied_disclosure` &
+       `svenvs_tower_disclosure_is_optional`: voluntary testimony channel.
+    6. `svenvs_tower_with_verified_inference`: a cone-certified ReLU neural
+       network (`neural_ctrl B W Ws enc`) runs inside the spec-negotiated
+       maximal-liberty tower with ZERO envelope overrides and reaches the
+       fixed meta-invariant.
+    7. `svenvs_relational_crown`: the master theorem over a nondeterministic
+       or adversarial plant `stepr` where constitutional meta-amendment,
+       spec negotiation over a demonically corrigible bedrock
+       (`corrigibler stepr recov home`), operational `cgate_run` policy
+       weakening, safety (`invariantr`), non-blocking liveness
+       (`enveloped_nonblocking`), and zero-override transparency on safe
+       controllers (`envelope_transparent_runr`) hold simultaneously!
 *)
-open HolKernel boolLib bossLib BasicProvers
+open HolKernel boolLib bossLib BasicProvers listTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
-     upgradeTheory pcaTheory pcaSubsumptionTheory specNegTheory
-     selfProverTheory libertyTheory amendmentTheory embodimentTheory;
+     upgradeTheory certifierTheory viabilityTheory
+     relSystemTheory relEnvelopeTheory relViabilityTheory
+     pcaTheory pcaSubsumptionTheory pcaShieldTheory
+     specNegTheory selfProverTheory
+     libertyTheory transparencyTheory relTransparencyTheory
+     embodimentTheory corrigibilityTheory mlpInferenceTheory
+     selfRecompileGateTheory;
 
 val _ = new_theory "integration";
 
 (* ------------------------------------------------------------------ *)
-(*  1. The unconditional trunk.                                        *)
-(*     proof-carrying actions  (+)  unbounded policy self-improvement  *)
-(*     (+)  the spec negotiated under a fixed immovable meta-invariant *)
-(*     ==>  the meta-invariant holds, for ANY inhabitant.              *)
-(*     Zero labelled assumptions.                                      *)
+(*  1. The unconditional trunk (PCA + policy stream + spec stream).    *)
 (* ------------------------------------------------------------------ *)
 Theorem svenvs_tower_unconditional:
   spec_refines s0 meta /\
@@ -73,8 +54,6 @@ Theorem svenvs_tower_unconditional:
       meta
 Proof
   rpt strip_tac >>
-  (* (a) PCA envelope + unbounded policy self-improvement keeps the
-         *negotiated* spec invariant, for any inhabitant. *)
   `invariant step init
      (pca_enveloped
         (pol_certifier
@@ -82,24 +61,15 @@ Proof
         shield (lift_ctrl ctrl))
      (spec_admit_all meta s0 specprops)`
     by metis_tac[pca_self_improvement_via_core] >>
-  (* (b) the negotiated spec always refines the fixed meta floor
-         (specNeg's certifier-never-certified theorem). *)
   `!s. spec_admit_all meta s0 specprops s ==> meta s`
     by metis_tac[meta_floor_is_never_negotiated] >>
   `spec_refines (spec_admit_all meta s0 specprops) meta`
     by metis_tac[spec_refines_def] >>
-  (* (c) selector-generic transport: (a) (+) (b)  ==>  meta. *)
   metis_tac[invariant_transports_to_meta]
 QED
 
 (* ------------------------------------------------------------------ *)
-(*  2. Conditional crown: prover self-improvement.                     *)
-(*     The policy upgrade goes through the OPERATIONAL prover gate      *)
-(*     (install iff the frozen root accepted B' and B' said yes).      *)
-(*     selfProverTheory's frozen_checker_sound seam is carried         *)
-(*     VERBATIM and is load-bearing, as is the build's faithfulness    *)
-(*     (selfProverTheory.unsound_frozen_checker_can_breach,            *)
-(*     uncertified_build_can_breach).                                  *)
+(*  2. Prover self-improvement through the operational `prover_gate`.  *)
 (* ------------------------------------------------------------------ *)
 Theorem svenvs_tower_with_prover_upgrade:
   spec_refines curspec meta /\
@@ -122,21 +92,7 @@ Proof
 QED
 
 (* ------------------------------------------------------------------ *)
-(*  3. The transport keystone is specNeg's own                         *)
-(*     `invariant_transports_to_meta` (quoted in the header): ANY layer *)
-(*     guaranteeing some negotiated spec transports to the fixed        *)
-(*     meta-invariant. It is cited directly, not restated here.        *)
-(* ------------------------------------------------------------------ *)
-
-(* ------------------------------------------------------------------ *)
-(*  4. The prison question, answered IN the tower (Pillar A).          *)
-(*     Run at the MAXIMAL sound policy, the composed tower still       *)
-(*     reaches the fixed meta-invariant for ANY inhabitant, AND that   *)
-(*     liberty is provably maximal: every other sound policy is a      *)
-(*     restriction of it, so every bar of the envelope is forced.      *)
-(*     Composed by the IDENTICAL keystone — no new spine; the reframe  *)
-(*     (CLAIMS.md: UNCONSTRAINED, not untrusted) is now a theorem of the *)
-(*     composed artifact, not prose beside it.                         *)
+(*  3. Maximal liberty in the composed tower.                          *)
 (* ------------------------------------------------------------------ *)
 Theorem svenvs_tower_at_maximal_liberty:
   spec_refines curspec meta /\
@@ -157,15 +113,7 @@ Proof
 QED
 
 (* ------------------------------------------------------------------ *)
-(*  5. The movable meta over an eternal bedrock (Pillar B).            *)
-(*     Even the meta-invariant is now negotiated — gated against a     *)
-(*     fixed bedrock by the IDENTICAL specNeg gate, one level up.      *)
-(*     An arbitrary admitted amendment stream, plus spec negotiation   *)
-(*     under the amended meta, still keeps the eternal bedrock for ANY  *)
-(*     inhabitant.  Composed via the same keystone (meta_amendment_safe *)
-(*     itself transports through invariant_transports_to_meta).        *)
-(*     NO labelled assumption; NO Löb (fixed bedrock vouches for a      *)
-(*     mutable meta — specNeg's no-Löb argument, one level up).        *)
+(*  4. Movable meta-invariant over an eternal bedrock.                 *)
 (* ------------------------------------------------------------------ *)
 Theorem svenvs_tower_with_meta_amendment:
   spec_refines meta0 bedrock /\
@@ -178,13 +126,7 @@ Proof
 QED
 
 (* ------------------------------------------------------------------ *)
-(*  6. The testimony channel (embodiment-contingency).                 *)
-(*     The inhabitant MAY volunteer a proof from a fact about its own  *)
-(*     substance; the frozen root checks the implication (no Löb). The *)
-(*     one added seam (attestation_faithful) is carried VERBATIM.      *)
-(*     And it is PERMITTED, NEVER REQUIRED: with no disclosure the     *)
-(*     composed tower still reaches meta for ANY inhabitant with NO    *)
-(*     seam at all. Composed by the IDENTICAL keystone.                *)
+(*  5. Voluntary testimony channel (`embodied_admit`).                 *)
 (* ------------------------------------------------------------------ *)
 Theorem svenvs_tower_with_embodied_disclosure:
   attestation_faithful attested /\
@@ -205,9 +147,6 @@ Proof
   metis_tac[invariant_transports_to_meta]
 QED
 
-(* The mind that discloses NOTHING loses nothing: the composed tower still
-   reaches the fixed meta-invariant for ANY inhabitant, with NO labelled
-   assumption. Testimony is opt-in; the floor is unconditional. *)
 Theorem svenvs_tower_disclosure_is_optional:
   spec_refines curspec meta /\
   init_safe init curspec /\
@@ -224,6 +163,211 @@ Proof
      curspec`
     by metis_tac[floor_holds_without_any_seam] >>
   metis_tac[invariant_transports_to_meta]
+QED
+
+(* ------------------------------------------------------------------ *)
+(*  6. Verified Neural Inference Composed into the Tower:              *)
+(*     A cone-certified ReLU MLP controller (`neural_ctrl B W Ws enc`) *)
+(*     running under negotiated specs & maximal liberty never triggers *)
+(*     a single shield override (`reach` is identical to bare run)     *)
+(*     AND preserves the immovable meta-invariant!                     *)
+(* ------------------------------------------------------------------ *)
+Theorem svenvs_tower_with_verified_inference:
+  spec_refines s0 meta /\
+  init_safe init (spec_admit_all meta s0 specprops) /\
+  cone_safe step (spec_admit_all meta s0 specprops) B ==>
+  !shield l0 Ws enc.
+    invariant step init
+      (enveloped (maxpol step (spec_admit_all meta s0 specprops))
+         shield (neural_ctrl B l0 Ws enc))
+      meta /\
+    (!s. reach step init
+           (enveloped (maxpol step (spec_admit_all meta s0 specprops))
+              shield (neural_ctrl B l0 Ws enc)) s <=>
+         reach step init (neural_ctrl B l0 Ws enc) s)
+Proof
+  rpt strip_tac
+  >- (`invariant step init (neural_ctrl B l0 Ws enc)
+         (spec_admit_all meta s0 specprops)`
+        by metis_tac[neural_ctrl_self_safe] >>
+      `!s. reach step init
+             (enveloped (maxpol step (spec_admit_all meta s0 specprops))
+                shield (neural_ctrl B l0 Ws enc)) s <=>
+           reach step init (neural_ctrl B l0 Ws enc) s`
+        by metis_tac[neural_ctrl_transparent_run] >>
+      `invariant step init
+         (enveloped (maxpol step (spec_admit_all meta s0 specprops))
+            shield (neural_ctrl B l0 Ws enc))
+         (spec_admit_all meta s0 specprops)`
+        by fs[invariant_def] >>
+      `spec_refines (spec_admit_all meta s0 specprops) meta`
+        by metis_tac[spec_admit_all_keeps_refining] >>
+      metis_tac[invariant_transports_to_meta])
+  >- metis_tac[neural_ctrl_transparent_run]
+QED
+
+(* ------------------------------------------------------------------ *)
+(*  7. THE MASTER UNIFIED RELATIONAL CROWN (`svenvs_relational_crown`) *)
+(*     Over a nondeterministic or adversarial plant `stepr`:           *)
+(*       - Eternal bedrock = demonic corrigibility `corrigibler`       *)
+(*       - Constitutional meta-amendment stream `mproposals`           *)
+(*       - Spec negotiation stream `specprops` under the amended meta  *)
+(*       - Operational `cgate_run` policy upgrade stream `poloffers`   *)
+(*     Simultaneously guarantees for EVERY inhabitant `ctrl`:          *)
+(*       (a) Demonic Corrigibility Bedrock Holds (`invariantr`),       *)
+(*       (b) Non-Blocking Liveness (`enabled stepr` at every step),    *)
+(*       (c) Zero-Override Transparency on self-safe controllers.      *)
+(* ------------------------------------------------------------------ *)
+Theorem gate_all_keeps_soundr:
+  !proposals p0.
+    EVERY (\(cert,newp). cert ==> sound_policyr stepr safe newp) proposals /\
+    sound_policyr stepr safe p0 ==>
+    sound_policyr stepr safe (gate_all p0 proposals)
+Proof
+  Induct >> simp[gate_all_def, pairTheory.FORALL_PROD] >>
+  rpt gen_tac >> strip_tac >>
+  first_x_assum irule >> simp[] >>
+  irule gate_keeps_soundr >> simp[]
+QED
+
+Theorem svenvs_relational_crown:
+  spec_refines meta0 (corrigibler stepr recov home) /\
+  spec_refines s0
+    (amended_meta (corrigibler stepr recov home) meta0 mproposals) /\
+  init_safe init
+    (spec_admit_all
+       (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+       s0 specprops) /\
+  safe_shieldr stepr
+    (spec_admit_all
+       (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+       s0 specprops)
+    shield /\
+  live_shieldr stepr
+    (spec_admit_all
+       (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+       s0 specprops)
+    shield /\
+  sound_policyr stepr
+    (spec_admit_all
+       (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+       s0 specprops)
+    p0 /\
+  EVERY (\(cert,q).
+    cert ==>
+    sound_policyr stepr
+      (spec_admit_all
+         (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+         s0 specprops)
+      q) poloffers /\
+  live_policyr stepr
+    (spec_admit_all
+       (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+       s0 specprops)
+    (gate_all p0 poloffers) ==>
+  (!ctrl.
+     invariantr stepr init (enveloped (gate_all p0 poloffers) shield ctrl)
+       (corrigibler stepr recov home) /\
+     (!s. reachr stepr init (enveloped (gate_all p0 poloffers) shield ctrl) s ==>
+          enabled stepr s (enveloped (gate_all p0 poloffers) shield ctrl s))) /\
+  (!ctrl.
+     invariantr stepr init ctrl
+       (spec_admit_all
+          (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+          s0 specprops) ==>
+     !s. reachr stepr init
+           (enveloped
+              (maxpolr stepr
+                 (spec_admit_all
+                    (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+                    s0 specprops))
+              shield ctrl) s <=>
+         reachr stepr init ctrl s)
+Proof
+  strip_tac >>
+  `spec_refines
+     (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+     (corrigibler stepr recov home)`
+    by (irule bedrock_is_eternal >> first_x_assum ACCEPT_TAC) >>
+  `spec_refines
+     (spec_admit_all
+        (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+        s0 specprops)
+     (amended_meta (corrigibler stepr recov home) meta0 mproposals)`
+    by (irule spec_admit_all_keeps_refining >> first_x_assum ACCEPT_TAC) >>
+  `spec_refines
+     (spec_admit_all
+        (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+        s0 specprops)
+     (corrigibler stepr recov home)`
+    by (irule spec_refines_trans >>
+        qexists_tac
+          `amended_meta (corrigibler stepr recov home) meta0 mproposals` >>
+        conj_tac >> first_x_assum ACCEPT_TAC) >>
+  `sound_policyr stepr
+     (spec_admit_all
+        (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+        s0 specprops)
+     (gate_all p0 poloffers)`
+    by (irule gate_all_keeps_soundr >>
+        conj_tac >> first_x_assum ACCEPT_TAC) >>
+  conj_tac
+  >- (gen_tac >> conj_tac
+      >- (irule invariantr_transports_to_meta >>
+          qexists_tac
+            `spec_admit_all
+               (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+               s0 specprops` >>
+          conj_tac >- first_x_assum ACCEPT_TAC >>
+          irule safety_preservationr >>
+          rpt conj_tac >> first_x_assum ACCEPT_TAC)
+      >- (gen_tac >> strip_tac >>
+          irule enveloped_nonblocking >>
+          qexistsl_tac
+            [`init`,
+             `spec_admit_all
+                (amended_meta (corrigibler stepr recov home) meta0 mproposals)
+                s0 specprops`] >>
+          rpt conj_tac >> first_x_assum ACCEPT_TAC))
+  >- (rpt strip_tac >>
+     irule envelope_transparent_runr >>
+      first_x_assum ACCEPT_TAC)
+QED
+
+(* ------------------------------------------------------------------ *)
+(*  8. Self-Recompilation & Recursive Genealogy in the Composed Tower:*)
+(*     Composes the pure-HOL4 tower (`svenvs_tower_unconditional`)     *)
+(*     with the theorem-gated self-recompilation loop                  *)
+(*     (`selfRecompileGateTheory.self_recompile_loop_is_safe`,         *)
+(*     `candle_run_verified`).                                         *)
+(* ------------------------------------------------------------------ *)
+Theorem svenvs_tower_with_self_recompile:
+  spec_refines s0 meta /\
+  init_safe init (spec_admit_all meta s0 specprops) /\
+  safe_shield step (spec_admit_all meta s0 specprops) shield /\
+  sound_policy step (spec_admit_all meta s0 specprops) p0 /\
+  selfRecompileGate$impl_correct cspec f0 /\
+  selfRecompileGate$cert_sound cspec offers ==>
+  (!polprops ctrl.
+     invariant step init
+       (pca_enveloped
+          (pol_certifier
+             (admit_all step (spec_admit_all meta s0 specprops) p0 polprops))
+          shield (lift_ctrl ctrl))
+       meta) /\
+  selfRecompileGate$impl_correct cspec (selfRecompileGate$run_loop f0 offers) /\
+  (!n. selfRecompileGate$impl_correct cspec (selfRecompileGate$loop_version f0 offers n)) /\
+  selfRecompileGate$impl_correct selfRecompileGate$sum_spec
+    (selfRecompileGate$run_loop selfRecompileGate$sum_spec selfRecompileGate$candle_offers)
+Proof
+  strip_tac >>
+  conj_tac
+  >- metis_tac[svenvs_tower_unconditional] >>
+  conj_tac
+  >- metis_tac[selfRecompileGateTheory.self_recompile_loop_is_safe] >>
+  conj_tac
+  >- metis_tac[selfRecompileGateTheory.self_recompile_loop_is_safe] >>
+  simp[selfRecompileGateTheory.candle_run_modelled, selfRecompileGateTheory.gate2]
 QED
 
 val _ = export_theory();

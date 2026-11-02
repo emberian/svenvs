@@ -36,9 +36,9 @@
 *)
 Theory evalUpgradeOp
 Ancestors
-  source_evalProof evalUpgradeB semanticPrimitives
+  source_evalProof evalUpgradeB semanticPrimitives certifier compilerOpt cv_std
 Libs
-  preamble
+  preamble cv_transLib
 
 (* ------------------------------------------------------------------------ *)
 (* The concrete per-generation custom_do_eval.                              *)
@@ -307,3 +307,226 @@ Proof
   \\ irule repl_upgrade_preserves_recorded_orac_wf_gen
   \\ fs []
 QED
+
+(* ------------------------------------------------------------------------ *)
+(* THEOREM-GATED PER-GENERATION COMPILER CELL (`certified_repl_upgrade` &   *)
+(* `gated_pass_upgrade`) + IN-KERNEL `cv_eval` MULTI-GENERATION TRACE.      *)
+(* ------------------------------------------------------------------------ *)
+
+Definition certified_repl_upgrade_def:
+  certified_repl_upgrade (cert:bool) ci' gen_now g2c =
+    cgate cert g2c (repl_upgrade ci' gen_now g2c)
+End
+
+Theorem certified_repl_upgrade_installs:
+  cert /\ gen_now + 1 <= gen j ==>
+  certified_repl_upgrade cert ci' gen_now g2c (gen j) =
+    mk_compiler_fun_from_ci ci'
+Proof
+  rw [certified_repl_upgrade_def, cgate_def]
+  \\ irule repl_upgrade_uses_new_compiler
+  \\ simp []
+QED
+
+Theorem certified_repl_upgrade_rejects:
+  ~cert ==> certified_repl_upgrade cert ci' gen_now g2c = g2c
+Proof
+  rw [certified_repl_upgrade_def, cgate_def]
+QED
+
+Theorem certified_repl_upgrade_preserves_wf:
+  recorded_orac_wf_gen g2c gen orac /\
+  (cert ==> !j. j <= FST (FST (orac 0)) ==> gen j <= gen_now) ==>
+  recorded_orac_wf_gen (certified_repl_upgrade cert ci' gen_now g2c) gen orac
+Proof
+  rw [certified_repl_upgrade_def, cgate_def]
+  \\ irule repl_upgrade_preserves_recorded_orac_wf_gen
+  \\ simp []
+QED
+
+Definition pass_map_correct_def:
+  pass_map_correct (g2pass : num -> (bvl$exp -> bvl$exp)) <=>
+    !g. ccorrect (g2pass g)
+End
+
+Definition gated_pass_upgrade_def:
+  gated_pass_upgrade (cert:bool) (new_pass:bvl$exp -> bvl$exp)
+                     (gen_now:num) (g2pass:num -> (bvl$exp -> bvl$exp)) =
+    cgate cert g2pass (\k. if k < gen_now + 1 then g2pass k else new_pass)
+End
+
+Theorem gated_pass_upgrade_preserves_correct:
+  sound_certifier chk sem /\
+  (sem ob ==> ccorrect new_pass) /\
+  pass_map_correct g2pass ==>
+  pass_map_correct (gated_pass_upgrade (chk ob) new_pass gen_now g2pass)
+Proof
+  rw [gated_pass_upgrade_def, cgate_def, sound_certifier_def, pass_map_correct_def]
+  \\ rw []
+QED
+
+Theorem sound_certifier_iff_gated_pass_upgrade_safe:
+  sound_certifier chk sem <=>
+    !ob new_pass gen_now g2pass.
+      pass_map_correct g2pass /\ (sem ob ==> ccorrect new_pass) ==>
+      pass_map_correct (gated_pass_upgrade (chk ob) new_pass gen_now g2pass)
+Proof
+  eq_tac
+  >- metis_tac [gated_pass_upgrade_preserves_correct]
+  \\ rw [sound_certifier_def] \\ CCONTR_TAC \\ fs []
+  \\ first_x_assum (qspecl_then [`ob`, `bad_bvl_pass`, `0`, `K bvl_fold`] mp_tac)
+  \\ impl_tac
+  >- simp [pass_map_correct_def, bvl_fold_is_ccorrect]
+  \\ simp [gated_pass_upgrade_def, cgate_def, pass_map_correct_def]
+  \\ qexists_tac `1`
+  \\ simp [bad_bvl_pass_not_ccorrect]
+QED
+
+Definition dispatch_bvl_pass_def:
+  dispatch_bvl_pass (pid:num) (e:bvl$exp) =
+    if pid = 0 then e
+    else if pid = 1 then optimise e
+    else if pid = 2 then bvl_fold e
+    else bad_bvl_pass e
+End
+
+Definition cert_bvl_pass_id_def:
+  cert_bvl_pass_id (pid:num) <=> pid <= 2
+End
+
+Theorem cert_bvl_pass_id_sound:
+  !pid. cert_bvl_pass_id pid <=> ccorrect (dispatch_bvl_pass pid)
+Proof
+  gen_tac \\ simp [cert_bvl_pass_id_def]
+  \\ Cases_on `pid = 0`
+  >- (`dispatch_bvl_pass 0 = (\e. e)` by rw [FUN_EQ_THM, dispatch_bvl_pass_def]
+      \\ gvs [id_is_ccorrect])
+  \\ Cases_on `pid = 1`
+  >- (`dispatch_bvl_pass 1 = optimise` by rw [FUN_EQ_THM, dispatch_bvl_pass_def]
+      \\ gvs [optimise_is_ccorrect])
+  \\ Cases_on `pid = 2`
+  >- (`dispatch_bvl_pass 2 = bvl_fold` by rw [FUN_EQ_THM, dispatch_bvl_pass_def]
+      \\ gvs [bvl_fold_is_ccorrect])
+  \\ `dispatch_bvl_pass pid = bad_bvl_pass` by rw [FUN_EQ_THM, dispatch_bvl_pass_def]
+  \\ `~(pid <= 2)` by decide_tac
+  \\ gvs [bad_bvl_pass_not_ccorrect]
+QED
+
+Definition lookup_gen_pass_def:
+  lookup_gen_pass [] (g:num) = 0n /\
+  lookup_gen_pass ((g_start, pid)::rest) g =
+    let prev = lookup_gen_pass rest g in
+    cgate (cert_bvl_pass_id pid /\ g_start <= g) prev pid
+End
+
+Theorem lookup_gen_pass_ccorrect:
+  !sched g. ccorrect (dispatch_bvl_pass (lookup_gen_pass sched g))
+Proof
+  simp [GSYM cert_bvl_pass_id_sound]
+  \\ Induct \\ simp [lookup_gen_pass_def, cgate_def, FORALL_PROD]
+  >- simp [cert_bvl_pass_id_def]
+  \\ rw []
+QED
+
+Theorem dispatch_lookup_gen_pass_step_eq_compiler_pass_gate:
+  !g_start pid rest g.
+    dispatch_bvl_pass (lookup_gen_pass ((g_start, pid)::rest) g) =
+    compiler_pass_gate (cert_bvl_pass_id pid /\ g_start <= g)
+      (dispatch_bvl_pass (lookup_gen_pass rest g))
+      (dispatch_bvl_pass pid)
+Proof
+  rw [lookup_gen_pass_def, compiler_pass_gate_def, cgate_def]
+QED
+
+Theorem dispatch_lookup_gen_pass_eq_gated_pass_upgrade:
+  !gen_now pid rest.
+    (\g. dispatch_bvl_pass (lookup_gen_pass ((gen_now + 1, pid)::rest) g)) =
+    gated_pass_upgrade (cert_bvl_pass_id pid) (dispatch_bvl_pass pid) gen_now
+      (\g. dispatch_bvl_pass (lookup_gen_pass rest g))
+Proof
+  rw [FUN_EQ_THM, lookup_gen_pass_def, gated_pass_upgrade_def, cgate_def]
+  \\ rw [] \\ fs []
+QED
+
+Definition eval_gen_bvl_trace_def:
+  eval_gen_bvl_trace sched (gens:num list) (e:bvl$exp) =
+    MAP (\g. (g, lookup_gen_pass sched g,
+              cost (dispatch_bvl_pass (lookup_gen_pass sched g) e),
+              dispatch_bvl_pass (lookup_gen_pass sched g) e)) gens
+End
+
+val () = cv_auto_trans cgate_def;
+val () = cv_auto_trans bad_bvl_pass_def;
+val () = cv_auto_trans dispatch_bvl_pass_def;
+val () = cv_auto_trans cert_bvl_pass_id_def;
+val () = cv_auto_trans lookup_gen_pass_def;
+val () = cv_auto_trans eval_gen_bvl_trace_def;
+
+Definition demo_gen_bvl_exp_def:
+  demo_gen_bvl_exp : bvl$exp =
+    Let []
+      (If (Let [] (Op (BlockOp (Cons (bool_to_tag T))) []))
+          (Let [] (Op (IntOp Add)
+                     [Op (IntOp (Const 20)) [];
+                      Op (IntOp (Const 22)) []]))
+          (Raise (Var 0)))
+End
+
+val () = cv_auto_trans demo_gen_bvl_exp_def;
+
+Theorem eval_gen_bvl_trace_cv_benchmark:
+  eval_gen_bvl_trace [(3, 3); (2, 2); (1, 1)] [0; 1; 2; 3] demo_gen_bvl_exp =
+    [(0, 0, 10, demo_gen_bvl_exp);
+     (1, 1, 7,
+      If (Op (BlockOp (Cons (bool_to_tag T))) [])
+         (Op (IntOp Add) [Op (IntOp (Const 20)) []; Op (IntOp (Const 22)) []])
+         (Raise (Var 0)));
+     (2, 2, 1, Op (IntOp (Const 42)) []);
+     (3, 2, 1, Op (IntOp (Const 42)) [])]
+Proof
+  CONV_TAC cv_eval
+QED
+
+
+(* ------------------------------------------------------------------------ *)
+(* PROOF-GATED COMPILER SWAP: connecting repl_upgrade to certifier$cgate.   *)
+(* ------------------------------------------------------------------------ *)
+
+Definition proof_gated_repl_upgrade_def:
+  proof_gated_repl_upgrade (yes:bool) ci' gen_now g2c =
+    certified_repl_upgrade yes ci' gen_now g2c
+End
+
+Theorem proof_gated_repl_upgrade_preserves_wf:
+  !yes ci' gen_now g2c gen orac.
+    recorded_orac_wf_gen g2c gen orac /\
+    (!j. j <= FST (FST (orac 0)) ==> gen j <= gen_now) ==>
+    recorded_orac_wf_gen (proof_gated_repl_upgrade yes ci' gen_now g2c) gen orac
+Proof
+  rw [proof_gated_repl_upgrade_def]
+  \\ irule certified_repl_upgrade_preserves_wf
+  \\ simp []
+QED
+
+Theorem proof_gated_repl_upgrade_keeps_good:
+  !chk sem ob good ci' gen_now g2c.
+    sound_certifier chk sem /\
+    (sem ob ==> good (repl_upgrade ci' gen_now g2c)) /\
+    good g2c ==>
+    good (proof_gated_repl_upgrade (chk ob) ci' gen_now g2c)
+Proof
+  rw [proof_gated_repl_upgrade_def, certified_repl_upgrade_def]
+  \\ irule cgate_safe
+  \\ metis_tac []
+QED
+
+Theorem sound_certifier_iff_repl_upgrade_safe:
+  !chk sem good a b.
+    good a /\ ~good b ==>
+    (sound_certifier chk sem <=>
+     !ob old new. good old /\ (sem ob ==> good new) ==> good (cgate (chk ob) old new))
+Proof
+  metis_tac [sound_certifier_iff_cgate_safe]
+QED
+
+

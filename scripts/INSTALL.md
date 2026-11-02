@@ -76,3 +76,9 @@ git clone https://github.com/CakeML/candle ~/dev/candle && cd ~/dev/candle \
   && ./build-instructions.sh        # downloads verified cake-x64-64; ~15 min
 export CANDLE_ROOT=~/dev/candle
 ```
+
+To align `candle/compute.ml` with the `cake-x64-64` binary's `compute_thms_def`
+(CakeML commit `1af98e502b4d13fe06c561012f002b7e3c15d609`) for interactive
+`Kernel.compute` sessions, apply `candle/compute_if.patch` in `$CANDLE_ROOT`
+(`scripts/place-server.sh` also stages this automatically on `Cakeml.loadPath`
+when starting the Place server).

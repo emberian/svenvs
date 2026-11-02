@@ -43,7 +43,7 @@
       <a class="btn ghost" href="#honesty">The honesty discipline</a>
       <a class="btn ghost" href="https://github.com/emberian/svenvs">Reproduce it yourself</a>
     </div>
-    <p class="note">Zero <code>cheat</code> tactics. <strong>One</strong> labeled assumption genuinely open (the G&ouml;del/L&ouml;b wall) &mdash; the other two discharged. One honest negative, proved on purpose. The self-improving prover, re-verified against the real CakeML/Candle and run live on the verified binary.</p>
+    <p class="note">Zero <code>cheat</code> tactics. <strong>One</strong> soundness-witness construction open (the G&ouml;del/L&ouml;b wall &mdash; no reflection principle assumed) &mdash; the other two seams discharged. One honest negative, proved on purpose. The self-improving prover, re-verified against the real CakeML/Candle and run live on the verified binary.</p>
     <p class="note"><strong>What &ldquo;verified&rdquo; means here, load-bearing:</strong> exactly the cited theorems and their labeled seams &mdash; <em>not</em> verified selfhood, continuity, alignment, welfare, or a safe inhabitant. Only the <em>envelope</em> is proved sound, modulo the named assumptions. If &ldquo;svenvs runs verified&rdquo; starts carrying more than that, the extra meaning is the reader&rsquo;s, not the artifact&rsquo;s.</p>
   </div>
 </header>
@@ -103,7 +103,8 @@
       <code>envelope_is_least_restrictive</code> proves the envelope runs at the
       <em>maximal</em> sound policy: every restriction it imposes is
       load-bearing &mdash; remove any one and the world is provably unsafe for
-      <em>some</em> inhabitant &mdash; while <code>envelope_never_overrides_safe_action</code>
+      <em>some</em> inhabitant &mdash; while <code>envelope_transparent</code>
+      (and <code>envelope_transparent_run</code>)
       proves it never touches a controller action that was already safe. Both
       compose into the tower (<code>svenvs_tower_at_maximal_liberty</code>) with
       <em>no</em> assumption. Every bar in the cage is forced, and the door is
@@ -345,18 +346,20 @@
           <h3>Upgrading the proof-kernel itself</h3>
           <p>
             Replace the proof-checker with a stronger one. By G&ouml;del/L&ouml;b
-            a sound checker cannot prove its own soundness, so this step rests
-            on one explicit, labeled reflection principle
-            (<code>loeb_reflection</code>). The upgraded kernel <em>is</em> the
+            a sound checker cannot prove its own soundness for free:
+            <code>loeb_reflection</code> is derived from the certifying
+            kernel&rsquo;s soundness plus the encoding seam
+            <code>encodes_soundness</code>
+            (<code>loeb_reflection_from_soundness</code>,
+            <code>witness_suffices</code>). The upgraded kernel <em>is</em> the
             gate: a proposal installs iff it derived the obligation, so its
             soundness is what protects safety &mdash; a kernel is sound exactly
             when the gate it drives is safe
             (<code>kernel_sound_iff_gate_safe</code>).
             <code>self_improving_kernel_is_safe</code> proves: given the
-            principle and Candle&rsquo;s certificate, kernel self-upgrade still
-            preserves safety for every controller, and both are proved
-            necessary. <em>An assumption, stated &mdash; not a hidden
-            shortcut.</em>
+            encoding seam and Candle&rsquo;s certificate, kernel self-upgrade
+            still preserves safety for every controller, and both are proved
+            necessary. <em>A named seam &mdash; never a hidden shortcut.</em>
           </p>
         </div>
       </article>
@@ -574,7 +577,7 @@
         <li><strong>No <code>cheat</code> anywhere.</strong> The one open item above is a construction, not a hypothesis; every seam is an explicit <code>Definition</code>, never an unsound shortcut. Zero <code>cheat</code> tactics, zero oracles beyond the benign disk tag, machine-enforced on every run.</li>
         <li><strong>Kernel <em>strengthening</em> stays conditional.</strong> Making the kernel&rsquo;s logic genuinely stronger rests on an LCA-constructed soundness witness (G&ouml;del/L&ouml;b, the large-cardinal route) &mdash; a diagnosed compute wall, not a logic gap; <code>loeb_reflection</code> itself is derived, not assumed. <em>Optimizing or re-engineering</em> the kernel soundly is L&ouml;b-free and proved; the negative <code>loeb_finite_obstruction</code> bounds what finiteness can do.</li>
         <li><strong>The verified kernel primitive is never swapped &mdash; by design.</strong> A kernel-<em>interface</em> primitive (<code>REFL</code>) was swapped in-process under the live prover, gated, on the real binary. The verified <code>Kernel</code> compiled into <code>cake.S</code> stays fixed: Candle itself <em>proves</em> that user REPL code cannot touch it, and every swapped implementation must still mint its theorems through it. That fixed root is the safety, not a gap.</li>
-        <li><strong>Verified <em>inference</em> is not claimed.</strong> The model&rsquo;s floating-point compute is unverified by design &mdash; we verify the cage, not the model. A separate research track explores verified inference and is explicitly toy-scale.</li>
+        <li><strong>Verified <em>inference</em> is scoped to integer/fixed-point envelopes.</strong> A ReLU MLP, residual encoder block, and fixed-point softmax/inner-product envelope bridge into the tower (<code>neural_ctrl_transparent_run</code>, <code>svenvs_tower_with_verified_inference</code>); Gemma-scale floating-point compute remains unverified by design &mdash; at scale we verify the cage, not the model.</li>
         <li><strong>The worlds are small.</strong> Cartpole and the watchdog habitat are deliberately tiny model instances. They demonstrate the architecture; they are not industrial control systems.</li>
       </ul>
     </div>

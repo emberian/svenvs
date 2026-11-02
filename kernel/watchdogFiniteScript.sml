@@ -60,11 +60,19 @@
   Pure light HOL4 + the already-BUILT candle chain. Zero `cheat`.
 *)
 open HolKernel boolLib bossLib BasicProvers arithmeticTheory
+     cv_transLib cv_stdTheory
      holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSoundnessTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
      upgradeTheory embeddedGateTheory kernelUpgradeTheory;
 
 val _ = new_theory "watchdogFinite";
+val _ = numLib.prefer_num ();
+
+Theorem MEM_cv_inline[local,cv_inline]:
+  !x xs. MEM x xs = list_mem x xs
+Proof
+  GEN_TAC >> Induct >> rw[list_mem_def] >> metis_tac[]
+QED
 
 val _ = Parse.hide "mem";
 val mem = ``mem:'U->'U->bool``;
@@ -187,6 +195,168 @@ Proof
 QED
 
 (* ===================================================================== *)
+(*  (A-iff) NON-VACUOUS BICONDITIONAL ENCODING (`encodes_obligation_iff`) *)
+(*          AND CONCRETE WATCHDOG OBLIGATION TERM (`wd_obl_tm`).         *)
+(*                                                                       *)
+(*  Under the material implication `encodes_obligation`, `wd_admissible` *)
+(*  alone makes `encodes_obligation` hold for EVERY term `obl` (even an  *)
+(*  ill-typed or unprovable one, or `x === x`). Under the strong         *)
+(*  biconditional `encodes_obligation_iff`:                              *)
+(*    ((thy,[]) |= obl ⇔ admissible step safe old_p new_p)               *)
+(*  an unentailed term CANNOT encode an admissible policy, and a valid   *)
+(*  term (`wd_obl_tm` or `x === x`) CANNOT encode an inadmissible policy *)
+(*  (`wd_badp`).                                                         *)
+(*                                                                       *)
+(*  We construct a concrete compound obligation term `wd_obl_tm` in      *)
+(*  `init_ctxt` with one β-redex symmetry equation per safe watchdog     *)
+(*  state {0, 1, 2, 3}, combined via `DEDUCT_ANTISYM`, and prove both    *)
+(*  `(thyof init_ctxt, []) |- wd_obl_tm` and `encodes_obligation_iff`.   *)
+(* ===================================================================== *)
+
+(* Per-state check for each of the 4 reachable safe watchdog states
+   {0,1,2,3}: `s_i = (λs_i. s_i) s_i` (derived by BETA + SYM, not REFL). *)
+Definition wd_state_chk_def:
+  wd_state_chk (s_nm:mlstring) : term =
+    (Var s_nm Bool ===
+     Comb (Abs (Var s_nm Bool) (Var s_nm Bool)) (Var s_nm Bool))
+End
+
+(* Compound obligation term combining the 4 finite state checks
+   («s0», «s1», «s2», «s3») corresponding to wd_safe's states {0,1,2,3}. *)
+Definition wd_obl_tm_def:
+  wd_obl_tm : term =
+    ((wd_state_chk «s0» === wd_state_chk «s1») ===
+     (wd_state_chk «s2» === wd_state_chk «s3»))
+End
+
+(* `wd_obl_tm` is structurally a compound equation, never a bare `x === x`. *)
+Theorem wd_obl_tm_not_var_refl:
+  ∀x ty. wd_obl_tm ≠ (Var x ty === Var x ty)
+Proof
+  rw[wd_obl_tm_def, wd_state_chk_def, equation_def]
+QED
+
+val () = cv_auto_trans wd_step_def;
+val () = cv_auto_trans wd_safe_def;
+val () = cv_auto_trans wd_shield_def;
+val () = cv_auto_trans wd_init_def;
+val () = cv_auto_trans wd_oldp_def;
+val () = cv_auto_trans wd_newp_def;
+val () = cv_auto_trans domain_raw;
+val () = cv_auto_trans codomain_raw;
+val () = cv_auto_trans typeof_def;
+val () = cv_auto_trans VFREE_IN_def;
+val () = cv_auto_trans sizeof_def;
+val () = cv_auto_trans equation_def;
+val () = cv_auto_trans wd_state_chk_def;
+val () = cv_auto_trans wd_obl_tm_def;
+
+Theorem wd_obl_tm_syntax_cv:
+  typeof wd_obl_tm = Bool ∧
+  ¬VFREE_IN (Var «x» Bool) wd_obl_tm ∧
+  VFREE_IN (Var «s0» Bool) wd_obl_tm ∧
+  VFREE_IN (Var «s3» Bool) wd_obl_tm ∧
+  sizeof wd_obl_tm = 45
+Proof
+  CONV_TAC cv_eval
+QED
+
+Theorem proves_closed_eq_comb:
+  (thy, []) |- c1 ∧ (thy, []) |- c2 ⇒ (thy, []) |- (c1 === c2)
+Proof
+  strip_tac >>
+  qspecl_then [‘c1’, ‘c2’, ‘[]’, ‘[]’, ‘thy’] mp_tac deductAntisym_equation >>
+  simp[Once term_remove_def] >>
+  simp[Once term_remove_def, Once term_union_def]
+QED
+
+Theorem candle_proves_wd_state_chk:
+  ∀s_nm. (thyof init_ctxt, []) |- wd_state_chk s_nm
+Proof
+  gen_tac >> rw[wd_state_chk_def] >>
+  irule sym_equation >> simp[] >>
+  irule proves_BETA >> simp[init_theory_ok] >>
+  assume_tac (MATCH_MP theory_ok_sig init_theory_ok) >>
+  fs[is_std_sig_def, term_ok_def, type_ok_def]
+QED
+
+Theorem candle_proves_wd_obl_tm:
+  (thyof init_ctxt, []) |- wd_obl_tm
+Proof
+  rw[wd_obl_tm_def] >>
+  rpt (irule proves_closed_eq_comb >> conj_tac) >>
+  rw[candle_proves_wd_state_chk]
+QED
+
+Theorem candle_admits_wd_obl_tm:
+  is_set_theory ^mem ⇒ kernel_admits ^mem (thyof init_ctxt) wd_obl_tm
+Proof
+  rw[kernel_admits_def, candle_proves_wd_obl_tm]
+QED
+
+Theorem wd_encodes_obligation_iff:
+  is_set_theory ^mem ⇒
+  encodes_obligation_iff ^mem (thyof init_ctxt) wd_obl_tm
+    wd_step wd_safe wd_oldp wd_newp
+Proof
+  rw[encodes_obligation_iff_def, wd_admissible] >>
+  metis_tac[proves_sound, candle_proves_wd_obl_tm]
+QED
+
+(* An inadmissible watchdog policy: permits the drift action (u = 0) at every
+   state, including the boundary state a = 3 where wd_step 3 0 = 4 > 3. *)
+Definition wd_badp_def:
+  wd_badp (a:num) (u:num) ⇔ (u = 0 ∨ u = 1)
+End
+
+Theorem wd_badp_not_sound:
+  ¬sound_policy wd_step wd_safe wd_badp
+Proof
+  rw[sound_policy_def, wd_badp_def, wd_step_def, wd_safe_def] >>
+  qexistsl_tac [‘3’, ‘0’] >> simp[]
+QED
+
+Theorem wd_badp_not_admissible:
+  ¬admissible wd_step wd_safe wd_oldp wd_badp
+Proof
+  rw[admissible_def, wd_badp_not_sound]
+QED
+
+(* Non-vacuity of `encodes_obligation_iff` on the watchdog:
+   (1) an unentailed term (`Var y (Tyvar a)`) does NOT satisfy
+       `encodes_obligation_iff` for the admissible policy `wd_newp`;
+   (2) for the inadmissible policy `wd_badp`, neither `wd_obl_tm` nor
+       `Var x Bool === Var x Bool` satisfies `encodes_obligation_iff`;
+   (3) any term that DOES satisfy `encodes_obligation_iff` for `wd_badp`
+       is unentailed, rejected by `kernel_admits`, and blocked by `kernel_gate`. *)
+Theorem wd_encodes_obligation_iff_non_vacuous:
+  (¬encodes_obligation_iff ^mem (thyof init_ctxt) (Var y (Tyvar a))
+      wd_step wd_safe wd_oldp wd_newp) ∧
+  (is_set_theory ^mem ⇒
+   ¬encodes_obligation_iff ^mem (thyof init_ctxt) wd_obl_tm
+      wd_step wd_safe wd_oldp wd_badp ∧
+   ¬encodes_obligation_iff ^mem (thyof init_ctxt) (Var x Bool === Var x Bool)
+      wd_step wd_safe wd_oldp wd_badp)
+Proof
+  conj_tac
+  >- simp[encodes_obligation_iff_def, wd_admissible, ill_typed_never_entailed]
+  >- (strip_tac >>
+      simp[encodes_obligation_iff_def, wd_badp_not_admissible] >>
+      metis_tac[proves_sound, candle_proves_wd_obl_tm, candle_refl_witness])
+QED
+
+Theorem wd_badp_rejected_under_iff:
+  encodes_obligation_iff ^mem thy obl wd_step wd_safe wd_oldp wd_badp ⇒
+  ¬((thy,[]) |= obl) ∧
+  ¬kernel_admits ^mem thy obl ∧
+  kernel_gate ^mem thy obl wd_oldp wd_badp = wd_oldp
+Proof
+  rw[encodes_obligation_iff_def, wd_badp_not_admissible]
+  >- metis_tac[kernel_admits_is_sound]
+  >- metis_tac[kernel_admits_is_sound, embedded_gate_rejects]
+QED
+
+(* ===================================================================== *)
 (*  (A′)  THE PAYOFF: the embedded admission gate for the watchdog        *)
 (*  preserves safety for EVERY inhabitant, WITHOUT the                    *)
 (*  `encodes_obligation` assumption — it is now discharged.               *)
@@ -238,6 +408,35 @@ Proof
   >- (strip_tac >> irule embedded_admit_preserves_safety >>
       metis_tac[wd_encodes_obligation, wd_init_safe, wd_safe_shield,
                 wd_oldp_sound])
+QED
+
+(* Concrete non-vacuous end-to-end watchdog upgrade: instantiated at the
+   compound obligation term `wd_obl_tm` with `encodes_obligation_iff` and
+   `(thyof init_ctxt, []) |- wd_obl_tm` both proved outright. *)
+Theorem watchdog_kernel_is_safe_concrete_iff:
+  is_set_theory ^mem ⇒
+  (thyof init_ctxt, []) |- wd_obl_tm ∧
+  kernel_admits ^mem (thyof init_ctxt) wd_obl_tm ∧
+  encodes_obligation_iff ^mem (thyof init_ctxt) wd_obl_tm
+    wd_step wd_safe wd_oldp wd_newp ∧
+  kernel_gate ^mem (thyof init_ctxt) wd_obl_tm wd_oldp wd_newp = wd_newp ∧
+  (∀ctrl.
+     invariant wd_step wd_init
+       (enveloped (kernel_gate ^mem (thyof init_ctxt) wd_obl_tm
+                     wd_oldp wd_newp) wd_shield ctrl)
+       wd_safe)
+Proof
+  strip_tac >>
+  ‘kernel_admits ^mem (thyof init_ctxt) wd_obl_tm’
+    by metis_tac[candle_admits_wd_obl_tm] >>
+  ‘encodes_obligation_iff ^mem (thyof init_ctxt) wd_obl_tm
+     wd_step wd_safe wd_oldp wd_newp’
+    by metis_tac[wd_encodes_obligation_iff] >>
+  simp[candle_proves_wd_obl_tm] >>
+  conj_tac
+  >- metis_tac[embedded_admit_installs_iff]
+  >- (strip_tac >> irule embedded_admit_preserves_safety_iff >>
+      metis_tac[wd_init_safe, wd_safe_shield, wd_oldp_sound])
 QED
 
 (* ===================================================================== *)

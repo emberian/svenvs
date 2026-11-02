@@ -77,6 +77,10 @@ field `EvalOracle` already carries — no core-semantics edit):
   upgraded map), then a *real* `do_eval` in that fresh generation both preserves
   the invariant AND is gated by the new `ci'`. One turn of the proof-gated
   recompile→install→resume loop, at the verified eval semantics.
+- **Theorem-gated compiler cell & verified BVL pass schedule (`certified_repl_upgrade`, `gated_pass_upgrade`)**:
+  - `certified_repl_upgrade cert ci' gen_now g2c` gates the per-generation compiler swap through `certifierTheory.cgate`, preserving `recorded_orac_wf_gen` (`certified_repl_upgrade_preserves_wf`) whether the certificate accepts or rejects.
+  - `gated_pass_upgrade` gates per-generation BVL optimization passes (`compilerOptTheory.ccorrect`) with the necessity iff `sound_certifier_iff_gated_pass_upgrade_safe` (witnessed by `bvl_fold` vs `bad_bvl_pass`), connected directly to `lookup_gen_pass` via `dispatch_lookup_gen_pass_step_eq_compiler_pass_gate` and `dispatch_lookup_gen_pass_eq_gated_pass_upgrade`.
+  - `lookup_gen_pass` & `eval_gen_bvl_trace`: concrete multi-generation compiler pass schedule translated to `:cv` via `cv_auto_trans` (`lookup_gen_pass_ccorrect`, `eval_gen_bvl_trace_cv_benchmark`), verifying in-kernel via `cv_eval` that generation 0 runs `I` (cost 10), generation 1 upgrades to `optimise` (cost 7), generation 2 upgrades to `bvl_fold` (cost 1, `Op (IntOp (Const 42)) []`), and an uncertified generation 3 offer (`pid = 3`, `bad_bvl_pass`) is rejected by the gate.
 
 Honestly bounded: this is the `EvalOracle`-level realisation (the mode the
 compiler proof uses); carrying it as the running `EvalDecs` root is the
@@ -84,7 +88,8 @@ re-bootstrap step (still open).
 
 ### Runs on the real cake
 
-`candle/compiler_cell_upgrade.cml` + `scripts/apex-compiler-cell.sh` are the
+`scripts/apex-compiler-cell.sh` (and the live Candle kernel proof-gated
+`candle/theplace.ml` / `candle/ouroboros.ml`) are the
 runnable image of these theorems: the per-generation compiler map (`cmap` = g2c),
 the agreement gate (`agree` = `compiler_agrees`) and the in-place upgrade
 (`upgrade` = `repl_upgrade`) are compiled by the verified `cake` to native
@@ -107,6 +112,7 @@ the step + swap into the keystone:
 - **`selfupgrade_eval_simulation_step`** — the keystone: a swap to `ci'` at a
   fresh generation followed by `evaluate_decs` preserves `s_rel_gen` end to end
   and preserves the observable result relation.
+- **`certified_eval_compiler_swap`** — the theorem-gated operational state transformer (`cgate cert (s, t, g2c) (swap_eval_compiler ci' gen_now g2c (s, t))`), proven to transition `gen_eval_inv g2c gen ci s t` to `gen_eval_inv g2c' gen (cgate cert ci ci') s' t'` (`certified_eval_compiler_swap_transitions_gen_eval_inv`) and re-establish `s_rel_gen` on the source/oracle pair (`certified_swap_states_establishes_s_rel_gen`).
 - `selfupgrade_collapses_to_eval_simulation` — conservativity (no-swap recovers
   the original guarantee); `selfupgrade_no_new_typeerror` — no new type error.
 
@@ -136,6 +142,7 @@ each `(n, ci', gen, decs, env, env')`).
   of the final segment (a runtime exception just short-circuits, result still
   related). Proved by induction on the schedule, applying the keystone
   (`selfupgrade_chain_step`) at each step.
+- **`selfupgrade_operational_step_simulation` & `certified_operational_step_simulation`** — operational discharge of `keystone_pre` across a real `swap_eval_decs_state` / `swap_eval_oracle_ci_state` (and its `cgate`-gated counterpart `certified_repl_upgrade`) followed by `evaluate_decs`, preserving `s_rel_gen` and `result_rel` whether the certificate accepts or rejects.
 - **`selfupgrade_oracle_semantics_prog_collapse`** — the conservative
   whole-program lift: when the per-generation map is pinned to one `ci` (the
   only thing the *unmodified* `EvalDecs` semantics can carry, since it has one
@@ -148,18 +155,23 @@ each `(n, ci', gen, decs, env, env')`).
 
 Constant-map conservativity is the `g2c := K (mk_compiler_fun_from_ci ci)`
 instance of the simulation (no separate lemma — see the file comment).
-All `DISK_THM`, no oracles/axioms. (Tier-2; built on persvati.)
+All `DISK_THM`, no oracles/axioms. (Tier-2; built on hbox-remote.)
 
 ## Remaining for the full running self-upgrade
 
 1. **Implement+expose — done at the `EvalOracle` level** (section above):
-   `do_eval_record_gen` is a concrete `custom_do_eval` and `repl_upgrade` the
-   exposed entry point, with no core-semantics edit. The running binary's
-   eval is `EvalDecs`, with one fixed `dec_s.compiler`; carrying the op
-   there is step 2.
-2. **Re-bootstrap** a root that carries the op — **built**, not yet run as
-   a self-upgrading `--repl` session: the patched bootstrap compiler
-   translates into `compiler64ProgTheory` and self-compiles to a working
-   `cake`, but interactive `--repl` on self-compiled cakes is env-blocked in
-   this candle package, and the altered binary is not re-verified end to end
-   in logic (`SELFUPGRADE_ROOT.md`).
+   `do_eval_record_gen` is a concrete `custom_do_eval` and `repl_upgrade` /
+   `certified_repl_upgrade` the exposed entry point, with no core-semantics edit.
+   The running binary's eval is `EvalDecs`, with one fixed `dec_s.compiler`;
+   carrying the op there is step 2.
+2. **Re-bootstrap** a root that carries the op (`cakeml-selfupgrade-root.patch`,
+   `SELFUPGRADE_ROOT.md`) — translates `compiler_pass_gate`,
+   `cert_bvl_pass_id`, `check_compiler_upgrade_cert`,
+   `compiler_for_eval_upgraded`, and `certified_eval_compiler_swap` (plus
+   `certified_eval_compiler_swap_eq`) into `compiler64ProgTheory` and routes the
+   generation-3 REPL compiler upgrade through `certified_eval_compiler_swap`
+   without redundant call-by-value double-compilation. Interactive `--repl` on
+   self-compiled cakes requires the matching `config_enc_str.txt` emitted by
+   `x64BootstrapScript` (`SVENVS_BOOTSTRAP_INLOGIC=1`), and the altered binary's
+   post-swap compilations remain outside the single-compiler `opt_eval_config_wf`
+   envelope (`SELFUPGRADE_ROOT.md`).

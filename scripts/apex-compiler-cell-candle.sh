@@ -2,7 +2,7 @@
 # PROOF-GATED per-generation compiler self-upgrade, RUNNING under the live
 # verified Candle kernel.
 #
-# Submits candle/compiler_cell_candle.ml to a running Candle prover: the
+# Submits candle/theplace.ml to a running Candle prover: the
 # per-generation compiler map (= g2c) is upgraded in place (= repl_upgrade),
 # but the GATE is STRONGER than the verified compiler_agrees — the live kernel
 # must PROVE each new compiler CORRECT (its value-spec = the observable spec)
@@ -28,8 +28,8 @@ fi
 # reuse the persistent server under $PLACE_DIR, or start it (loads hol.ml once)
 place_ensure_server
 
-say "submitting the proof-gated compiler-cell upgrade to the live verified kernel"
-"$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/compiler_cell_candle.ml" _CCC_DONE >/dev/null
+say "submitting the fused Place + proof-gated compiler-cell upgrade to the live verified kernel"
+"$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/theplace.ml" _CCC_DONE >/dev/null
 
 # the live kernel must have PROVED each accepted compiler correct, REFUSED the
 # wrong one, and the whole property must hold.
@@ -41,10 +41,10 @@ done
 grep -aE 'val bad_ok = false' "$LOG" >/dev/null \
   && ok "live kernel REFUSED to certify the wrong compiler (bad_ok = false)" \
   || die "the bad compiler was not refused"
-grep -aE 'val upBad = "REJECTED"' "$LOG" >/dev/null \
+grep -aE 'val upBad = false' "$LOG" >/dev/null \
   && ok "the wrong compiler upgrade was REJECTED (observable protected)" \
   || die "the bad upgrade was not rejected"
-if grep -aqE 'val verdict = "COMPILER_CELL_CANDLE_OK"' "$LOG"; then
+if grep -aqE 'val compiler_cell_verdict = "COMPILER_CELL_CANDLE_OK"' "$LOG"; then
   ok "verdict COMPILER_CELL_CANDLE_OK — observable invariant, cost reduced, earlier generations preserved, wrong compiler refused"
 else
   die "compiler-cell upgrade did not reach COMPILER_CELL_CANDLE_OK"

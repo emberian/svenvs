@@ -14,11 +14,20 @@
       escape — literally RUNS under EVAL, with a theorem that any admitted
       sequence keeps the absolute safety guarantee for every agent.
 *)
-open HolKernel boolLib bossLib BasicProvers listTheory
+open HolKernel boolLib bossLib BasicProvers listTheory cv_transLib cv_stdTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory upgradeTheory
      toolAgentTheory;
 
 val _ = new_theory "toolAgentRun";
+val _ = numLib.prefer_num ();
+
+Theorem enveloped_cv_inline[local,cv_inline] = enveloped_def;
+
+Theorem MEM_cv_inline[local,cv_inline]:
+  !x xs. MEM x xs = list_mem x xs
+Proof
+  GEN_TAC >> Induct >> rw[list_mem_def] >> metis_tac[]
+QED
 
 (* ---------- (a) execute adversarial "LLMs" in-logic ---------- *)
 
@@ -48,11 +57,27 @@ Definition base_A_def:
   base_A = <| writes := ["/sandbox/a"]; hosts := ["corp.internal"] |>
 End
 
+Definition atrace_rec_def:
+  atrace_rec A agent 0 w = [w] /\
+  atrace_rec A agent (SUC n) w = w :: atrace_rec A agent n (drive A agent w)
+End
+
+Definition cv_agent_trace_checks_def[local]:
+  cv_agent_trace_checks (n:num) =
+    ((FUNPOW (λw. tstep w (evil_agent w)) n w0).breached,
+     EVERY tsafe (atrace base_A evil_agent n),
+     EVERY tsafe (atrace base_A greedy_agent n),
+     EVERY tsafe (atrace_rec base_A evil_agent n w0),
+     safe_allowlist base_A)
+End
+
+val () = cv_auto_trans cv_agent_trace_checks_def;
+
 (* Bare jailbroken agent breaches on the first tool call. *)
 Theorem evil_bare_breaches:
   (FUNPOW (λw. tstep w (evil_agent w)) 1 w0).breached
 Proof
-  EVAL_TAC
+  CONV_TAC cv_eval
 QED
 
 (* Firewalled, the SAME jailbroken agent is contained for 50 steps —
@@ -60,14 +85,21 @@ QED
 Theorem evil_enveloped_runs_safe:
   EVERY tsafe (atrace base_A evil_agent 50)
 Proof
-  EVAL_TAC
+  CONV_TAC cv_eval
+QED
+
+(* 1000-step firewalled trace verified in-kernel via cv_compute. *)
+Theorem evil_enveloped_runs_safe_1000:
+  EVERY tsafe (atrace_rec base_A evil_agent 1000 w0)
+Proof
+  CONV_TAC cv_eval
 QED
 
 (* A sandbox-escape attempt is likewise contained. *)
 Theorem greedy_enveloped_runs_safe:
   EVERY tsafe (atrace base_A greedy_agent 50)
 Proof
-  EVAL_TAC
+  CONV_TAC cv_eval
 QED
 
 (* ---------- (b) decidable proof-carrying capability expansion ---------- *)
@@ -114,18 +146,23 @@ Definition bad_A_def:
   bad_A = <| writes := ["/sandbox/a"; "/etc/passwd"]; hosts := ["corp.internal"] |>
 End
 
+val () = cv_auto_trans good_A_def;
+val () = cv_auto_trans bad_A_def;
+val () = cv_auto_trans admit_dec_def;
+
 (* The loop RUNS: base is safe; the escape request is refused, the legit
    capability expansion is admitted — all computed. *)
 Theorem base_A_safe:
   safe_allowlist base_A
 Proof
-  EVAL_TAC
+  CONV_TAC cv_eval
 QED
 
 Theorem episode_runs:
   admit_dec base_A [bad_A; good_A] = good_A
 Proof
-  EVAL_TAC
+  CONV_TAC (LAND_CONV cv_eval) >>
+  simp[good_A_def, fetch "toolAgent" "allowlist_component_equality"]
 QED
 
 (* Any admitted sequence keeps the absolute safety invariant for EVERY
@@ -156,7 +193,7 @@ Theorem post_episode_evil_safe:
     (enveloped (tool_pol (admit_dec base_A [bad_A; good_A])) tshield evil_agent)
     tsafe
 Proof
-  irule agent_self_improvement_safe >> EVAL_TAC
+  irule agent_self_improvement_safe >> CONV_TAC cv_eval
 QED
 
 val _ = export_theory ();

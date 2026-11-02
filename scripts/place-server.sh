@@ -28,10 +28,19 @@ esac
 [ -x "$CANDLE_ROOT/candle/build/cake" ] || die "no Candle binary at $CANDLE_ROOT/candle/build/cake (run its build-instructions.sh)"
 [ -x "$CANDLE_ROOT/candle.sh" ] || die "no candle.sh in $CANDLE_ROOT"
 
-mkdir -p "$PLACE_DIR"
+mkdir -p "$PLACE_DIR/ovl/candle"
 rm -f "$PLACE_FIFO" "$PLACE_LOG" "$PLACE_PGID_FILE"
 mkfifo "$PLACE_FIFO"
 : > "$PLACE_LOG"
+
+# Ensure candle/compute.ml matches the cake binary's compute_thms_def
+# (CakeML commit 1af98e502b4d13fe06c561012f002b7e3c15d609) even on a fresh
+# unpatched CANDLE_ROOT checkout, without mutating CANDLE_ROOT in place.
+cp "$CANDLE_ROOT/candle/compute.ml" "$PLACE_DIR/ovl/candle/compute.ml"
+if grep -q 'Cexp_if (Cexp_pair p2 q2) p1 q1 = p1' "$PLACE_DIR/ovl/candle/compute.ml"; then
+  patch -s "$PLACE_DIR/ovl/candle/compute.ml" < "$SVENVS_ROOT/candle/compute_if.patch" \
+    || die "failed to apply candle/compute_if.patch to staged compute.ml"
+fi
 
 # One process group holds both the FIFO write-end holder (so Candle never sees
 # EOF between submissions) and Candle itself; its id is what place-stop.sh
@@ -45,6 +54,6 @@ set -m
 echo $! > "$PLACE_PGID_FILE"
 set +m
 
-# preload HOL Light (slow, exactly once)
-printf '#use "hol.ml";;\nlet _READY = 1;;\n' > "$PLACE_FIFO"
+# preload HOL Light (slow, exactly once) with staged compute.ml on loadPath
+printf 'let () = Cakeml.loadPath := "%s/ovl" :: !Cakeml.loadPath;;\n#use "hol.ml";;\nlet _READY = 1;;\n' "$PLACE_DIR" > "$PLACE_FIFO"
 echo "place-server: loading hol.ml under $PLACE_DIR (~minutes). Watch: grep _READY $PLACE_LOG"

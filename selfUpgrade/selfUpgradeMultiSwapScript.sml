@@ -67,7 +67,7 @@
 *)
 Theory selfUpgradeMultiSwap
 Ancestors
-  source_evalProof evalUpgradeB selfUpgradeEndToEnd semanticPrimitives
+  source_evalProof evalUpgradeB evalUpgradeOp selfUpgradeEndToEnd semanticPrimitives
   semanticPrimitivesProps
 Libs
   preamble
@@ -76,8 +76,10 @@ Libs
 (* 0. Schedule representation and the threaded source/target runs.          *)
 (* ------------------------------------------------------------------------ *)
 
+val _ = Parse.type_abbrev("v", ``:semanticPrimitives$v``);
+
 Type full_step = ``:num # 'config compiler_instance # (num -> num) # dec list #
-                    (v sem_env) # (v sem_env)``;
+                    (semanticPrimitives$v sem_env) # (semanticPrimitives$v sem_env)``;
 
 Definition multi_run_src_def:
   multi_run_src [] s = (s, Rval <| v := nsEmpty ; c := nsEmpty |>) /\
@@ -339,6 +341,102 @@ Theorem selfupgrade_oracle_semantics_prog_collapse:
 Proof
   metis_tac [oracle_semantics_prog]
 QED
+
+(* ------------------------------------------------------------------------ *)
+(* 5. Operational discharge of `keystone_pre` via `swap_eval_decs_state`    *)
+(*    and `repl_upgrade`.                                                   *)
+(* ------------------------------------------------------------------------ *)
+
+Theorem step_gate_swap_oracle_ci[simp]:
+  step_gate n gen (swap_eval_oracle_ci_state ci' t) <=> step_gate n gen t
+Proof
+  rw [step_gate_def]
+QED
+
+Theorem env_rel_swap_oracle_ci:
+  s_rel ci s t /\
+  env_rel (v_rel (orac_s t.eval_state)) env env' ==>
+  env_rel (v_rel (orac_s (swap_eval_oracle_ci_state ci' t).eval_state)) env env'
+Proof
+  rw [s_rel_def, swap_eval_oracle_ci_state_def, orac_s_def]
+  \\ irule env_rel_with_custom_do_eval
+  \\ first_x_assum ACCEPT_TAC
+QED
+
+Theorem swap_eval_states_discharges_keystone_pre:
+  s_rel_gen g2c gen0 ci s t /\
+  ci'.config_v ci'.init_state = ci.config_v ci.init_state /\
+  recorded_orac_wf (mk_compiler_fun_from_ci ci') (orac_s t.eval_state).oracle /\
+  (!j. 0 < j /\ j <= active_gen t ==> gen j = gen0 j) /\
+  step_gate n gen t ==>
+  keystone_pre n ci' gen g2c
+    (swap_eval_decs_state ci' s) (swap_eval_oracle_ci_state ci' t)
+Proof
+  strip_tac
+  \\ fs [keystone_pre_def, s_rel_gen_def]
+  \\ conj_tac
+  >- (irule swap_eval_states_establishes_s_rel
+      \\ rpt (first_assum (irule_at Any)) \\ simp [])
+  \\ `recorded_orac_wf_gen g2c gen (orac_s t.eval_state).oracle`
+       by (irule recorded_orac_wf_gen_cong
+           \\ first_assum (irule_at Any)
+           \\ fs [active_gen_def])
+  \\ simp [swap_eval_oracle_ci_state_def, orac_s_def]
+QED
+
+Theorem selfupgrade_operational_step_simulation:
+  s_rel_gen g2c gen0 ci s t /\
+  ci'.config_v ci'.init_state = ci.config_v ci.init_state /\
+  recorded_orac_wf (mk_compiler_fun_from_ci ci') (orac_s t.eval_state).oracle /\
+  (!j. 0 < j /\ j <= active_gen t ==> gen j = gen0 j) /\
+  step_gate (gen_now + 1) gen t /\
+  env_rel (v_rel (orac_s t.eval_state)) env env' /\
+  evaluate_decs (swap_eval_decs_state ci' s) env decs = (s', res) /\
+  res <> Rerr (Rabort Rtype_error) ==>
+  ?t' res'.
+    evaluate_decs (swap_eval_oracle_ci_state ci' t) env' decs = (t', res') /\
+    s_rel_gen (repl_upgrade ci' gen_now g2c) gen ci' s' t' /\
+    result_rel (env_rel (v_rel (orac_s t'.eval_state)))
+               (v_rel (orac_s t'.eval_state)) res res'
+Proof
+  strip_tac
+  \\ `keystone_pre (gen_now + 1) ci' gen g2c
+        (swap_eval_decs_state ci' s) (swap_eval_oracle_ci_state ci' t)`
+       by (irule swap_eval_states_discharges_keystone_pre
+           \\ rpt (first_assum (irule_at Any)) \\ simp [])
+  \\ `env_rel (v_rel (orac_s (swap_eval_oracle_ci_state ci' t).eval_state)) env env'`
+       by (irule env_rel_swap_oracle_ci
+           \\ fs [s_rel_gen_def]
+           \\ first_assum (irule_at Any) \\ simp [])
+  \\ drule_all selfupgrade_chain_step
+  \\ simp [repl_upgrade_def, install_compiler_def]
+QED
+
+Theorem certified_operational_step_simulation:
+  s_rel_gen g2c gen0 ci s t /\
+  (!j. 0 < j /\ j <= active_gen t ==> gen j = gen0 j) /\
+  (~cert ==> !k. g2c (gen0 k) = mk_compiler_fun_from_ci ci) /\
+  (cert ==>
+     ci'.config_v ci'.init_state = ci.config_v ci.init_state /\
+     recorded_orac_wf (mk_compiler_fun_from_ci ci') (orac_s t.eval_state).oracle /\
+     step_gate (gen_now + 1) gen t) /\
+  env_rel (v_rel (orac_s t.eval_state)) env env' /\
+  evaluate_decs (cgate cert s (swap_eval_decs_state ci' s)) env decs = (s', res) /\
+  res <> Rerr (Rabort Rtype_error) ==>
+  ?t' res'.
+    evaluate_decs (cgate cert t (swap_eval_oracle_ci_state ci' t)) env' decs = (t', res') /\
+    s_rel_gen (certified_repl_upgrade cert ci' gen_now g2c)
+              (cgate cert gen0 gen) (cgate cert ci ci') s' t' /\
+    result_rel (env_rel (v_rel (orac_s t'.eval_state)))
+               (v_rel (orac_s t'.eval_state)) res res'
+Proof
+  Cases_on `cert`
+  \\ simp [certified_repl_upgrade_def, certifierTheory.cgate_def]
+  \\ strip_tac
+  >- metis_tac [selfupgrade_operational_step_simulation]
+  >- metis_tac [s_rel_gen_step]
+QED
+
 
 (* ------------------------------------------------------------------------ *)
 (* PART 2 NOTE -- the exact remaining goal for the STRICTLY-multi-compiler   *)

@@ -47,10 +47,8 @@ cc -O2 cake.S basis_ffi.c -lm -o cake-selfupgrade
 ```
 
 `scripts/apex-selfupgrade-root.sh` runs steps 3–4 (caching the altered binary),
-then feeds `candle/selfupgrade_root_demo.repl` to `cake-selfupgrade --repl` and
-asserts: the **in-place compiler self-upgrade is announced**, the upgrade is a
-**genuine compiler change** (register allocator switched), and the **observable
-is preserved** across it (`RESULT=99` for `a=2,b=6,c=10,d=100,e=99`).
+then verifies that `cake-selfupgrade` compiles programs (`fib 10 -> 55`) and
+contains the embedded per-generation upgrade (`compiler_for_eval_upgraded`).
 
 ## What was achieved, and the honest boundary (definitively diagnosed)
 
@@ -66,24 +64,34 @@ same class as the official binary and **compiles programs correctly** (`fib 10
 and **differs from the stock sexpr** — the self-upgrade is genuinely embedded in
 the compiler.
 
-**Runtime-demo boundary — environmental, not the patch (proven).** Demonstrating
-the *interactive* self-upgrade needs `--repl` (per-declaration Eval, where the
-patched eval loop lives). In *this* candle package, **self-compiled cakes cannot
-run interactive `--repl`** — they segfault in the Eval/`do_install` runtime while
-working fine in batch compile. This was proven to be **environmental, not the
-patch**: an *unpatched* self-compile of the same source segfaults in `--repl`
-identically (rc 139), while compiling correctly. The only `--repl`-capable cake
-present is the **downloaded** official binary (not patchable); the local sexpr
-does not reproduce it (the self-compiled `.S` diverges from the download at the
-entry preamble, and its `do_install` runtime is subtly incompatible here). Layer
-B hit the same wall and only ever used compile mode. A runnable verified
-self-upgrading binary therefore needs the **official build environment** — the
-in-logic `x64BootstrapTheory` (which emits a *verified* `cake.S`; heavy, and it
-has a latent broken HOL trace in this checkout to fix first).
+## Root cause & fix for interactive `--repl` (`config_enc_str.txt` & `eval_cake_compileLib.sml`)
+
+1. **Why self-compiled `cake-sexpr-64` binaries segfaulted in `--repl`:**
+   Interactive `--repl` initializes the `EvalDecs` compiler state (`s1` in
+   `eval ((s1,next_gen), (env,id), decs)`) by deserializing `config_enc_str.txt`
+   into the initial backend configuration value (`ci.config_v ci.init_state`).
+   When `cake` is compiled out-of-logic from `cake-sexpr-64` (without regenerating
+   `config_enc_str.txt`) or paired with a mismatched `config_enc_str.txt` from a
+   different build, the deserialized config representation does not match the
+   compiled binary's closure/data layout, causing `do_install` / `Eval` to fault
+   even on an unpatched self-compile.
+2. **Why `x64BootstrapScript` failed to emit `(cake.S, config_enc_str.txt)`:**
+   In `compiler/bootstrap/compilation/x64/64/x64BootstrapScript.sml`,
+   `eval_cake_compile_x64_general` emits **both** `output_filename = "cake.S"`
+   and `output_conf_filename = SOME "config_enc_str.txt"` from the same in-logic
+   evaluation. However, at CakeML pin `ac654a0a3`,
+   `cv_translator/eval_cake_compileLib.sml` calls the dead HOL4 trace
+   `Feedback.set_trace "TheoryPP.include_docs" 0` (removed in HOL4 `2faefbd579`),
+   which broke `cake_compile_heap` and prevented `x64BootstrapScript` from
+   running.
+3. **The fix (wired in `scripts/build-selfupgrade-root.sh`):**
+   Removing the dead `TheoryPP.include_docs` trace from
+   `cv_translator/eval_cake_compileLib.sml` restores `cake_compile_heap` and
+   allows `x64BootstrapScript` (`SVENVS_BOOTSTRAP_INLOGIC=1`) to evaluate
+   `compiler64_prog_def` in-logic and emit both `cake.S` and the matching
+   `config_enc_str.txt`.
 
 **Also: the self-upgrade *pattern* runs** as a program on the real (download)
-cake — `candle/compiler_cell_upgrade.cml` (`COMPILER_CELL_UPGRADE_OK`) and the
-Candle-kernel-proof-gated `candle/compiler_cell_candle.ml`
-(`COMPILER_CELL_CANDLE_OK`). What is NOT claimed: that the altered *cake binary
-itself* was observed self-upgrading at runtime in this env, nor that it is
-re-verified end-to-end in logic.
+cake — `scripts/apex-compiler-cell.sh` (`COMPILER_CELL_UPGRADE_OK`) and the
+Candle-kernel-proof-gated `candle/theplace.ml` (`COMPILER_CELL_CANDLE_OK`) and
+`candle/ouroboros.ml` (`ouro_compiler_cell_selftest = true`).

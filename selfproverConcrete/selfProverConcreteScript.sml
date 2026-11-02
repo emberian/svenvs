@@ -33,9 +33,10 @@
   on). NO new turtle.
 *)
 open HolKernel boolLib bossLib BasicProvers
-     holSyntaxTheory holSemanticsTheory holSoundnessTheory
+     cv_transLib holSyntaxTheory holSyntaxExtraTheory holSemanticsTheory holSoundnessTheory
      systemTheory envelopeTheory safetyTheory sv_weakeningTheory
-     upgradeTheory selfProverTheory kernelUpgradeTheory;
+     upgradeTheory selfProverTheory kernelUpgradeTheory
+     watchdogFiniteTheory loebReductionTheory;
 
 val _ = new_theory "selfProverConcrete";
 
@@ -125,4 +126,90 @@ Proof
   metis_tac[frozen_checker_sound_candle]
 QED
 
+(* ------------------------------------------------------------------ *)
+(* 4. Concrete cv_compute holSyntax Context, Update & Watchdog Term    *)
+(*    Well-Formedness Verification                                     *)
+(* ------------------------------------------------------------------ *)
+
+Definition hol4_checks_ctxt_cv_def:
+  hol4_checks_ctxt_cv upds ctxt ⇔
+    is_std_sig_alist ctxt ∧ check_updates_chain upds ctxt
+End
+val () = cv_auto_trans hol4_checks_ctxt_cv_def;
+
+Theorem hol4_checks_ctxt_cv_sound:
+  ∀upds ctxt.
+    theory_ok (thyof ctxt) ∧ hol4_checks_ctxt_cv upds ctxt ⇒
+    is_std_sig (sigof ctxt) ∧
+    (REVERSE upds ++ ctxt) extends ctxt ∧
+    theory_ok (thyof (REVERSE upds ++ ctxt))
+Proof
+  rpt gen_tac >>
+  REWRITE_TAC [hol4_checks_ctxt_cv_def, is_std_sig_alist_eq] >>
+  strip_tac >>
+  mp_tac (SPEC_ALL check_updates_chain_sound) >>
+  ASM_REWRITE_TAC []
+QED
+
+Theorem hol4_checks_lca_ext_cv:
+  hol4_checks_ctxt_cv lca_ext_upds init_ctxt
+Proof
+  CONV_TAC cv_eval
+QED
+
+Theorem hol4_checks_lca_ext_sound:
+  is_std_sig (sigof init_ctxt) ∧
+  lca_ext_ctxt extends init_ctxt ∧
+  theory_ok (thyof lca_ext_ctxt)
+Proof
+  mp_tac (Q.SPECL [`lca_ext_upds`, `init_ctxt`] hol4_checks_ctxt_cv_sound) >>
+  REWRITE_TAC [init_theory_ok, hol4_checks_lca_ext_cv, GSYM lca_ext_ctxt_def]
+QED
+
+Theorem wd_state_chk_cv_inline[cv_inline] = wd_state_chk_def;
+Theorem wd_obl_tm_cv_inline[cv_inline] = wd_obl_tm_def;
+
+Theorem wd_obl_tm_wellformed_cv:
+  type_ok (tysof init_ctxt) (typeof wd_obl_tm) ∧
+  welltyped wd_obl_tm ∧
+  term_ok (sigof init_ctxt) wd_obl_tm ∧
+  term_ok (sigof lca_ext_ctxt) wd_obl_tm ∧
+  typeof wd_obl_tm = Bool
+Proof
+  rpt conj_tac >> CONV_TAC cv_eval
+QED
+
+Theorem wd_build_certifies_candle:
+  build_certifies (sound_real (^mem)) candle_kernel
+    wd_step wd_safe wd_oldp wd_newp
+Proof
+  rw[build_certifies_def, wd_admissible]
+QED
+
+Theorem prover_self_improvement_watchdog_concrete:
+  term_ok (sigof init_ctxt) wd_obl_tm ∧
+  welltyped wd_obl_tm ∧
+  (thyof init_ctxt, []) |- wd_obl_tm ∧
+  prover_gate hol4_checks_real p candle_kernel T wd_oldp wd_newp = wd_newp ∧
+  admissible wd_step wd_safe wd_oldp wd_newp ∧
+  ∀ctrl.
+    invariant wd_step wd_init
+      (enveloped (prover_gate hol4_checks_real p candle_kernel T
+                              wd_oldp wd_newp) wd_shield ctrl)
+      wd_safe
+Proof
+  strip_assume_tac wd_obl_tm_wellformed_cv >>
+  rpt conj_tac
+  >- first_assum ACCEPT_TAC
+  >- first_assum ACCEPT_TAC
+  >- ACCEPT_TAC candle_proves_wd_obl_tm
+  >- rw[prover_gate_def, hol4_checks_real_def, upgradeTheory.gate_def]
+  >- ACCEPT_TAC wd_admissible
+  >- (gen_tac >>
+      irule prover_self_improvement_is_safe_candle >>
+      simp[wd_build_certifies_candle, wd_init_safe,
+           wd_safe_shield, wd_oldp_sound])
+QED
+
 val _ = export_theory ();
+

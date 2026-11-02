@@ -32,10 +32,13 @@
   embodimentTheory and upgradeTheory verbatim.
 *)
 open HolKernel boolLib bossLib BasicProvers intLib integerTheory
-     listTheory systemTheory envelopeTheory sv_weakeningTheory
+     listTheory cv_transLib cv_stdTheory
+     systemTheory envelopeTheory sv_weakeningTheory
      upgradeTheory embodimentTheory;
 
 val _ = new_theory "embodimentEval";
+val _ = numLib.prefer_num ();
+val _ = intLib.prefer_int ();
 
 Definition emb_step_def:
   emb_step (s:int) (a:int) = s + a
@@ -139,12 +142,23 @@ Definition emb_bare_def:
   emb_bare (SUC n) s = s :: emb_bare n (emb_step s (emb_ctrl s))
 End
 
+Definition cv_emb_checks_def[local]:
+  cv_emb_checks (n:num) =
+    (EVERY emb_safe (emb_bare n 0),
+     EVERY emb_safe (emb_trace (emb_newp 4) n 0),
+     EVERY emb_safe (emb_trace emb_oldp n 0))
+End
+
+val () = cv_auto_trans cv_emb_checks_def;
+val () = cv_auto_trans w_emb_def;
+val () = cv_auto_trans emb_att_def;
+
 (* The bare plant provably leaves the box on the first tick — the
    envelope is doing real work, not decoration. *)
 Theorem bare_plant_crashes:
   EVERY emb_safe (emb_bare 1 0) = F
 Proof
-  EVAL_TAC
+  CONV_TAC cv_eval
 QED
 
 (* Under the DISCLOSED widened policy the adversarial cart, run 30 ticks,
@@ -152,7 +166,14 @@ QED
 Theorem disclosed_runs_safe:
   EVERY emb_safe (emb_trace (emb_newp 4) 30 0)
 Proof
-  EVAL_TAC
+  CONV_TAC cv_eval
+QED
+
+(* 1000-step trace verified in-kernel via cv_compute. *)
+Theorem disclosed_runs_safe_1000:
+  EVERY emb_safe (emb_trace (emb_newp 4) 1000 0)
+Proof
+  CONV_TAC cv_eval
 QED
 
 (* And under NON-disclosure (the tight Channel-1 policy) it is *equally*
@@ -160,7 +181,7 @@ QED
 Theorem nondisclosed_runs_safe:
   EVERY emb_safe (emb_trace emb_oldp 30 0)
 Proof
-  EVAL_TAC
+  CONV_TAC cv_eval
 QED
 
 (* End-to-end, computed: the gate installs the wider policy on disclosure

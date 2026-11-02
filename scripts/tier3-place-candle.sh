@@ -18,7 +18,7 @@ fi
 # reuse the persistent server under $PLACE_DIR, or start it (loads hol.ml once)
 place_ensure_server
 
-say "Tier 3: submitting the Place to the live verified kernel"
+say "Tier 3: submitting the fused Place + self-optimization + proof-gated compiler cell to the live verified kernel"
 "$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/theplace.ml" _SVENVS_PLACE_OK >/dev/null
 # core habitat + the SYM kernel-mod tie-in + the live policy self-optimizations
 # (watchdog and polecart), all certified at runtime by the verified kernel.
@@ -29,29 +29,22 @@ for thm in SAFETY_PRESERVATION SAFE_WEAKENING WD_SHIELD_SAFE WD_HABITAT_SAFE \
     || die "$thm not certified by live Candle"
 done
 
-# the live self-optimization loop: the prover proves a rule sound, ADOPTS it
-# as a reusable derived rule, and uses it to prove more (LCF self-extension).
-say "Tier 3: submitting the live self-optimization loop"
-"$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/selfopt_demo.ml" _SVENVS_SELFOPT_OK >/dev/null
 for thm in SYM_LEMMA FACT1_SYM FACT1_ROUNDTRIP; do
   grep -aE "val $thm = " "$LOG" | tail -1 | grep -q '|-' \
     && ok "Candle kernel certified $thm (self-extended)" \
     || die "$thm not certified by live Candle"
 done
-# the live PROOF-GATED RECOMPILE -> SWAP -> RESUME loop: the running system
-# replaces its own executing compute code with freshly-compiled versions (in-
-# binary compiler + real do_install), each gated by a live kernel equivalence
-# proof; swaps accumulate (path-dependent); an unprovable swap is REJECTED so
-# semantics can never break. The Apex substrate, running.
-say "Tier 3: submitting the live proof-gated recompile->swap->resume loop"
-"$(dirname "$0")/place-submit.sh" "$SVENVS_ROOT/candle/self_recompile.ml" _SVENVS_RECOMPILE_OK >/dev/null
-for thm in GATE1 GATE2; do
+
+for thm in GATE1 GATE2 GATE_B GATE_C THEPLACE_COMPUTE_THM; do
   grep -aE "val $thm = " "$LOG" | tail -1 | grep -q '|-' \
-    && ok "Candle kernel certified swap gate $thm" \
+    && ok "Candle kernel certified swap/compiler/compute gate $thm" \
     || die "$thm not certified by live Candle"
 done
+grep -aqE 'val compiler_cell_verdict = "COMPILER_CELL_CANDLE_OK"' "$LOG" \
+  && ok "live proof-gated compiler cell: COMPILER_CELL_CANDLE_OK" \
+  || die "theplace.ml did not reach COMPILER_CELL_CANDLE_OK"
 grep -aqE 'val verdict = "APEX_SUBSTRATE_OK"' "$LOG" \
-  && ok "live recompile-swap-resume: outputs invariant across 2 accumulated swaps, cost 101->1, bad swap REJECTED (APEX_SUBSTRATE_OK)" \
-  || die "self_recompile loop did not reach APEX_SUBSTRATE_OK"
+  && ok "live recompile-swap-resume: outputs invariant across accumulated swaps, bad swaps REJECTED (APEX_SUBSTRATE_OK)" \
+  || die "theplace.ml did not reach APEX_SUBSTRATE_OK"
 
-say "TIER 3 REPRODUCED — the Place + live self-optimization + live proof-gated recompile-swap-resume, certified at runtime by the verified Candle prover"
+say "TIER 3 REPRODUCED — the Place + live self-optimization + live proof-gated compiler cell, certified at runtime by the verified Candle prover"
