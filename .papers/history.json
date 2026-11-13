@@ -1,0 +1,79 @@
+[
+  {
+    "repo": "svenvs",
+    "oid": "7166bb65e1416cc8ff6e181af8cf024684872bb6",
+    "sha256": "fe7257cf9a17ce5da514ec776cec3330c368f702f60fd620d8e0ff149012b805",
+    "bytes": 132244,
+    "library_path": "repo-rescue-2026-11-13/papers/fe7257cf9a17ce5d--svenvs.pdf",
+    "valid_pdf": true,
+    "reused_existing_library_copy": false,
+    "original_paths": [
+      "paper/svenvs.pdf"
+    ],
+    "observed_commits": [
+      "06f03ebc23de5c5b4126ae57c29ae65c205594da",
+      "624766e621701cc8ea58fe39bf7b9282c58b294f"
+    ]
+  },
+  {
+    "repo": "svenvs",
+    "oid": "4a95fec98d2a09948c80a30bd9762524921c791a",
+    "sha256": "d87b307e1470ce94e4a316e68ca8a74b57c1faefffb7be281c230b5212ab225f",
+    "bytes": 132294,
+    "library_path": "repo-rescue-2026-11-13/papers/d87b307e1470ce94--svenvs.pdf",
+    "valid_pdf": true,
+    "reused_existing_library_copy": false,
+    "original_paths": [
+      "paper/svenvs.pdf"
+    ],
+    "observed_commits": [
+      "9aa1658eb11715aa3c572a0d3b9ee26c841d1130",
+      "a721208d08d4ad9141802570d1a12ee5af08fbb7"
+    ]
+  },
+  {
+    "repo": "svenvs",
+    "oid": "a1cf9f2f5a9095da67aaf388fed298d70d5639bf",
+    "sha256": "a69b45e08c369da9d818007a47d88ec10294259d5839f6b06d7f0b754a07f217",
+    "bytes": 129172,
+    "library_path": "repo-rescue-2026-11-13/papers/a69b45e08c369da9--svenvs.pdf",
+    "valid_pdf": true,
+    "reused_existing_library_copy": false,
+    "original_paths": [
+      "paper/svenvs.pdf"
+    ],
+    "observed_commits": [
+      "ce62cdaefe86a71de62df60ee2f538709f44d862"
+    ]
+  },
+  {
+    "repo": "svenvs",
+    "oid": "2a70e1c767f0640dcafff0cb32fa96db9e055202",
+    "sha256": "151c33c468552bb1199c4cd75b8bb47b119b659d39801e7b42e30507f580f595",
+    "bytes": 127450,
+    "library_path": "repo-rescue-2026-11-13/papers/151c33c468552bb1--svenvs.pdf",
+    "valid_pdf": true,
+    "reused_existing_library_copy": false,
+    "original_paths": [
+      "paper/svenvs.pdf"
+    ],
+    "observed_commits": [
+      "b123b96954f7c74dcef8724a3d1ac87bc417d44a"
+    ]
+  },
+  {
+    "repo": "svenvs",
+    "oid": "6a65affbb6ae1e4c2f7ae08aa87e13a08e139c39",
+    "sha256": "6ef13cd28560c8a3cfc2c9fab3389f3d4d95bccbb49243a86537f20d30716e7d",
+    "bytes": 127250,
+    "library_path": "repo-rescue-2026-11-13/papers/6ef13cd28560c8a3--svenvs.pdf",
+    "valid_pdf": true,
+    "reused_existing_library_copy": false,
+    "original_paths": [
+      "paper/svenvs.pdf"
+    ],
+    "observed_commits": [
+      "a92eba8cc307caa5d55d472539febd812eb652f7"
+    ]
+  }
+]

@@ -1,0 +1,12 @@
+Local paper library
+
+PDFs are preserved outside Git in ~/paperbin. Restore the exact recorded versions at their former paths with:
+
+  python3 tools/paperbin.py restore
+
+Use --only ORIGINAL_PATH_OR_DIRECTORY for a subset, --paperbin DIRECTORY (or PAPERBIN) for another library, and --search to locate the same SHA256 content under a different filename. The tool never downloads files or overwrites differing files. Verify restored files with python3 tools/paperbin.py verify; list expected hashes/locations with python3 tools/paperbin.py list.
+
+.papers/index.json records original Git blob IDs, SHA256, modes and library locations. Source bibliographies and paper/report source files remain in this repo. Existing PDF-producing commands still work and their generated PDFs are ignored. Readers without this paper library can acquire papers from the citations in the source bibliography and use --search to find the matching saved versions.
+
+Original Git tip: 06f03ebc23de5c5b4126ae57c29ae65c205594da
+See HISTORY-CLEANUP.txt for the preserved pre-rewrite history and version mapping.

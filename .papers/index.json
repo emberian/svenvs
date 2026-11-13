@@ -1,0 +1,13 @@
+{
+  "original_tip": "06f03ebc23de5c5b4126ae57c29ae65c205594da",
+  "papers": [
+    {
+      "path": "paper/svenvs.pdf",
+      "oid": "7166bb65e1416cc8ff6e181af8cf024684872bb6",
+      "bytes": 132244,
+      "mode": "100644",
+      "sha256": "fe7257cf9a17ce5da514ec776cec3330c368f702f60fd620d8e0ff149012b805",
+      "library_path": "repo-rescue-2026-11-13/papers/fe7257cf9a17ce5d--svenvs.pdf"
+    }
+  ]
+}

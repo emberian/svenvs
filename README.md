@@ -1,3 +1,5 @@
+> PDFs live in the local paper library. Restore exact saved versions with `python3 tools/paperbin.py restore`; see [PAPERS.txt](PAPERS.txt).
+
 # svenvs — A Self-Verifying, Self-Improving Reflective Compiler-and-Prover & Safety Envelope
 
 [![Verify (Tier 1)](https://github.com/emberian/svenvs/actions/workflows/verify.yml/badge.svg)](https://github.com/emberian/svenvs/actions/workflows/verify.yml)

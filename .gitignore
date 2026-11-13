@@ -11,3 +11,6 @@ __pycache__/
 # Local output of release/build.sh (the freshly compiled envelope-console ELF
 # + the downloaded CakeML compiler). The release workflow rebuilds it in CI.
 release/_build/
+
+# PDFs live in the local paper library; see PAPERS.txt.
+*.[pP][dD][fF]

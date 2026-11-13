@@ -1,0 +1,11 @@
+Paper-library offload, 2026-11-13
+
+PDF paths were removed from Git history after all observed versions were SHA256-verified in ~/paperbin. Source paper/report inputs, source code, images and unrelated data were retained. See PAPERS.txt and .papers/history.json for recovery identities and source paths.
+
+Original tip: 06f03ebc23de5c5b4126ae57c29ae65c205594da
+Pre-rewrite Git bundle: /Users/ember/repo-archives/2026-11-13/pdf-offload/svenvs.bundle
+Bundle SHA256: 9123ee78ddbbd716eb5f66b7b779b8eb40e54e441fdf28b4aea25ba970a34234
+Independent backup: hbox:~/repo-archives/2026-11-13/pdf-offload/svenvs.bundle
+The original archive passed restoration and git fsck. .papers/history-map.tsv.xz maps old commits to rewritten commits. Commits made empty by payload removal were retained.
+
+Existing local worktrees retain old history and were not modified. Preserve local work and use a fresh clone; do not merge or force-push old histories back.
