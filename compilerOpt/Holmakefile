@@ -22,6 +22,7 @@ INCLUDES = $(CAKEMLDIR)/misc \
            $(CAKEMLDIR)/semantics \
            $(CAKEMLDIR)/compiler/backend \
            $(CAKEMLDIR)/compiler/backend/semantics \
+           $(CAKEMLDIR)/pancake $(CAKEMLDIR)/pancake/semantics \
            .. ../genealogy ../recursive
 OPTIONS = QUIT_ON_FAILURE
 ifdef POLY

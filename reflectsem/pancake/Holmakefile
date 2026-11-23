@@ -1,0 +1,8 @@
+ifndef CAKEMLDIR
+CAKEMLDIR = $(HOME)/dev/CakeML
+endif
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/pancake/parser $(CAKEMLDIR)/pancake/semantics
+OPTIONS = QUIT_ON_FAILURE
+ifdef POLY
+HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap
+endif

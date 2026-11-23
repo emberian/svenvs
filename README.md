@@ -33,27 +33,28 @@ Most formal verification assumes a static system and tries to specify *what good
 The live Tier-3 runtime on the verified `cake` binary is unified into a single pipeline ([`candle/theplace.ml`](candle/theplace.ml) $\to$ [`candle/ouroboros_rewrites.ml`](candle/ouroboros_rewrites.ml) $\to$ [`candle/ouroboros.ml`](candle/ouroboros.ml)):
 
 * **The Place & Live Kernel (`candle/theplace.ml`)**:
-  Loads ` safety_preservation`, `safe_weakening`, `gate_safe`, and `self_improvement_is_safe` directly into the running Candle LCF kernel, swaps the kernel-interface `REFL` primitive in-process for a proven-equivalent implementation, and boots the verified in-kernel `:cval` compute engine (`Kernel.compute` / `THEPLACE_COMPUTE_THM`).
+  Candle proves `SAFETY_PRESERVATION` and `SAFE_WEAKENING` in the running kernel. The live Place also exercises a theorem-gated compiler cell and checks a bytecode computation with `THEPLACE_COMPUTE_THM`.
 * **Real CakeML Semantics Inside the Prover (`reflectsem/`)**:
-  Ports CakeML's full AST and fueled big-step evaluator `eval_n` (45 datatypes, 134 kernel-checked defining equations) into the running Candle kernel, bridged to HOL4's `evaluate_ck` and the deep-embedded optimizer `oexp`/`ofold` in [`reflectsem/fueledBridgeScript.sml`](reflectsem/fueledBridgeScript.sml) (`oexp_eval_n_fuel_correct`, `ofold_eval_n_fuel_preserves`).
+  Ports CakeML's full AST and fueled big-step evaluator `eval_n` (45 datatypes, 134 kernel-checked defining equations) into the running Candle kernel, bridged to CakeML’s clocked evaluator by `eval_n_agrees` and the deep-embedded optimizer `oexp`/`ofold` in [`reflectsem/fueledBridgeScript.sml`](reflectsem/fueledBridgeScript.sml) (`oexp_eval_n_fuel_correct`, `ofold_eval_n_fuel_preserves`).
 * **Fast Verified In-Kernel `:cval` Computation (`Kernel.compute`)**:
   Instead of slow LCF term-rewriting (`REWRITE_CONV`), [`candle/ouroboros_rewrites.ml`](candle/ouroboros_rewrites.ml) registers `:cval` S-expression equations (`cval_nodes`, `cval_fuel`, `cval_fold`, `cval_eval`) directly with Candle's verified CEK/bytecode machine (`Kernel.compute`), proving universal preservation theorems (`ofold_preserves`, `orw_exp_preserves`, `OURO_KERNEL_COMPUTE_PRIMITIVE_THM`, `OURO_CVAL_COMPUTE_THM`) with zero hypotheses.
 * **Unforgeable Theorem-Gated Compiler Cell & Ouroboros Loop (`candle/ouroboros.ml`)**:
-  * The active compiler pass is held behind an LCF theorem gate (`install_compiler_pass : thm -> (exp -> exp) -> bool`) that inspects the conclusion of a real kernel `thm` (`∀k s env e. eval_n k (s, env, [pass e]) = eval_n k (s, env, [e])`). Forged or unsound passes (`bad_pass = fn _ => Lit (IntLit 0)`) are rejected at the type/kernel boundary.
-  * Across a 6-generation self-improvement loop (`ouro_loop`), the system starts with `orw_exp` (`orw_exp_preserves` at Gen 0–1), **upgrades its own active compiler cell in-loop** to `ofold` (`ofold_preserves` at Gen 2–5), transforms candidate ASTs through the active pass, proves semantic preservation against `eval_n` for all inputs `(s, env)`, checks `:cval` node/fuel/evaluation metrics via `Kernel.compute`, and self-feeds the proven source through `Cakeml.eval` (`Eval`).
+  * The Candle installer `ouro_install_compiler_pass` checks a hypothesis-free theorem about the named pass on expressions in `ofrag`, with sufficient fuel in the environment `oenv i` and state `ost0`. The executor is supplied separately. The gate checks the theorem’s conclusion against the pass constant.
+  * The six-generation loop starts with `orw_exp`, installs `ofold`, evaluates candidate metrics with `Kernel.compute`, and feeds the selected source through CakeML’s `Eval`.
+* **Pancake program optimization**. The constant-shift folder preserves the return result and complete state under CakeML’s Pancake evaluator (`pancake_opt_pass_sound`). The gate installs the folder before CakeML’s Pancake-to-target compiler (`gated_compile_prog_installs`). A rejected update produces the same compiler result as the ordinary backend (`gated_compile_prog_rejected`). Certifier soundness is necessary and sufficient for safe replacement (`pancake_gate_safe_iff`). [HOL4 theory](compilerOpt/pancakeOptGateScript.sml)
 * **Self-Upgradable Compiler Root (`compilerOpt/` + `selfUpgrade/`)**:
   * [`compilerOpt/compilerOptScript.sml`](compilerOpt/compilerOptScript.sml) defines a recursive BVL constant-folding pass (`bvl_fold`), proves semantic preservation against CakeML's `bvlSem$evaluate` (`bvl_fold_correct`, `bvl_fold_is_ccorrect`) and non-increasing code size (`bvl_fold_nonincreasing`), and packages the operational gate (`compiler_pass_gate`).
   * [`selfUpgrade/selfUpgradeEndToEndScript.sml`](selfUpgrade/selfUpgradeEndToEndScript.sml) and [`selfUpgrade/cakeml-selfupgrade-root.patch`](selfUpgrade/cakeml-selfupgrade-root.patch) wire `certified_eval_compiler_swap` directly into CakeML's `compiler64ProgScript.sml` REPL `eval` loop and self-compile into a working 1.19 GB `cake-selfupgrade` binary ([`scripts/apex-selfupgrade-root.sh`](scripts/apex-selfupgrade-root.sh)).
 
 ### 2. Fast In-Logic Computation Across HOL4 & `hol-reflection` (`cv_compute`)
 
-All computational proof obligations in the HOL4 theories are accelerated with HOL4's verified `:cv` compute kernel (`cv_trans` / `cv_auto_trans` / `cv_eval`):
+Several theories use HOL4’s verified `:cv` evaluator for concrete proof obligations.
 
-* **Reflective `holSyntax_cv` Engine ([`kernel/loebReduction/loebReductionScript.sml`](kernel/loebReduction/loebReductionScript.sml) & [`selfproverConcrete/selfProverConcreteScript.sml`](selfproverConcrete/selfProverConcreteScript.sml))**:
-  Translates the deep-embedded HOL syntax, type, term, α-equivalence, and context-update checkers (`REV_ASSOCD`, `tymatch`, `type_ok_alist`, `term_ok_alist`, `welltyped_check`, `aconv_check`, `constrainable_update_check`, `check_updates_chain`) into `:cv` functions with `[cv_inline]` bridges for finite-map lookups on `thyof ctxt`. This turns multi-hour `EVAL_TAC` obligations over the 18-update `hol-reflection` large-cardinal context (`lca_ctxt`) and the 18-update real `candle_kernelProgTheory` context (`real_candle_ctxt`) into sub-second `cv_eval` kernel evaluations.
+* **Reflective HOL syntax checks ([`kernel/loebReduction/loebReductionScript.sml`](kernel/loebReduction/loebReductionScript.sml) & [`selfproverConcrete/selfProverConcreteScript.sml`](selfproverConcrete/selfProverConcreteScript.sml))**:
+  Translates the deep-embedded HOL syntax, type, term, α-equivalence, and context-update checkers (`REV_ASSOCD`, `tymatch`, `type_ok_alist`, `term_ok_alist`, `welltyped_check`, `aconv_check`, `constrainable_update_check`, `check_updates_chain`) into `:cv` functions with `[cv_inline]` bridges for finite-map lookups on `thyof ctxt`. The executable checks certify the update chain from `init_ctxt` to `lca_ext_ctxt` in `hol4_checks_lca_ext_cv`. The corresponding theory and signature properties are exported in `hol4_checks_lca_ext_sound`.
 * **Executable Envelope, Neural, and Watchdog Theories**:
   * [`corrigibility/corrigibilityEvalScript.sml`](corrigibility/corrigibilityEvalScript.sml), [`specneg/specNegEvalScript.sml`](specneg/specNegEvalScript.sml), [`embodiment/embodimentEvalScript.sml`](embodiment/embodimentEvalScript.sml), [`genealogy/genealogyEvalScript.sml`](genealogy/genealogyEvalScript.sml), and [`agent/toolAgentRunScript.sml`](agent/toolAgentRunScript.sml) evaluate multi-step envelope trajectories, spec ratchets, and tool-agent firewalls via `cv_eval`.
-  * [`inference/mlpInferenceScript.sml`](inference/mlpInferenceScript.sml) verifies ReLU MLPs, hardmax attention (`attn1_argmax_correct`), residual encoder blocks (`encoder_block_shape`), and fixed-point softmax/quantized dot-product error envelopes (`fxp_softmax_abs_error_lt_step`, `qdot_error_envelope`) with `cv_trans`.
+  * [`inference/mlpInferenceScript.sml`](inference/mlpInferenceScript.sml) verifies ReLU MLPs, hardmax attention (`attn1_argmax_correct`), residual encoder blocks (`encoder_block_shape`), and fixed-point softmax/quantized dot-product error envelopes (`fxp_softmax_abs_error_lt_step`, `qdot_error_envelope`).
   * [`kernel/watchdogFiniteScript.sml`](kernel/watchdogFiniteScript.sml) discharges the syntactic reflection seam `encodes_obligation` for finite domains (`wd_encodes_obligation`) using `cv_eval` on `wd_obl_tm`, and proves that finiteness alone cannot bypass Gödel/Löb (`loeb_finite_obstruction`).
 
 ---
@@ -66,10 +67,10 @@ All computational proof obligations in the HOL4 theories are accelerated with HO
 | **Corrigibility Bedrock** | [`corrigibility/`](corrigibility/CLAIMS.md) | Decidable non-lock-in floor (`corrigibler_floor_holds`), mutable-but-gated off-switch, deadline preservation, `cv_eval` witnesses. |
 | **Negotiable Spec, Meta & Genealogy** | `pca/`, `specneg/`, `genealogy/`, `liberty/`, `embodiment/` | Proof-carrying actions, negotiable spec under fixed meta, amendable meta over eternal bedrock (`meta_amendment_safe`), forward-certified genealogy of judges (`genealogy_sound`), transparency (`envelope_transparent_runr`). |
 | **Tool-Agent & Embodied Firewall** | `agent/`, `inference/` | `agent_enveloped_safe` ($\forall$ agent, jailbroken included); `decision_table.tsv` extracted from HOL4; verified neural inference + quantized error bounds (`mlpInferenceScript.sml`); live Candle kernel closed-loop gate (`agent/closedloop/`). |
-| **Prover & Kernel Self-Upgrade** | `embedded/`, `selfprover/`, `selfproverConcrete/`, `kernel/`, `kernel/loebReduction/` | `prover_self_improvement_is_safe` (frozen HOL4 root vouches for mutable Candle+CakeML build, `frozen_checker_sound` discharged on real `candle_kernelProgTheory` via `holSyntax_cv`); `self_improving_kernel_is_safe`; `wd_encodes_obligation`; `loeb_via_lca_from_encodes_soundness` reducing `encodes_soundness` to `lcaTheory`. |
+| **Prover & Kernel Self-Upgrade** | `embedded/`, `selfprover/`, `selfproverConcrete/`, `kernel/`, `kernel/loebReduction/` | `prover_self_improvement_is_safe` (frozen HOL4 root vouches for mutable Candle+CakeML build, `frozen_checker_sound` discharged for `candle_kernel` by `frozen_checker_sound_candle`); `self_improving_kernel_is_safe`; `wd_encodes_obligation`; `loeb_reflection_from_lca` derives `encodes_soundness` under the set-theory and LCA reflection hypotheses. |
 | **Self-Upgrading Compiler & Prover** | `compilerOpt/`, `selfUpgrade/`, `kernelMod/`, `loader/`, `kernelImpl/`, `recursive/`, `selfRecompile/`, `apex/` | Verified `bvl_fold` pass (`bvl_fold_correct`); proof-gated REPL compiler swap (`certified_eval_compiler_swap`, `proof_gated_repl_upgrade`); altered `cake-selfupgrade` binary; verified `do_install` loader; mutual verifier+compiler genealogy (`apexScript.sml`). |
 | **Live Place & Ouroboros** | `reflectsem/`, `candle/theplace.ml`, `candle/ouroboros_rewrites.ml`, `candle/ouroboros.ml` | 45 datatypes + 134 clauses of CakeML `eval_n` inside the live Candle kernel; `Kernel.compute` (`:cval`) bytecode evaluation; theorem-gated `ouro_compiler_cell` upgrading `orw_exp` $\to$ `ofold` live across 6 generations (`OUROBOROS_OK`). |
-| **Composed Crown** | `integration/integrationScript.sml`, `integration/integrationKernelScript.sml` | Composes every layer above—including `bvl_fold`, `ofold_eval_n_agrees`, `certified_eval_compiler_swap`, `real_candle_discharges_seam`, and `loeb_via_lca_from_encodes_soundness`—into `svenvs_full_stack_crown`. |
+| **Composed Crown** | `integration/integrationScript.sml`, `integration/integrationKernelScript.sml` | The theorem `svenvs_certified_compiler_swap_crown` combines BVL pass certification and trace preservation, generation dispatch, the REPL swap invariant, and fuel-bounded expression folding. |
 
 ---
 
@@ -93,6 +94,12 @@ scripts/apex-selfupgrade-root.sh
 # 5. Full tiered reproduction & repository hygiene audit
 scripts/reproduce.sh
 scripts/hygiene-audit.sh
+```
+
+With a warm Obend checkout, built CakeML Pancake parser and semantics, and the matching HOL4 on the Linux build host, run the cross-prover test with the command below. Pass the CakeML distribution’s `basis_ffi.c` to include native execution. The script checks that the regenerated source matches the committed `.pnk`, replays the exported Keccak AST in HOL4, and runs the shift, loop and memory cases through CakeML’s concrete parser.
+
+```bash
+SWARM_MEM_MAX=24G reflectsem/pancake/check.sh /path/to/obend /path/to/basis_ffi.c
 ```
 
 * **Tier 1** requires only HOL4 at the pinned commit.

@@ -100,6 +100,11 @@ build_and_assert loader \
 # preserving against the real bvlSem$evaluate and wired as a CONCRETE proved
 # witness into the recursive genealogy's compiler line (CITED -> PROVED).
 build_and_assert compilerOpt \
+  "pancakeOptGate:pancake_opt_pass_sound" \
+  "pancakeOptGate:pancake_gate_installs_folder" \
+  "pancakeOptGate:gated_compile_prog_rejected" \
+  "pancakeOptGate:gated_compile_prog_installs" \
+  "pancakeOptGate:pancake_gate_safe_iff" \
   "compilerOpt:optimise_correct" \
   "compilerOpt:optimise_let_nil_strict" \
   "compilerOpt:evaluate_optimise" \
