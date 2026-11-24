@@ -41,7 +41,7 @@ The live Tier-3 runtime on the verified `cake` binary is unified into a single p
 * **Unforgeable Theorem-Gated Compiler Cell & Ouroboros Loop (`candle/ouroboros.ml`)**:
   * The Candle installer `ouro_install_compiler_pass` checks a hypothesis-free theorem about the named pass on expressions in `ofrag`, with sufficient fuel in the environment `oenv i` and state `ost0`. The executor is supplied separately. The gate checks the theorem’s conclusion against the pass constant.
   * The six-generation loop starts with `orw_exp`, installs `ofold`, evaluates candidate metrics with `Kernel.compute`, and feeds the selected source through CakeML’s `Eval`.
-* **Pancake program optimization**. The constant-shift folder preserves the return result and complete state under CakeML’s Pancake evaluator (`pancake_opt_pass_sound`). The gate installs the folder before CakeML’s Pancake-to-target compiler (`gated_compile_prog_installs`). A rejected update produces the same compiler result as the ordinary backend (`gated_compile_prog_rejected`). Certifier soundness is necessary and sufficient for safe replacement (`pancake_gate_safe_iff`). [HOL4 theory](compilerOpt/pancakeOptGateScript.sml)
+* **Pancake program optimization**. The constant-shift folder preserves the return result and complete state under CakeML’s Pancake evaluator (`pancake_opt_pass_sound`). The gate installs the folder before CakeML’s Pancake-to-target compiler (`gated_compile_prog_installs`). A rejected update produces the same compiler result as the ordinary backend (`gated_compile_prog_rejected`). Certifier soundness is necessary and sufficient for safe replacement (`pancake_gate_safe_iff`). A composed three-pass optimizer (algebraic identities, constant-condition branches, `Skip` removal) preserves the same complete result (`opt_passes_correct`), and a sound certifier can install any finite list of passes whose obligations establish correctness, preserving 64-bit source semantics from an empty code table (`pancake_pipeline_sound`, `gated_compile_pipeline_installs`). On Obend's three kernels it shrinks the AST by 1.9–4.5%. CakeML emits byte-identical x86-64 assembly before and after optimization of each kernel. [HOL4 theory](compilerOpt/pancakeOptGateScript.sml)
 * **Self-Upgradable Compiler Root (`compilerOpt/` + `selfUpgrade/`)**:
   * [`compilerOpt/compilerOptScript.sml`](compilerOpt/compilerOptScript.sml) defines a recursive BVL constant-folding pass (`bvl_fold`), proves semantic preservation against CakeML's `bvlSem$evaluate` (`bvl_fold_correct`, `bvl_fold_is_ccorrect`) and non-increasing code size (`bvl_fold_nonincreasing`), and packages the operational gate (`compiler_pass_gate`).
   * [`selfUpgrade/selfUpgradeEndToEndScript.sml`](selfUpgrade/selfUpgradeEndToEndScript.sml) and [`selfUpgrade/cakeml-selfupgrade-root.patch`](selfUpgrade/cakeml-selfupgrade-root.patch) wire `certified_eval_compiler_swap` directly into CakeML's `compiler64ProgScript.sml` REPL `eval` loop and self-compile into a working 1.19 GB `cake-selfupgrade` binary ([`scripts/apex-selfupgrade-root.sh`](scripts/apex-selfupgrade-root.sh)).
@@ -81,8 +81,7 @@ Several theories use HOL4’s verified `:cv` evaluator for concrete proof obliga
 ./demo.sh
 
 # 2. Composed proof tower + strict ledger check (verifies every theorem in CLAIMS.md)
-scripts/tower.sh --full
-scripts/verify-claims.sh --strict
+scripts/verify-all-tiers.sh   # builds Tiers 1-3, then verify-claims.sh --tier all --strict
 
 # 3. Live Candle Place + Kernel.compute + 6-generation Ouroboros loop (requires x86-64 cake binary)
 scripts/reflectsem-live.sh --ouroboros
@@ -100,6 +99,12 @@ With a warm Obend checkout, built CakeML Pancake parser and semantics, and the m
 
 ```bash
 SWARM_MEM_MAX=24G reflectsem/pancake/check.sh /path/to/obend /path/to/basis_ffi.c
+```
+
+To run the proved optimizer on Obend's Keccak, cSHAKE and belt-latch kernels and compare the native builds, use the command below. HOL4 parses and evaluates the large kernels in the logic. The run directory retains the inputs, compiler version, optimized sources, node counts and evaluation vectors.
+
+```bash
+CAKE=/path/to/cake reflectsem/pancake/check-kernels.sh /path/to/obend
 ```
 
 * **Tier 1** requires only HOL4 at the pinned commit.

@@ -6,85 +6,65 @@
 #
 #  1. CITATION INTEGRITY. Every `path/<X>Script.sml : t1, t2, ...` citation
 #     in CLAIMS.md (and the per-directory CLAIMS.md files — citations there
-#     are resolved relative to that file's directory) names theorems that
-#     genuinely exist as `val <t> : thm` in the *built* signature
-#     <dir>/.hol/objs/<X>Theory.sig. A theory not built in this run is
-#     SKIPPED with a notice (run a tier/tower build first; --strict turns
-#     skips into failures for full CI).
+#     are resolved relative to that file's directory; `dir/{A,B}Script.sml`
+#     means the theorem is in either theory) names theorems that genuinely
+#     exist as `val <t> : thm` in the *built* signature
+#     <dir>/.hol/objs/<X>Theory.sig. Each citation belongs to one tier:
+#       tier 1  pure HOL4 (scripts/tier1-core.sh)
+#       tier 2  HOL4 over CakeML/Candle (scripts/tier2-candle-layers.sh,
+#               scripts/tier2.5-cited-layers.sh, integrationKernelTheory)
+#       tier 3  theorems the live Candle kernel echoed into the Place log
+#               (scripts/tier3-place-candle.sh)
+#     A theory with no signature or object, or whose source is newer than
+#     its signature, is SKIPPED. --strict turns every skip in the requested
+#     tiers into a failure and also fails a requested tier with no citations.
 #  2. LABELED-SEAM INTEGRITY. Every seam the ledger carries
 #     (encodes_obligation, encodes_soundness, frozen_checker_sound,
 #     attestation_faithful) still appears verbatim as a `Definition` in
 #     source, and CLAIMS.md still names each one.
 #  3. CHEAT/ORACLE/AXIOM GATE. No cheat tactic / new_axiom / mk_thm /
-#     mk_oracle_thm in any non-inference, non-excluded *Script.sml/*.ml
+#     mk_oracle_thm in any project *.sml or *.ml file
 #     (prose mentions of the words are excluded).
 #  4. FRAMING GUARD. Both retired labels (`UNTRUSTED`, `UNMODELABLE`)
 #     appear nowhere; the live `UNCONSTRAINED` center is in force; the
 #     lowercase words survive only where text explicitly names them as the
 #     retired/retracted words.
 #
+# Usage:
+#   verify-claims.sh                       every tier; unbuilt citations skip
+#   verify-claims.sh --tier 1 --strict     Tier 1, zero skips (push/PR CI)
+#   verify-claims.sh --tier all --strict   every tier, zero skips (full run)
+#
 # Exit non-zero on any failure. Intended for the cheat gate / CI.
 . "$(dirname "$0")/env.sh"
 
 STRICT=0
-for a in "$@"; do
-  case "$a" in
+TIER=all
+while [ $# -gt 0 ]; do
+  case "$1" in
     --strict) STRICT=1 ;;
-    *) die "verify-claims.sh: unknown arg '$a' (use --strict)" ;;
+    --tier)
+      [ $# -ge 2 ] || die "verify-claims.sh: --tier needs a value (1|2|3|all)"
+      shift; TIER="$1" ;;
+    --tier=*) TIER="${1#--tier=}" ;;
+    *) die "verify-claims.sh: unknown arg '$1' (use --tier 1|2|3|all, --strict)" ;;
   esac
+  shift
 done
-
+case "$TIER" in
+  1|2|3|all) ;;
+  *) die "verify-claims.sh: unknown tier '$TIER' (use 1|2|3|all)" ;;
+esac
 cd "$SVENVS_ROOT" || die "cannot cd to $SVENVS_ROOT"
 fails=0
-checked=0
-skipped=0
+work="$(mktemp -d "$SVENVS_WORK/verify-claims.XXXXXX")"
+trap 'rm -f "$work/code" "$work/sources"; rmdir "$work"' EXIT
 
-ledgers=$(find . -name CLAIMS.md -not -path './.hol/*' | sort)
-
-say "1. Citation integrity (ledger theorems exist in built signatures)"
-for ledger in $ledgers; do
-  ldir="$(dirname "$ledger")"
-  while IFS= read -r cite; do
-    [ -n "$cite" ] || continue
-    path="${cite%% : *}"
-    names="${cite#* : }"
-    # resolve relative to the ledger's directory, then normalise
-    src="$ldir/$path"
-    [ -f "$src" ] || src="$path"
-    if [ ! -f "$src" ]; then
-      warn "cited source missing: $path  (in $ledger)"; fails=$((fails+1)); continue
-    fi
-    base="$(basename "$src")"
-    dir="$(dirname "$src")"
-    thy="${base%Script.sml}Theory"
-    sig="$dir/.hol/objs/$thy.sig"
-    if [ ! -f "$sig" ]; then
-      skipped=$((skipped+1))
-      if [ "$STRICT" = 1 ]; then
-        die "STRICT: $thy not built (no $sig) — cited for: $names"
-      else
-        warn "skip (not built this run): $thy"
-      fi
-      continue
-    fi
-    oldIFS=$IFS; IFS=','
-    for raw in $names; do
-      IFS=$oldIFS
-      t="$(printf '%s' "$raw" | tr -cd 'A-Za-z0-9_')"
-      [ -n "$t" ] || { IFS=','; continue; }
-      checked=$((checked+1))
-      # accept a theorem cited by name, or a Definition cited by its base
-      # name (sig stores those as `val <t>_def : thm`).
-      if ! grep -qE "^[[:space:]]*val (${t}|${t}_def) :" "$sig"; then
-        printf '  %sMISSING%s  %s : %s  (not in %s)\n' "$C_NO" "$C_Z" "$thy" "$t" "$sig"
-        fails=$((fails+1))
-      fi
-      IFS=','
-    done
-    IFS=$oldIFS
-  done < <(grep -ohoE '[A-Za-z0-9_./-]+Script\.sml : [A-Za-z0-9_]+(, *[A-Za-z0-9_]+)*' "$ledger" | sort -u)
-done
-[ "$fails" = 0 ] && ok "all cited theorems present ($checked checked, $skipped skipped)"
+say "1. Citation integrity (tier $TIER)"
+if ! manifest=$(python3 -I scripts/check-claim-signatures.py "$TIER" "$STRICT"); then
+  fails=1
+fi
+printf '%s\n' "$manifest"
 
 say "2. Labeled-seam integrity (every seam the ledger carries: defined + named)"
 for a in encodes_obligation encodes_soundness frozen_checker_sound attestation_faithful; do
@@ -104,14 +84,21 @@ say "3. Cheat / oracle / axiom gate (all sources, zero exclusions)"
 # stripped before scanning (every `(* ... *)` block becomes blanks, newlines
 # kept so line numbers stay right), so prose ABOUT cheats can never trip the
 # gate and needs no allow-list. Excluded: only the HOL build tree (.hol/).
-cheat_re='(^|[[:space:]>(])cheat([[:space:]]|$|\))|new_axiom|mk_thm|mk_oracle_thm'
-hits=$(find . \( -name '*Script.sml' -o -name '*.ml' \) -not -path '*/.hol/*' \
-       | sort | while IFS= read -r f; do
-           { code_only "$f" | grep -nE "$cheat_re" | sed "s|^|$f:|"; } || true
-         done)
+cheat_re="(^|[^[:alnum:]_'])(cheat|new_axiom|mk_thm|mk_oracle_thm)([^[:alnum:]_']|$)"
+find -L . -type d \( -name .hol -o -name .git \) -prune -o \
+  -type f \( -name '*.sml' -o -name '*.ml' \) -print0 > "$work/sources"
+hits=""
+while IFS= read -r -d '' f; do
+  code_only "$f" > "$work/code"
+  if matches=$(grep -nE "$cheat_re" "$work/code"); then
+    printf '%s\n%s\n' "$f" "$matches"
+    hits=1
+  elif [ "$?" != 1 ]; then
+    die "cannot scan $f"
+  fi
+done < "$work/sources"
 if [ -n "$hits" ]; then
-  printf '  %sFAIL%s cheat/oracle/axiom token in a load-bearing source:\n' "$C_NO" "$C_Z"
-  printf '%s\n' "$hits" | sed 's/^/    /'
+  printf '  %sFAIL%s cheat/oracle/axiom token in a load-bearing source\n' "$C_NO" "$C_Z"
   fails=$((fails+1))
 else
   ok "zero cheat/oracle/axiom tokens in load-bearing sources"
@@ -159,9 +146,12 @@ else
 fi
 
 echo
-if [ "$fails" = 0 ]; then
-  ok "CLAIMS LEDGER VERIFIED — the claims carry their own proof."
+if [ "$fails" = 0 ] && [[ "$manifest" != *", skipped: 0" ]]; then
+  warn "CLAIMS LEDGER PARTIAL — $manifest"
+  exit 0
+elif [ "$fails" = 0 ]; then
+  ok "CLAIMS LEDGER VERIFIED — the claims carry their own proof. $manifest"
   exit 0
 else
-  die "$fails ledger discrepancy/-ies — CLAIMS.md overclaims or the build is stale."
+  die "Claims verification failed. See the diagnostics above."
 fi

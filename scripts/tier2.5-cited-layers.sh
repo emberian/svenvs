@@ -105,6 +105,19 @@ build_and_assert compilerOpt \
   "pancakeOptGate:gated_compile_prog_rejected" \
   "pancakeOptGate:gated_compile_prog_installs" \
   "pancakeOptGate:pancake_gate_safe_iff" \
+  "pancakeOptGate:alg_nary_correct" \
+  "pancakeOptGate:eval_simp_exp" \
+  "pancakeOptGate:walk_correct" \
+  "pancakeOptGate:opt_passes_correct" \
+  "pancakeOptGate:gated_compile_prog_installs_opt_passes" \
+  "pancakeOptGate:opt_passes_semantics" \
+  "pancakeOptGate:pancake_pipeline_sound" \
+  "pancakeOptGate:evaluate_code_rel" \
+  "pancakeOptGate:semantics_decls_rewrite" \
+  "pancakeOptGate:gated_compile_pipeline_installs" \
+  "pancakeOptGate:gated_compile_pipeline_rejected" \
+  "pancakeOptGate:unsound_load_drop_not_correct" \
+  "pancakeOptGate:unsound_load_drop_rejected" \
   "compilerOpt:optimise_correct" \
   "compilerOpt:optimise_let_nil_strict" \
   "compilerOpt:evaluate_optimise" \

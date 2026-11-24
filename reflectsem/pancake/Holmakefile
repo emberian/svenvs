@@ -1,7 +1,16 @@
 ifndef CAKEMLDIR
 CAKEMLDIR = $(HOME)/dev/CakeML
 endif
-INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/pancake/parser $(CAKEMLDIR)/pancake/semantics
+# check.sh builds a copy of this directory elsewhere and exports SVENVS_ROOT.
+ifdef SVENVS_ROOT
+SVROOT = $(SVENVS_ROOT)
+else
+SVROOT = ../..
+endif
+INCLUDES = $(CAKEMLDIR)/misc $(CAKEMLDIR)/semantics \
+           $(CAKEMLDIR)/compiler/backend $(CAKEMLDIR)/compiler/backend/semantics \
+           $(CAKEMLDIR)/pancake $(CAKEMLDIR)/pancake/parser $(CAKEMLDIR)/pancake/semantics \
+           $(SVROOT) $(SVROOT)/compilerOpt
 OPTIONS = QUIT_ON_FAILURE
 ifdef POLY
 HOLHEAP = $(CAKEMLDIR)/misc/cakeml-heap

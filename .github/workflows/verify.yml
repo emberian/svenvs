@@ -12,10 +12,11 @@
 # WHAT THIS DOES NOT PROVE:
 #   Tiers 2/3 (Candle-kernel-checked layers; the Place live in Candle) and the
 #   LCA soundness-witness construction for a strictly stronger kernel are NOT
-#   exercised here — they need heavy/dedicated infra (CakeML candle chain, a
-#   Candle binary, hol-reflection/lca). See CLAIMS.md / ARCHITECTURE.md. The
-#   green check is a Tier-1 credibility artifact, not an end-to-end
-#   Tier-2/3 reproduction.
+#   exercised by the push/PR job — they need heavy/dedicated infra (CakeML
+#   candle chain, a Candle binary, hol-reflection/lca). See CLAIMS.md /
+#   ARCHITECTURE.md. The green check is a Tier-1 credibility artifact, not an
+#   end-to-end Tier-2/3 reproduction. The full job for releases and manual dispatch runs
+#   scripts/verify-all-tiers.sh (`--tier all --strict`) on a dedicated runner.
 #
 # Pins (kept in lockstep with scripts/env.sh & scripts/INSTALL.md), all by
 # FULL commit SHA — a tag can be moved and a short id can collide:
@@ -41,7 +42,15 @@ on:
     paths-ignore:
       - 'site/**'
       - '.github/workflows/pages.yml'
-  workflow_dispatch: {}
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      full:
+        description: "Also verify every tier with zero skips (needs a runner labeled svenvs-full)."
+        type: boolean
+        required: false
+        default: false
 # *.md is deliberately NOT ignored: the CLAIMS.md ledgers are load-bearing and
 # verify-claims.sh checks them, so a docs-only push is still verified (with a
 # warm cache that is a couple of minutes).
@@ -170,7 +179,7 @@ jobs:
       - name: Cheat-scan gate (independent, loud)
         run: |
           set -euo pipefail
-          code_only(){ perl -0777 -pe 's/\(\*.*?\*\)/ my $m = $&; $m =~ s#[^\n]# #g; $m /gse' "$1"; }
+          . scripts/env.sh
           cheats="$(for f in ./*.sml ./agent/*.sml ./agent/closedloop/*.sml ./recursive/*.sml \
                       ./selfRecompile/*.sml ./apex/*.sml ./pca/*.sml ./specneg/*.sml \
                       ./selfprover/*.sml ./liberty/*.sml ./embodiment/*.sml \
@@ -182,10 +191,12 @@ jobs:
           if [ -n "$cheats" ]; then
             echo "::error title=CHEAT TACTIC DETECTED::svenvs Tier-1 sources must be cheat-free"
             echo "$cheats"
-            echo "## ❌ CHEAT TACTIC DETECTED IN TIER-1 SOURCES" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
-            echo "$cheats" >> "$GITHUB_STEP_SUMMARY"
-            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            {
+              echo "## ❌ CHEAT TACTIC DETECTED IN TIER-1 SOURCES"
+              echo '```'
+              echo "$cheats"
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
             exit 1
           fi
           echo "Tier-1 sources are cheat-free (independent scan)."
@@ -194,13 +205,13 @@ jobs:
       # Every `Script.sml : theorem` the ledger cites must exist in the
       # signature Tier-1 just built; every labeled seam must still be
       # defined + named; no cheat/oracle/axiom token; the framing must be
-      # current (retired labels absent, UNCONSTRAINED in force). Non-strict:
-      # Tier-2/3 theories not built on this runner are skipped (not failed)
-      # by design.
-      - name: Verify CLAIMS ledger (scripts/verify-claims.sh)
+      # current (retired labels absent, UNCONSTRAINED in force). Strict at
+      # Tier 1: any Tier-1 citation left unbuilt fails this job. Tiers 2 and 3
+      # are not requested here; the `full` job below checks them.
+      - name: Verify CLAIMS ledger, Tier 1 strict (scripts/verify-claims.sh)
         run: |
           set -euo pipefail
-          bash scripts/verify-claims.sh 2>&1 | tee "$RUNNER_TEMP/verify-claims.log"
+          bash scripts/verify-claims.sh --tier 1 --strict 2>&1 | tee "$RUNNER_TEMP/verify-claims.log"
           grep -q 'CLAIMS LEDGER VERIFIED' "$RUNNER_TEMP/verify-claims.log" || {
             echo "::error title=LEDGER DISCREPANCY::CLAIMS.md overclaims or build is stale"
             exit 1
@@ -232,3 +243,17 @@ jobs:
             echo "infra and are **not** exercised here. See CLAIMS.md / ARCHITECTURE.md"
             echo "for the honest epistemic status._"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  # Every tier, zero skips. Tiers 2 and 3 need a built CakeML/Candle toolchain,
+  # so this job runs on a dedicated runner for releases and manual requests.
+  full:
+    name: All tiers — strict, zero skips
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full)
+    runs-on: [self-hosted, linux, x64, svenvs-full]
+    timeout-minutes: 360
+    steps:
+      - name: Checkout svenvs
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Build every tier and verify the ledger (--tier all --strict)
+        run: bash scripts/verify-all-tiers.sh
