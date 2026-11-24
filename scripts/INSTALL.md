@@ -11,6 +11,7 @@ copy and CI compares the checked-out toolchain against it verbatim.
 | HOL4 (`HOL-Theorem-Prover/HOL`) | `2faefbd579453cb5d41f840debaa106d431bcd63` | **Tier 1** (everything) |
 | CakeML (`CakeML/cakeml`) | `ac654a0a33de8eef7b85de46d951b9df344d8076`, with `candle/standard/semantics` built | **Tier 2** |
 | Candle (`CakeML/candle`) `cake` binary | x86_64 Linux, via `build-instructions.sh` | **Tier 3** |
+| Obend checkout in `$OBEND_ROOT` and an x86-64 `cake` with `--pancake` in `$CAKE` | the ledger records Obend `43ebd791` and CakeML `ccfc23cb` | **full verification** (`scripts/verify-all-tiers.sh` parses Obend's Pancake kernels, which takes hours) |
 
 ## Minimum (Tier 1 — anyone)
 

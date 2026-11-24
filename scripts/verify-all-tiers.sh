@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Build every tier, then check the ledger with zero skips.
 #
-# Needs HOL4, CakeML with the candle chain and backend proofs built, and a
-# Candle binary (scripts/INSTALL.md).
+# Needs HOL4, CakeML with the candle chain and backend proofs built, a
+# Candle binary (scripts/INSTALL.md), an Obend checkout in $OBEND_ROOT for its
+# emitted Pancake kernels, and an x86-64 `cake` with --pancake on PATH or in
+# $CAKE. The kernel theories parse every kernel in the logic and take hours.
 #
 # SVENVS_UPPER_HM_FLAGS overrides the Holmake flags for Tiers 2 and up. Set it
 # to "--no-cache --no_prereqs" to keep a shared, prebuilt CakeML tree read-only.
@@ -19,6 +21,8 @@ got="$(git -C "$CAKEMLDIR" rev-parse HEAD 2>/dev/null || echo '?')"
 [ -s "$CAKEMLDIR/compiler/backend/proofs/.hol/objs/backendProofTheory.uo" ] ||
   die "build CakeML's backend proofs before full verification"
 [ -x "$CANDLE_ROOT/candle/build/cake" ] || die "full verification requires the Candle binary"
+[ -f "${OBEND_ROOT:-}/lean/Obend/Lower/Pancake/kmac256.pnk" ] ||
+  die "full verification requires OBEND_ROOT, an Obend checkout with the emitted Pancake kernels"
 dirty="$(git -C "$CAKEMLDIR" status --porcelain --untracked-files=no)"
 [ -z "$dirty" ] || warn "CakeML has local edits, so any theory depending on them is not at the pin:
 $dirty"
@@ -34,6 +38,10 @@ say "Tier 2: composed kernel crown (integrationKernelTheory)"
 ( cd "$SVENVS_ROOT/integration" &&
   WITH_KERNEL=1 CAKEMLDIR="$CAKEMLDIR" "$HOLMAKE" $upper ) ||
   die "integrationKernelTheory failed to build"
+
+say "Tier 2: Obend's Pancake kernels (obend*Theory, pancakeKernelOptTheory, native builds)"
+bash "$SVENVS_ROOT/reflectsem/pancake/check-kernels.sh" "$OBEND_ROOT" ||
+  die "the Pancake kernel check failed"
 
 # A private server, so the log holds only this run's kernel output.
 place_use_dir "$(mktemp -d "$SVENVS_WORK/verify-all-place.XXXXXX")"

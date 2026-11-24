@@ -118,6 +118,9 @@ build_and_assert compilerOpt \
   "pancakeOptGate:gated_compile_pipeline_rejected" \
   "pancakeOptGate:unsound_load_drop_not_correct" \
   "pancakeOptGate:unsound_load_drop_rejected" \
+  "pancakeOptGate:canon_correct" \
+  "pancakeOptGate:canon_agree_evaluate" \
+  "pancakeOptGate:canon_agree_semantics_decls" \
   "compilerOpt:optimise_correct" \
   "compilerOpt:optimise_let_nil_strict" \
   "compilerOpt:evaluate_optimise" \

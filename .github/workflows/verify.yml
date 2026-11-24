@@ -246,11 +246,14 @@ jobs:
 
   # Every tier, zero skips. Tiers 2 and 3 need a built CakeML/Candle toolchain,
   # so this job runs on a dedicated runner for releases and manual requests.
+  # The runner's environment also provides OBEND_ROOT, an Obend checkout whose
+  # emitted Pancake kernels the kernel theories parse, and CAKE, an x86-64
+  # `cake` with --pancake. Those theories take about two and a half hours.
   full:
     name: All tiers — strict, zero skips
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && inputs.full)
     runs-on: [self-hosted, linux, x64, svenvs-full]
-    timeout-minutes: 360
+    timeout-minutes: 600
     steps:
       - name: Checkout svenvs
         uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0

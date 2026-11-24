@@ -1079,6 +1079,123 @@ Proof
   simp[gated_compile_prog_def, cgate_def, opt_passes_semantics]
 QED
 
+(* ------------------------------------------------------------------------
+   Programs that differ only in annotations, `Skip` and the grouping of `Seq`.
+   CakeML's parser places location annotations and groups sequences its own
+   way, so a printed and reparsed program is compared with the printer's
+   input under `canon`, which erases exactly those differences.
+   ------------------------------------------------------------------------ *)
+
+Definition seq_app_def:
+  seq_app (panLang$Seq a b) q = panLang$Seq a (seq_app b q) /\
+  seq_app panLang$Skip q = q /\
+  seq_app p q = if q = panLang$Skip then p else panLang$Seq p q
+End
+
+Theorem evaluate_Seq_assoc[local]:
+  panSem$evaluate (panLang$Seq (panLang$Seq a b) c, s) =
+  panSem$evaluate (panLang$Seq a (panLang$Seq b c), s)
+Proof
+  simp[Once panSemTheory.evaluate_def, SimpLHS] >>
+  simp[Once panSemTheory.evaluate_def, SimpLHS] >>
+  simp[Once panSemTheory.evaluate_def, SimpRHS] >>
+  Cases_on `panSem$evaluate (a,s)` >> simp[] >> rw[] >>
+  simp[Once panSemTheory.evaluate_def]
+QED
+
+Theorem evaluate_seq_app[local]:
+  !p q (s:('a,'ffi) panSem$state).
+    panSem$evaluate (seq_app p q, s) = panSem$evaluate (panLang$Seq p q, s)
+Proof
+  recInduct seq_app_ind >> rw[seq_app_def, evaluate_Seq_Skip] >>
+  simp[evaluate_Seq_assoc] >>
+  simp[Once panSemTheory.evaluate_def] >> simp[Once panSemTheory.evaluate_def, SimpRHS]
+QED
+
+Definition canon_root_def:
+  canon_root (panLang$Annot a b) = panLang$Skip /\
+  canon_root (panLang$Seq p q) = seq_app p q /\
+  canon_root p = p
+End
+
+Definition canon_def:
+  canon = walk I canon_root
+End
+
+Theorem canon_correct:
+  pancake_correct ty canon
+Proof
+  simp[pancake_correct_def, canon_def] >> irule walk_correct >> simp[] >>
+  Cases >> simp[canon_root_def, evaluate_seq_app] >>
+  simp[panSemTheory.evaluate_def]
+QED
+
+Theorem canon_erases:
+  canon (panLang$Seq (panLang$Seq (panLang$Annot a b) panLang$Tick)
+                     (panLang$Seq panLang$Skip (panLang$Return (panLang$Const (0w:word64))))) =
+  panLang$Seq panLang$Tick (panLang$Return (panLang$Const 0w))
+Proof
+  EVAL_TAC
+QED
+
+(* The body of the named function in a declaration list. *)
+Definition fun_body_def:
+  fun_body n [] = panLang$Skip /\
+  fun_body n (panLang$Function fi :: ds) =
+    (if fi.name = n then fi.body else fun_body n ds) /\
+  fun_body n (panLang$Decl sh v e :: ds) = fun_body n ds
+End
+
+Theorem fun_body_rewrite_decl[local]:
+  f panLang$Skip = panLang$Skip ==>
+  !ds. fun_body n (MAP (rewrite_decl f) ds) = f (fun_body n ds)
+Proof
+  strip_tac >> Induct >> simp[fun_body_def] >>
+  Cases >> rw[fun_body_def, rewrite_decl_def]
+QED
+
+Theorem canon_opt_Skip[local]:
+  canon panLang$Skip = panLang$Skip /\
+  run_passes opt_passes panLang$Skip = panLang$Skip
+Proof
+  EVAL_TAC
+QED
+
+(* A declaration list that agrees with the optimizer's output up to `canon`
+   has the source's function bodies and the source's program semantics. *)
+Theorem canon_agree_evaluate:
+  MAP (rewrite_decl canon) ds' =
+    MAP (rewrite_decl canon) (MAP (rewrite_decl (run_passes opt_passes)) ds) ==>
+  !n (s:(64,'ffi) panSem$state).
+    panSem$evaluate (fun_body n ds', s) = panSem$evaluate (fun_body n ds, s)
+Proof
+  rpt strip_tac >>
+  `canon (fun_body n ds') = canon (run_passes opt_passes (fun_body n ds))` by
+    (qpat_x_assum `_ = _`
+       (mp_tac o AP_TERM ``fun_body n : 64 panLang$decl list -> 64 panLang$prog``) >>
+     rewrite_tac[MATCH_MP fun_body_rewrite_decl (CONJUNCT1 canon_opt_Skip),
+                 MATCH_MP fun_body_rewrite_decl (CONJUNCT2 canon_opt_Skip)]) >>
+  `!p (t:(64,'ffi) panSem$state). panSem$evaluate (canon p, t) = panSem$evaluate (p, t) /\
+     panSem$evaluate (run_passes opt_passes p, t) = panSem$evaluate (p, t)` by
+    metis_tac[canon_correct, opt_passes_correct, pancake_correct_def] >>
+  metis_tac[]
+QED
+
+Theorem canon_agree_semantics_decls:
+  MAP (rewrite_decl canon) ds' =
+    MAP (rewrite_decl canon) (MAP (rewrite_decl (run_passes opt_passes)) ds) ==>
+  !(s:(64,'ffi) panSem$state) start.
+    s.code = FEMPTY ==>
+    panSem$semantics_decls s start ds' = panSem$semantics_decls s start ds
+Proof
+  rpt strip_tac >>
+  `!xs. panSem$semantics_decls s start (MAP (rewrite_decl canon) xs) =
+        panSem$semantics_decls s start xs` by
+    (gen_tac >> irule semantics_decls_rewrite >> simp[] >>
+     qexists_tac `(:'ffi)` >> simp[canon_correct]) >>
+  metis_tac[opt_passes_semantics]
+QED
+
 (* The rewrite this gate must refuse: dropping a load under `And _ 0`. On an
    unmapped address the source errors and the rewritten program returns 0. *)
 Definition unsound_load_drop_def:
