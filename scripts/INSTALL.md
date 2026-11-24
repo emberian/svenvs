@@ -11,7 +11,7 @@ copy and CI compares the checked-out toolchain against it verbatim.
 | HOL4 (`HOL-Theorem-Prover/HOL`) | `2faefbd579453cb5d41f840debaa106d431bcd63` | **Tier 1** (everything) |
 | CakeML (`CakeML/cakeml`) | `ac654a0a33de8eef7b85de46d951b9df344d8076`, with `candle/standard/semantics` built | **Tier 2** |
 | Candle (`CakeML/candle`) `cake` binary | x86_64 Linux, via `build-instructions.sh` | **Tier 3** |
-| Obend checkout in `$OBEND_ROOT` and an x86-64 `cake` with `--pancake` in `$CAKE` | the ledger records Obend `43ebd791` and CakeML `ccfc23cb` | **full verification** (`scripts/verify-all-tiers.sh` parses Obend's Pancake kernels, which takes hours) |
+| Obend checkout in `$OBEND_ROOT` and an x86-64 `cake` with `--pancake` in `$CAKE` | Obend `43ebd791f1b82292107d9f8faca4e0012fee2e5f` and CakeML `ccfc23cbadf4fadf8c82a7ac60e813ea5906218a` ([native compiler release v3400](https://github.com/CakeML/cakeml/releases/tag/v3400)) | **full verification** (`scripts/verify-all-tiers.sh` parses Obend's Pancake kernels, which takes hours) |
 
 ## Minimum (Tier 1 — anyone)
 
@@ -57,9 +57,10 @@ many-core machine? Add `--no-cache`, or `-j1`.
 
 Reference timings (24-core box, prebuilt PolyML/HOL4, `--no-cache`): Tier 1
 ~16s cold / <1s warm; the CakeML candle/standard/semantics chain ~2m30s cold;
-Tier 2 ~108s cold; Tier 3 (live Candle) ~55s. End-to-end cold from a built
-toolchain is roughly 5 minutes; the one large one-time cost is building HOL4
-itself (`bin/build`, ~30–60 min).
+Tier 2 ~108s cold; Tier 3 (live Candle) ~55s. `scripts/reproduce.sh` takes roughly 5 minutes with the toolchain installed.
+Building HOL4 itself takes another 30–60 minutes. The strict all-tier run
+also builds and checks the five Pancake kernels on x86-64 Linux, which adds
+about three hours on a cold build.
 
 ## Tier 2 (Candle-kernel-checked layers)
 

@@ -120,6 +120,8 @@ fun run_vector (v : kernel_vector) =
       if null (free_vars r) andalso null (free_vars out) andalso optionSyntax.is_some r
       then num_of (rand (rand (rand (optionSyntax.dest_some r))))
       else raise ERR "run_vector" (label ^ " did not return a word: " ^ term_to_string r)
+    val _ = if aconv r ``SOME (panSem$Return (ValWord ^(word64 status)))`` then ()
+            else raise ERR "run_vector" (label ^ " did not return normally: " ^ term_to_string r)
     val opt_th = RAND_CONV (REWR_CONV (DB.fetch thy (#kernel v ^ "_evaluate")))
                            (vector_obs v opt_decls)
     val vth = save_thm (#kernel v ^ "_" ^ #id v, GEN s_var (CONJ th (TRANS opt_th th)))
@@ -321,7 +323,7 @@ val macaroon_vectors =
   [(macaroon "accept_none" 0w0 [] I, 0),
    (macaroon "accept_two" 0w2 [c1, c2] I, 0),
    (macaroon "forged" 0w0 [] (flip_bit 255), 2),
-   (macaroon "expired" 0w1 [[0w15, 0w42, 0w1000, 0w1001]] I, 6),
+   (macaroon "too_early" 0w1 [[0w15, 0w42, 0w1000, 0w1001]] I, 6),
    (macaroon "overspend" 0w1 [[0w15, 0w42, 0w499, 0w0]] I, 5),
    (macaroon "malformed" 0w9 admitting I, 1)]
 

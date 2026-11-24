@@ -7,7 +7,7 @@ the optimized sources, the node counts (NAME.stats) and the HOL4 evaluation
 rows (eval.tsv). Every vector must produce identical bytes from both builds,
 and those bytes must match an independent model: hashlib, the SP 800-185
 reference below (checked against NIST's published answers first), or the
-macaroon verifier's specification. Each HOL4 vector must also give its
+belt-latch or macaroon specification. Each HOL4 vector must also give its
 EVAL result natively.
 """
 import hashlib
@@ -45,11 +45,9 @@ def build(source, driver, stem):
 
 def code_stats(obj):
     """Machine instructions and bytes in the object's code."""
-    text = subprocess.run(["objdump", "-d", str(obj)], stdout=subprocess.PIPE,
-                          check=True, text=True).stdout
-    insns = sum(1 for line in text.splitlines()
-                if re.match(r"^\s+[0-9a-f]+:\t[0-9a-f]{2} ", line) and
-                len(line.split("\t")) >= 3)
+    text = subprocess.check_output(["objdump", "-d", "--no-show-raw-insn", str(obj)],
+                                   text=True)
+    insns = sum(1 for line in text.splitlines() if re.match(r"^\s*[0-9a-f]+:\s+\S", line))
     sections = subprocess.check_output(["size", "-A", str(obj)], text=True)
     text_size = next(int(row.split()[1]) for row in sections.splitlines()
                      if row.split()[:1] == [".text"])
@@ -181,7 +179,7 @@ def span(n):
 
 TAGGED = b"My Tagged Application"
 KMAC_KEY = bytes(range(0x40, 0x60))
-# KMAC256 with an empty and a nonempty message, L = 512: SP 800-185 sample 4.
+# SP 800-185 KMAC256 sample 4 uses a four-byte message and L = 512.
 SAMPLE4 = ("20c570c31346f703c9ac36c61c03cb64c3970d0cfc787e9b79599d273a68d2f7"
            "f69d4cc3de9d104a351689f27cf6f5951f0103f33f4f24871024d9c27773a8dd")
 # NIST ACVP-Server KMAC-256-1.0 internalProjection.json, tgId 4, tcId 307 (L = 256).
@@ -258,6 +256,26 @@ def belt_vectors():
     return cases
 
 
+def belt_expected(state, request):
+    """Obend's stepBeltLatch verdict and caller-owned buffers, in ABI order."""
+    if state[0] != 1 or state[1:5] != request[:4]:
+        code = 1
+    elif state[5] != request[4]:
+        code = 2
+    elif state[5] >= request[5]:
+        code = 3
+    elif state[6:10] != request[6:10]:
+        code = 4
+    elif state[10:14] != request[14:18]:
+        code = 5
+    elif request[18] != 1:
+        code = 6
+    else:
+        code = 0
+        state = [*state[:5], request[5], *request[10:14], *state[10:]]
+    return words(code, *state, *request)
+
+
 def run_belt(old, new, scratch):
     record = scratch / "belt.record"
     seen = set()
@@ -265,8 +283,8 @@ def run_belt(old, new, scratch):
     for state, request in cases:
         record.write_bytes(words(*state, *request))
         rc, out = both(old, new, record)
-        if rc or len(out) != 272:
-            raise ValueError("beltLatch: unexpected native output")
+        if rc or out != belt_expected(state, request):
+            raise ValueError("beltLatch: native verdict or buffers differ from stepBeltLatch")
         seen.add(struct.unpack("<Q", out[:8])[0])
     if seen != set(range(7)):
         raise ValueError(f"beltLatch: vectors reached only statuses {sorted(seen)}")
@@ -500,7 +518,7 @@ EVAL_CASES = {
     "beltLatch": {"accept", "uninitialized", "genesis", "stale", "nonincreasing",
                   "fork", "drift", "noack"},
     "cshake256": {"sample3", "kmac"},
-    "macaroonVerify": {"accept_none", "accept_two", "forged", "expired", "overspend",
+    "macaroonVerify": {"accept_none", "accept_two", "forged", "too_early", "overspend",
                        "malformed"},
     "kmac256": {"acvp", "tagged", "resume", "cshake_resume"},
 }

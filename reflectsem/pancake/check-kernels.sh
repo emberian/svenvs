@@ -33,17 +33,27 @@ bounded() {
 src="$obend/lean/Obend/Lower/Pancake"
 kernels="$here/.hol/kernels"
 mkdir -p "$kernels"
+# Holmake locks its objects, but the input files and native run share this directory too.
+exec 9>"$kernels/build.lock"
+flock 9
 staged=$(mktemp -d "$SVENVS_WORK/pancake-kernels.XXXXXX")
+trap 'rm -r "$staged"' EXIT
 cp "$src"/{keccakF1600,cshake256,beltLatch,macaroonVerify,kmac256}.pnk \
    "$src"/{cshake256,beltLatch,macaroonVerify,kmac256}.c "$staged/"
-(cd "$staged" && sha256sum ./*.pnk ./*.c) > "$staged/inputs.sha256"
-if ! cmp -s "$staged/inputs.sha256" "$kernels/inputs.sha256"; then
-  rm -f "$here"/.hol/objs/obend*Theory.* "$here"/.hol/objs/pancakeKernelOptTheory.* \
-        "$kernels"/inputs.sha256
-  rm -rf "$kernels/opt"
-  cp "$staged"/* "$kernels/"
+for input in "$staged"/*.pnk; do
+  name=$(basename "$input" .pnk)
+  if ! cmp -s "$input" "$kernels/$name.pnk" ||
+     [[ ! -s "$kernels/opt/$name.pnk" || ! -s "$kernels/opt/$name.stats" ]]; then
+    rm -f "$here/.hol/objs/obend${name^}Theory".* "$here/.hol/objs/pancakeKernelOptTheory".*
+    cp -f "$input" "$kernels/$name.pnk"
+  fi
+done
+if [[ ! -s "$kernels/opt/eval.tsv" ]]; then
+  rm -f "$here/.hol/objs/pancakeKernelOptTheory".*
 fi
-rm -r "$staged"
+cp -f "$staged"/*.c "$kernels/"
+(cd "$kernels" && sha256sum ./{keccakF1600,cshake256,beltLatch,macaroonVerify,kmac256}.pnk \
+                           ./{cshake256,beltLatch,macaroonVerify,kmac256}.c) > "$kernels/inputs.sha256"
 "${CAKE:-cake}" --version > "$kernels/cake-version.txt"
 export PANCAKE_KERNELS="$kernels"
 # kmac256 first: it is the longest build.
@@ -52,5 +62,7 @@ export PANCAKE_KERNELS="$kernels"
    obendMacaroonVerifyTheory.uo obendBeltLatchTheory.uo pancakeKernelOptTheory.uo) ||
   { tail -n 40 "$here"/.hol/logs/obend*Theory "$here"/.hol/logs/pancakeKernelOptTheory 2>/dev/null
     exit 1; }
-bounded 3600s python3 -I "$here/kernel_native.py" "$kernels"
+(cd "$here" && bounded 600s "$HOL" --maxheap "$heap" run \
+   --holstate="$CAKEMLDIR/misc/cakeml-heap" checkKernelProofs.sml)
+bounded 3600s env -u PANCAKE_KERNEL_NAMES python3 -I "$here/kernel_native.py" "$kernels"
 echo "kernel results: $kernels"
